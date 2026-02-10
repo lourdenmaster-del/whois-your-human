@@ -30,10 +30,31 @@ export default function Home() {
     birthLocation: "",
     email: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [result, setResult] = useState(null);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted:", formData);
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/engine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Something went wrong");
+      }
+      setResult(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -59,7 +80,6 @@ export default function Home() {
 
       {/* Hero */}
       <section className="relative min-h-[90vh] flex flex-col justify-center px-6 sm:px-12 lg:px-24 pt-24 pb-16">
-        {/* Soft glow behind hero */}
         <div
           className="absolute inset-0 pointer-events-none opacity-30"
           style={{
@@ -121,113 +141,189 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA + Form */}
+      {/* CTA + Form + Results */}
       <section
         id="report"
         className="relative px-6 sm:px-12 lg:px-24 py-24 border-t border-[#0A0F1C]"
       >
         <div className="max-w-xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl font-semibold tracking-wide text-[#F5F5F5] mb-4" style={{ letterSpacing: "0.02em" }}>
-            Begin mapping your unique Light Signature.
-          </h2>
-          <p className="text-[#F5F5F5]/80 mb-2 font-light">
-            The imagery you receive will be the map.
-          </p>
-          <p className="text-[#F5F5F5]/80 mb-8 font-light">
-            The report you receive will be the key.
-          </p>
-          <p className="text-[#F5F5F5]/60 mb-12 font-light">
-            Take the first step into the LIGS system by generating your Light Identity Report.
-          </p>
+          {!result ? (
+            <>
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-wide text-[#F5F5F5] mb-4" style={{ letterSpacing: "0.02em" }}>
+                Begin mapping your unique Light Signature.
+              </h2>
+              <p className="text-[#F5F5F5]/80 mb-2 font-light">
+                The imagery you receive will be the map.
+              </p>
+              <p className="text-[#F5F5F5]/80 mb-8 font-light">
+                The report you receive will be the key.
+              </p>
+              <p className="text-[#F5F5F5]/60 mb-12 font-light">
+                Take the first step into the LIGS system by generating your Light Identity Report.
+              </p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="fullName" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
-                Full Name
-              </label>
-              <input
-                type="text"
-                id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light"
-                style={{ borderRadius: 0 }}
-                placeholder=""
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <div>
-                <label htmlFor="birthDate" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
-                  Birth Date
-                </label>
-                <input
-                  type="date"
-                  id="birthDate"
-                  name="birthDate"
-                  value={formData.birthDate}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light"
+              {error && (
+                <div className="mb-6 p-4 border border-[#FF3B3B]/50 bg-[#FF3B3B]/10 text-[#FF3B3B] font-light">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label htmlFor="fullName" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    id="fullName"
+                    name="fullName"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                    className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light disabled:opacity-50"
+                    style={{ borderRadius: 0 }}
+                    placeholder=""
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <label htmlFor="birthDate" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
+                      Birth Date
+                    </label>
+                    <input
+                      type="date"
+                      id="birthDate"
+                      name="birthDate"
+                      value={formData.birthDate}
+                      onChange={handleChange}
+                      required
+                      disabled={loading}
+                      className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light disabled:opacity-50"
+                      style={{ borderRadius: 0 }}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="birthTime" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
+                      Birth Time
+                    </label>
+                    <input
+                      type="time"
+                      id="birthTime"
+                      name="birthTime"
+                      value={formData.birthTime}
+                      onChange={handleChange}
+                      disabled={loading}
+                      className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light disabled:opacity-50"
+                      style={{ borderRadius: 0 }}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="birthLocation" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
+                    Birth Location
+                  </label>
+                  <input
+                    type="text"
+                    id="birthLocation"
+                    name="birthLocation"
+                    value={formData.birthLocation}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                    className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light disabled:opacity-50"
+                    style={{ borderRadius: 0 }}
+                    placeholder="City, Country"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="email" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    disabled={loading}
+                    className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light disabled:opacity-50"
+                    style={{ borderRadius: 0 }}
+                    placeholder=""
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full sm:w-auto px-8 py-3 bg-[#FF3B3B] text-white text-sm font-semibold hover:bg-[#ff5252] transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ borderRadius: 0 }}
-                />
+                >
+                  {loading ? "Generating..." : "Generate Report"}
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="space-y-12">
+              <h2 className="text-2xl sm:text-3xl font-semibold tracking-wide text-[#F5F5F5]" style={{ letterSpacing: "0.02em" }}>
+                Your Light Identity — Preview
+              </h2>
+
+              {/* Summary */}
+              <div className="p-6 border border-[#0A0F1C] bg-[#0A0F1C]/50">
+                <p className="text-xs uppercase tracking-widest text-[#7A4FFF] mb-3" style={{ letterSpacing: "0.2em" }}>
+                  Summary
+                </p>
+                <p className="text-lg text-[#F5F5F5] leading-relaxed font-light italic">
+                  {result.emotional_snippet}
+                </p>
               </div>
-              <div>
-                <label htmlFor="birthTime" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
-                  Birth Time
-                </label>
-                <input
-                  type="time"
-                  id="birthTime"
-                  name="birthTime"
-                  value={formData.birthTime}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light"
+
+              {/* Image placeholders */}
+              {result.image_prompts && result.image_prompts.length > 0 && (
+                <div className="space-y-6">
+                  <p className="text-xs uppercase tracking-widest text-[#7A4FFF]" style={{ letterSpacing: "0.2em" }}>
+                    Imagery Prompts
+                  </p>
+                  <div className="grid gap-6">
+                    {result.image_prompts.map((prompt, i) => (
+                      <div
+                        key={i}
+                        className="min-h-[200px] border border-[#0A0F1C] flex items-center justify-center p-6 bg-[#0A0F1C]/30"
+                        style={{ borderRadius: 0 }}
+                      >
+                        <p className="text-sm text-[#F5F5F5]/60 text-center font-light max-w-md">
+                          [Image {i + 1}] — {prompt.slice(0, 120)}…
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pay CTA */}
+              <div className="pt-8 border-t border-[#0A0F1C]">
+                <p className="text-[#F5F5F5]/60 mb-4 font-light">
+                  Unlock your full Light Identity Report. Pay with Stripe to receive the complete report via email or download.
+                </p>
+                <button
+                  type="button"
+                  className="px-8 py-3 bg-[#FF3B3B] text-white text-sm font-semibold hover:bg-[#ff5252] transition-colors duration-300"
                   style={{ borderRadius: 0 }}
-                />
+                >
+                  Pay to Unlock Full Report
+                </button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => setResult(null)}
+                className="text-sm text-[#F5F5F5]/60 hover:text-[#F5F5F5] font-light underline"
+              >
+                Generate another report
+              </button>
             </div>
-            <div>
-              <label htmlFor="birthLocation" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
-                Birth Location
-              </label>
-              <input
-                type="text"
-                id="birthLocation"
-                name="birthLocation"
-                value={formData.birthLocation}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light"
-                style={{ borderRadius: 0 }}
-                placeholder="City, Country"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm text-[#F5F5F5]/60 mb-2 font-light">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-3 bg-transparent border border-[#0A0F1C] text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#7A4FFF] transition-colors duration-300 font-light"
-                style={{ borderRadius: 0 }}
-                placeholder=""
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full sm:w-auto px-8 py-3 bg-[#FF3B3B] text-white text-sm font-semibold hover:bg-[#ff5252] transition-colors duration-300"
-              style={{ borderRadius: 0 }}
-            >
-              Generate Report
-            </button>
-          </form>
+          )}
         </div>
       </section>
 
