@@ -6,7 +6,7 @@ Script: **`e2e-eve-imagery.mjs`**
 
 ## What it does
 
-1. **POST** `http://localhost:3000/api/eve` (or the base URL you pass) with static Marilyn Monroe payload:
+1. **POST** `http://localhost:3000/api/engine` (or the base URL you pass) with static Marilyn Monroe payload:
    ```json
    {
      "fullName": "Marilyn Monroe",
@@ -58,7 +58,7 @@ UNDICI_HEADERS_TIMEOUT=600000 node scripts/e2e-eve-imagery.mjs
 
 ## Outputs you’ll see
 
-- **Full JSON response** from `/api/eve` (saved to `e2e-eve-response.json` and printed).
+- **Full JSON response** from `/api/engine` (saved to `e2e-eve-response.json` and printed).
 - **Blob / API URLs:**
   - Full LIGS report: `<baseUrl>/api/report/{reportId}` → content; Blob path: `ligs-reports/{reportId}.json`.
   - Beauty profile: `<baseUrl>/api/report/{reportId}/beauty` → content; Blob path: `ligs-beauty/{reportId}.json`.

@@ -2,7 +2,7 @@ import type { VectorZero } from "@/lib/vector-zero";
 import type { BeautyProfile } from "@/lib/eve-spec";
 
 /**
- * Canonical Beauty Profile schema (v1) — matches the shape produced by /api/eve.
+ * Canonical Beauty Profile schema (v1) — matches the shape produced by /api/engine.
  */
 export interface BeautyProfileV1 extends BeautyProfile {
   version: "1.0";

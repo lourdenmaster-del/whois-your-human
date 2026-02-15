@@ -11,7 +11,7 @@ import { unwrapResponse } from "@/lib/unwrap-response";
 
 const IMAGERY_KEYS = ["vector_zero_beauty_field", "light_signature_aesthetic_field", "final_beauty_field"];
 
-/** Expected /api/eve fields; used to log missing/undefined for mapping fixes. */
+/** Expected /api/engine (E.V.E.) fields; used to log missing/undefined for mapping fixes. */
 function logMissingBeautyFields(profile) {
   if (!profile) return;
   const missing = [];

@@ -1,0 +1,20 @@
+---
+description: Keep SYSTEM_SNAPSHOT.md in sync with structural changes to the stack
+alwaysApply: true
+---
+
+# System Snapshot Is Authoritative
+
+**SYSTEM_SNAPSHOT.md** at the project root is the authoritative reference for the current stack state.
+
+When you make (or are asked to make) any **structural** change to the app, you **must** update SYSTEM_SNAPSHOT.md in the same work. Structural changes include:
+
+- Adding, removing, or renaming **front-end routes** (app/ pages, layouts, error boundaries)
+- Adding, removing, or renaming **API routes** (app/api/**/route.ts)
+- Adding, removing, or changing **environment variables** (including usage locations)
+- Changing **Vercel configuration** (vercel.json, deployment behavior)
+- Changing **build pipeline** (package.json scripts, next.config.*, tsconfig, eslint/postcss)
+- Adding or changing **integration points** (external services, internal call flows, storage, rate limits)
+- Adding or removing **components** or **lib** modules that are part of the documented architecture
+
+After editing the snapshot, add or update a **Verification log** entry (section “Verification Log – YYYY‑MM‑DD”) with the date and a brief note on what was verified or changed.

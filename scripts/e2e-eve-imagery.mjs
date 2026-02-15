@@ -3,7 +3,7 @@
  * Local/dev only — not used by Vercel build or production.
  *
  * Full E2E test: E.V.E. → LIGS → imagery pipeline.
- * 1. POST /api/eve with Marilyn Monroe payload
+ * 1. POST /api/engine with Marilyn Monroe payload
  * 2. Saves full JSON response
  * 3. Calls /api/generate-image for each of the 3 beauty imagery slugs
  * 4. Prints Blob/API URLs and storage paths for all artifacts
@@ -73,10 +73,10 @@ async function fetchWithTimeout(url, options, ms) {
 
 async function main() {
   console.log("=== E2E: E.V.E. → LIGS → imagery pipeline ===\n");
-  console.log("1. POST", baseUrl + "/api/eve", "with Marilyn Monroe payload (timeout", EVE_TIMEOUT_MS / 60000, "min)...\n");
+  console.log("1. POST", baseUrl + "/api/engine", "with Marilyn Monroe payload (timeout", EVE_TIMEOUT_MS / 60000, "min)...\n");
 
   const eveRes = await fetchWithTimeout(
-    `${baseUrl}/api/eve`,
+    `${baseUrl}/api/engine`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

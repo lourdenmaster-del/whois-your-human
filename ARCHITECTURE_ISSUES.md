@@ -8,9 +8,9 @@ Analysis of structural inconsistencies, redundancies, outdated patterns, unused 
 
 | File path | Description | Why it matters |
 |-----------|-------------|----------------|
-| `app/api/engine/route.ts`, `app/api/eve/route.ts` | Same required-field validation (fullName, birthDate, birthLocation, email) is implemented in both routes. | Duplicated logic; a change to required fields or error messages must be made in two places. Increases risk of drift. |
+| `app/api/engine/route.ts`, `app/api/engine/generate/route.ts` | Same required-field validation (fullName, birthDate, birthLocation, email) is implemented in both routes. | Duplicated logic; a change to required fields or error messages must be made in two places. Increases risk of drift. |
 | `app/api/engine/route.ts` | Request body may include `notes` (sent by client via `buildEnginePayload`), but the engine never destructures or uses `notes` in the prompt or storage. | Contract suggests notes are supported; server ignores them. Users may believe notes affect the report. Either document as “reserved for future use” or remove from client. |
-| `app/api/eve/route.ts` | E.V.E. accepts any JSON body and only uses fullName, birthDate, birthTime, birthLocation, email. Scripts and docs sometimes send `mode: "beauty"`; the route does not use this field. | Unused body field; no single source of truth for “allowed” request shape. Minor but adds noise. |
+| `app/api/engine/route.ts` | E.V.E. accepts any JSON body and only uses fullName, birthDate, birthTime, birthLocation, email. Scripts and docs sometimes send `mode: "beauty"`; the route does not use this field. | Unused body field; no single source of truth for “allowed” request shape. Minor but adds noise. |
 | `app/api/report/[reportId]/beauty/route.ts` | Implemented and working; no frontend or script calls it. SYSTEM_ARCHITECTURE.md describes it as “available for future” and “not currently used by UI”. | No drift, but a dead API surface until a “load Beauty by reportId” flow is added. Worth documenting in API docs or removing if not planned. |
 | `app/api/engine/route.ts` | Engine returns `status`, `reportId`, `emotional_snippet`, `image_prompts`, and optionally `vector_zero`. It does not return `full_report`; that is only available via GET `/api/report/[reportId]`. | Response shape is consistent with doc; no issue. Noted for context. |
 | `app/api/beauty/demo/route.ts` | Builds origin via `VERCEL_URL` when present, otherwise `request.url` origin. E.V.E. route uses `new URL(request.url).origin` only. | Inconsistent origin handling for internal `fetch`; demo is Vercel-aware, E.V.E. is not. Could matter in serverless edge or multi-region setups. |
@@ -65,7 +65,7 @@ Analysis of structural inconsistencies, redundancies, outdated patterns, unused 
 | File path | Description | Why it matters |
 |-----------|-------------|----------------|
 | `lib/engine-client.js` | Builds payload with `fullName`, `birthDate`, `birthTime`, `birthLocation`, `email`, and optionally `notes`. Used by Landing and Beauty. | Single place for client→API payload; good. Engine ignores `notes` (see API section). |
-| `app/api/eve/route.ts` | Defines local types `EveBody`, `EngineResponse`, `ReportResponse` that mirror engine and report API response shapes. | Duplication of response shapes that could live in a shared types module (e.g. with engine-client or a dedicated api-types file). Types may drift from actual API responses. |
+| `app/api/engine/route.ts` | Uses types `EngineResponse`, `ReportResponse` from api-types; E.V.E. logic in one route. | Response shapes shared via api-types; single E.V.E. route. |
 | SYSTEM_ARCHITECTURE.md | Intended system: Landing → engine → GET report; Beauty → dry run (engine) or full report (E.V.E. → generate-image × 3); report-storage-test → GET debug and GET report. | Implementation matches except: (1) Beauty demo section does not call GET /api/beauty/demo; (2) notes are sent but not used; (3) GET /api/report/[reportId]/beauty is unused by design. |
 
 ---

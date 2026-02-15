@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     process.env.VERCEL_URL != null
       ? `https://${process.env.VERCEL_URL}`
       : new URL(request.url).origin;
-  const eveUrl = `${origin}/api/eve`;
+  const eveUrl = `${origin}/api/engine`;
 
   log("info", "stage", { requestId, stage: "eve_request_start" });
   const res = await fetch(eveUrl, {

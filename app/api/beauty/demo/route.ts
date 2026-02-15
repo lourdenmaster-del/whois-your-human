@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         ? `https://${process.env.VERCEL_URL}`
         : new URL(request.url).origin;
 
-    const engineUrl = `${origin}/api/engine`;
+    const engineUrl = `${origin}/api/engine/generate`;
     log("info", "fetch start", { requestId, url: engineUrl });
     const engineRes = await fetch(engineUrl, {
       method: "POST",

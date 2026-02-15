@@ -15,7 +15,7 @@ Use this before clicking **Get full report (API)** on the Beauty page.
 
 ## 3. What happens when you click "Get full report (API)"
 
-1. **E.V.E. is called** (`POST /api/eve`) with your form data.
+1. **E.V.E. is called** (`POST /api/engine`) with your form data.
 2. **Engine runs** (`POST /api/engine` internally): full LIGS report + vector_zero; stored in Blob at `ligs-reports/{reportId}.json`.
 3. **E.V.E. filter** runs on the report → Beauty Profile; stored in Blob at `ligs-beauty/{reportId}.json`.
 4. **Response** returns to the Beauty page with `reportId` and full Beauty Profile (vector_zero, light_signature, archetype, deviations, corrective_vector, imagery_prompts).
