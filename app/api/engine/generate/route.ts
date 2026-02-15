@@ -1,3 +1,4 @@
+// force vercel rebuild
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import OpenAI from "openai";
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
         200,
         {
           reportId,
+          full_report: fullReport,
           emotional_snippet: emotionalSnippet,
           image_prompts: imagePrompts,
           vector_zero: vectorZero,
@@ -96,7 +98,7 @@ Email: ${email}
         { role: "system", content: ENGINE_SPEC },
         {
           role: "user",
-          content: `Generate the full Light Identity Report and emotional snippet for this birth data using LIGS Engine v1.1 (canonical 14-section structure + Cosmology Marbling Patch):\n\n${birthData}\n\nOutput valid JSON only with exactly these keys: "full_report" (string, the complete 14-section report: Initiation, Spectral Origin, Temporal Encoding, Gravitational Patterning, Directional Field, Archetype Revelation, Archetype Micro-Profiles, Behavioral Expression, Relational Field, Environmental Resonance, Cosmology Overlay, Identity Field Equation, Legacy Trajectory, Integration. In EVERY section: RAW SIGNAL with 1 subtle cosmological echo; CUSTODIAN with 1 ancient physiological mirror; ORACLE with full fusion of physics, metaphysics, and human meaning—cosmology woven into sentences, not listed. Tone: mythic-scientific, elegant, readable. No shortening.) and "emotional_snippet" (string, 1-2 declarative sentences). No other text.`,
+          content: `Generate the full Light Identity Report and emotional snippet for this birth data using LIGS Engine v1.1 (canonical 14-section structure + Cosmology Marbling Patch):\n\n${birthData}\n\nOutput valid JSON only with exactly these keys: "full_report" (string, the complete 14-section report: Initiation, Spectral Origin, Temporal Encoding, Gravitational Patterning, Directional Field, Archetype Revelation, Archetype Micro-Profiles, Behavioral Expression, Relational Field, Environmental Resonance, Cosmology Overlay, Identity Field Equation, Legacy Trajectory, Integration. In EVERY section: RAW SIGNAL with 1 subtle cosmological echo; CUSTODIAN with 1 ancient physiological mirror; ORACLE with full fusion of physics, metaphysics, and human meaning—cosmology woven into sentences, not listed. Tone: mythic-scientific, elegant, readable. The full_report must be a long string (multiple paragraphs; no shortening).) and "emotional_snippet" (string, 1-2 declarative sentences). No other text.`,
         },
       ],
       response_format: { type: "json_object" },
@@ -197,6 +199,7 @@ Email: ${email}
       200,
       {
         reportId,
+        full_report: fullReport,
         emotional_snippet: emotionalSnippet,
         image_prompts: imagePrompts,
         ...(vectorZero != null && { vector_zero: vectorZero }),
