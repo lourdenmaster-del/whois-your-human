@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="base" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5e6e8"/>
+      <stop offset="25%" stop-color="#fdf8f5"/>
+      <stop offset="50%" stop-color="#ede9f5"/>
+      <stop offset="75%" stop-color="#f5f0eb"/>
+      <stop offset="100%" stop-color="#ffffff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="rgba(255,248,252,0.4)"/>
+      <stop offset="55%" stop-color="rgba(237,233,245,0.15)"/>
+      <stop offset="100%" stop-color="transparent"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="1600" fill="url(#base)"/>
+  <rect width="1200" height="1600" fill="url(#glow)"/>
+  <g stroke="rgba(255,255,255,0.35)" stroke-width="0.6" fill="none" stroke-linecap="round">
+    <path d="M 0 400 Q 300 380 600 400 Q 900 420 1200 400"/>
+    <path d="M 0 1200 Q 300 1220 600 1200 Q 900 1180 1200 1200"/>
+    <path d="M 0 520 Q 400 500 600 520 Q 800 540 1200 520"/>
+    <path d="M 0 1080 Q 400 1100 600 1080 Q 800 1060 1200 1080"/>
+  </g>
+  <g stroke="rgba(255,255,255,0.28)" stroke-width="0.5" fill="none" stroke-linecap="round">
+    <path d="M 400 0 Q 380 400 400 800 Q 420 1200 400 1600"/>
+    <path d="M 800 0 Q 820 400 800 800 Q 780 1200 800 1600"/>
+    <path d="M 600 0 Q 590 500 600 800 Q 610 1100 600 1600"/>
+  </g>
+  <g stroke="rgba(255,255,255,0.4)" stroke-width="0.5" fill="none">
+    <ellipse cx="600" cy="800" rx="280" ry="220" opacity="0.75"/>
+    <ellipse cx="600" cy="800" rx="180" ry="140" opacity="0.55"/>
+    <line x1="600" y1="520" x2="600" y2="1080"/>
+    <line x1="320" y1="800" x2="880" y2="800"/>
+    <line x1="420" y1="640" x2="780" y2="960"/>
+    <line x1="780" y1="640" x2="420" y2="960"/>
+  </g>
+  <g stroke="rgba(255,255,255,0.25)" stroke-width="0.45" fill="none" stroke-linecap="round">
+    <path d="M 200 200 Q 600 160 1000 200 Q 1100 500 1000 800 Q 600 840 200 800 Q 100 500 200 200"/>
+    <path d="M 280 1000 Q 600 960 920 1000 Q 1000 1300 920 1400 Q 600 1440 280 1400 Q 200 1100 280 1000"/>
+  </g>
+</svg>

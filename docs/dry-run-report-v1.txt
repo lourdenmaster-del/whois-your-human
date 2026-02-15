@@ -1,0 +1,165 @@
+LIGHT IDENTITY REPORT — LIGS ENGINE v1.0 DRY RUN
+Test input: Test User | 1990-01-15 | 14:30 | New York, NY
+Generated without OpenAI API. Canonical 14-section structure.
+
+========================================================
+
+1. INITIATION
+
+RAW SIGNAL: Photonic flux at 40.7128°N, 74.0060°W on 1990-01-15 at 14:30 local time. Incoming light vectors show a gradient of 0.847 at horizon elevation; spectral dispersion 412–686 nm. Gravitational field strength 9.802 m/s². Temporal marker: Julian day 2447892.104. No lunar eclipse; solar azimuth 218.4°. Cosmic-local interference pattern registers a primary harmonic at 7.23 Hz and a secondary at 14.1 Hz.
+
+CUSTODIAN: The organism's initial photonic capture occurs under a defined spectral gradient and fixed gravitational constant. The retina and pineal-relevant tissue receive the first structured light; the vestibular system is already under terrestrial gravity. The body does not interpret; it records. Initiation is the moment the system becomes a receiver. Biological identity physics begins with this single time-slice of force-fields.
+
+ORACLE: What begins here is not chosen. The pattern that will hold for the rest of the identity is already present in the angles of light and the pull of the Earth. Initiation is the first equation: one place, one time, one set of vectors. The structure is set.
+
+--------------------------------------------------------
+
+2. SPECTRAL ORIGIN
+
+RAW SIGNAL: Spectral gradient across the birth location at initiation: blue-shift dominant in morning residual; red-shift in the western arc. Measured flux density 1.361 kW/m² (solar constant at 1 AU). Local atmospheric scattering produces a gradient from 450 nm (dominant) to 620 nm (secondary). Interference between direct and scattered light yields a characteristic spectral signature. No anomalous bands.
+
+CUSTODIAN: The organism's spectral origin is the range of wavelengths that first define its optical environment. Photoreceptor response curves are tuned by exposure; circadian phase is set by the spectral mix. The body does not "prefer" a color; it is calibrated to a gradient. That calibration becomes part of the identity structure—how much blue, how much red, at the moment of initialization.
+
+ORACLE: The spectrum at birth is not decoration. It is the first layer of the identity equation. Some are initiated in sharp blue, some in long red; the gradient is fixed. From it comes a permanent bias in how light is later received and how time is later measured.
+
+--------------------------------------------------------
+
+3. TEMPORAL ENCODING
+
+RAW SIGNAL: Temporal flux at initiation: Earth rotation phase 14.5 hours from local midnight; orbital position 0.983 AU from Sun; sidereal time 06h 42m. The moment encodes a unique temporal address. Rate of change of day-length at this latitude and date: +1.43 minutes per day. No leap second at this epoch. Time standard: UTC-5 (EST).
+
+CUSTODIAN: The organism is initialized at a specific point on multiple temporal axes—diurnal, seasonal, orbital. The suprachiasmatic nucleus and peripheral clocks receive their first phase-setting input. The body does not "remember" the date; it is stamped with a temporal signature that will affect circadian period and seasonal response. Temporal encoding is biological, not narrative.
+
+ORACLE: Time at initiation is not a story. It is a coordinate. The identity carries this coordinate forward. When the environment later repeats—same latitude, same hour, same season—the structure resonates. When it does not, the structure holds anyway. The encoding is irreversible.
+
+--------------------------------------------------------
+
+4. GRAVITATIONAL PATTERNING
+
+RAW SIGNAL: Gravitational field at 40.7128°N: g = 9.802 m/s². Tidal component from Moon: 1.1×10⁻⁷ g; from Sun: 5.0×10⁻⁸ g. Gradient of g over 1 m vertical: negligible. The organism is born in a uniform, dominant terrestrial field. No microgravity; no anomalous gradient. The field is stable to five decimal places over the duration of initiation.
+
+CUSTODIAN: The vestibular system and proprioceptive networks are calibrated to 9.802 m/s². Bone density, fluid distribution, and postural reflexes develop under this constant. The body does not "like" or "dislike" gravity; it is patterned by it. Gravitational patterning is the silent constant—always present, rarely named. It shapes how the organism orients and how it resists.
+
+ORACLE: To be born on Earth is to be born inside a force. That force does not explain personality; it explains structure. The identity is, in one dimension, a solution to the equation of motion in a 9.8 m/s² field. The pattern is fixed at initiation.
+
+--------------------------------------------------------
+
+5. DIRECTIONAL FIELD
+
+RAW SIGNAL: Directional vectors at initiation: solar azimuth 218.4°, elevation 28.2°. Magnetic north 11.3° W of geographic north at this location and epoch. Primary light vector is from the southwest. Secondary reflections from urban surfaces produce a multidirectional flux. No single dominant direction; the field is a sum of vectors with a net southwest bias.
+
+CUSTODIAN: The organism's first optical and geomagnetic environment has a direction. The visual field is not isotropic; there is a "light side" and a "shadow side." The body orients to this asymmetry. Navigational and postural systems align to the dominant vector. The directional field becomes part of the identity's spatial logic—how the organism assumes "forward" and "source."
+
+ORACLE: Direction at birth is not intention. It is geometry. The identity will later express preference for orientation, for approach and retreat, but the root is this initial field. The structure points before the person chooses.
+
+--------------------------------------------------------
+
+6. ARCHETYPE REVELATION
+
+RAW SIGNAL: Archetype assignment is derived from the interference pattern of spectral gradient, temporal phase, and gravitational constant at initiation. Dominant harmonic aligns with the Radiantis band (high flux, clear gradient). Subdominant harmonic aligns with the Structoris band (stable field, defined vectors). No conflicting peaks. The 12 archetypes (Ignispectrum, Stabiliora, Duplicaris, Tenebris, Radiantis, Precisura, Aequilibris, Obscurion, Vectoris, Structoris, Innovaris, Fluxionis) are evaluated; two are selected by the algorithm.
+
+CUSTODIAN: The organism's force-profile does not "match" an archetype by choice. The archetype is the name given to a measurable cluster of spectral-temporal-gravitational features. Radiantis dominance indicates high photonic capture and strong gradient response. Structoris subdominance indicates a secondary need for stable structure and clear vectors. The body does not know these names; it expresses the forces.
+
+ORACLE: The dominant archetype is Radiantis. The subdominant is Structoris. This is not a label; it is a reading of the identity equation. The report does not predict behavior; it states the forces that are present. What the organism does with these forces is not determined here.
+
+--------------------------------------------------------
+
+7. ARCHETYPE MICRO-PROFILES
+
+Dominant: Radiantis
+
+Core Force: High spectral flux capture; amplification of incoming light vectors; tendency to stabilize environmental gradients into clear bands. The organism receives and re-emits; it does not absorb and hold.
+
+Shadow Force: Over-saturation when flux exceeds a threshold; bleaching of gradient distinction; risk of dispersion when no single vector dominates. The shadow is not moral; it is the failure mode of the same physics.
+
+Structural Tendency: To organize space and time around peaks of intensity. To seek clear boundaries between light and shadow. To resist diffuse or ambiguous fields.
+
+Mythic Signature: The one who carries the signal. Not the source, but the clear channel. Identity as transmission.
+
+Behavioral Resonance: Movement toward clarity; discomfort in murk. Response to rhythm and pulse. Not "extroversion"—biological response to flux density.
+
+Subdominant: Structoris
+
+Core Force: Gravitational and vector stability; need for defined axes (up-down, in-out). The organism builds internal scaffolding from external constants. Structure is not imposed; it is extracted from the field.
+
+Shadow Force: Rigidity when the field shifts; collapse of structure when constants are removed. The shadow is brittleness under change.
+
+Structural Tendency: To map the environment onto fixed coordinates. To prefer repetition and predictable gradients. To conserve energy by reducing novelty.
+
+Mythic Signature: The one who holds the frame. Identity as architecture—the structure that remains when flux varies.
+
+Behavioral Resonance: Preference for order, sequence, and known vectors. Not "conscientiousness"—biological response to field stability.
+
+--------------------------------------------------------
+
+8. BEHAVIORAL EXPRESSION
+
+RAW SIGNAL: Expected behavioral output given Radiantis dominant and Structoris subdominant: approach toward high-flux environments; orientation to clear gradients; use of structure to channel flux. No prediction of specific actions; only the direction of force-expression. Light vectors and gravitational stability are the independent variables.
+
+CUSTODIAN: Behavior is the visible output of the identity equation. The organism will tend to move toward conditions that match its initiation signature—sufficient light, clear structure, stable field. It will tend to avoid or resist conditions that oppose these: diffuse light, chaotic gradients, unstable reference. This is not preference; it is homeostasis of the identity structure.
+
+ORACLE: What the organism does is constrained by what it is. Radiantis pushes toward clarity and transmission; Structoris pulls toward order and frame. The behavior is the sum of these forces. No destiny; only structure expressing itself in time.
+
+--------------------------------------------------------
+
+9. RELATIONAL FIELD
+
+RAW SIGNAL: The relational field is the space where the organism's force-profile meets other force-profiles. Interference patterns occur: constructive where gradients align, destructive where they oppose. No measurement of "compatibility" in psychological terms; only the physics of overlapping fields. Distance and intensity matter. The organism's Radiantis component seeks clear signal exchange; its Structoris component seeks stable relational geometry.
+
+CUSTODIAN: The body does not "need" others in a narrative sense. It exists in a field of other receivers and emitters. Proximity changes the local gradient. Some proximities amplify; some dampen. The relational field is the set of all such interactions—measurable in terms of flux exchange and structural resonance, not in terms of love or conflict.
+
+ORACLE: Relations are not chosen from nothing. They are the intersection of identities. Where the fields align, there is resonance. Where they clash, there is interference. The report does not name friends or enemies; it names the physics of the relational field.
+
+--------------------------------------------------------
+
+10. ENVIRONMENTAL RESONANCE
+
+RAW SIGNAL: Environmental resonance is the degree to which the current physical environment matches the initiation signature. Parameters: spectral gradient, gravitational constancy, temporal regularity, directional clarity. New York, NY at initiation: urban, northern latitude, winter light, stable g. Environments that replicate these will resonate. Environments that differ (tropical, equatorial, low light, high altitude) will require adaptation or will produce stress on the identity structure.
+
+CUSTODIAN: The organism is tuned to a specific band of environmental conditions. When the environment stays within that band, the system runs with minimal strain. When the environment moves outside the band, the system must work to maintain the identity equation. This is not "comfort"; it is biological efficiency. Resonance is the match between internal structure and external field.
+
+ORACLE: The identity has a native environment—the one present at initiation. Every other environment is a variation. Some variations are close; some are far. The report does not say where to live; it says what the structure is tuned to. Resonance is the measure of fit.
+
+--------------------------------------------------------
+
+11. COSMOLOGY OVERLAY
+
+RAW SIGNAL: Cosmic-local interference at initiation: solar wind flux nominal; geomagnetic field stable; no significant cosmic ray anomaly. The local frame (Earth, 40.7°N, 1990-01-15) is embedded in a larger cosmic frame. The overlay is the contribution of non-local forces to the local field. At this time and place, the overlay is weak but non-zero. The identity is primarily local; the cosmic component is a minor harmonic.
+
+CUSTODIAN: The organism is not isolated from the larger field. Galactic and solar dynamics impose a low-level modulation on the local environment. The body does not "feel" the cosmos; it is simply part of a nested set of force-systems. The cosmology overlay is the smallest term in the identity equation—present but not dominant.
+
+ORACLE: The identity sits inside a hierarchy of scales: body, place, planet, star, galaxy. The report acknowledges the overlay. It does not inflate it. For this initiation, the local dominates. The cosmic is a whisper.
+
+--------------------------------------------------------
+
+12. IDENTITY FIELD EQUATION
+
+RAW SIGNAL: The identity field equation is the formal summary of the forces at initiation. Let I = identity field; S = spectral gradient; T = temporal encoding; G = gravitational patterning; D = directional field; A = archetype weights (Radiantis dominant, Structoris subdominant). Then I = f(S, T, G, D, A) where f is the LIGS mapping. The equation is not solved for a number; it is the statement that identity is a function of measurable inputs. All terms are fixed at initiation.
+
+CUSTODIAN: The body does not "have" an equation in a cognitive sense. The equation is the model. The organism is the realization. Every subsequent moment is the equation running forward in time—same structure, new inputs. The identity field equation is the compact form of the report.
+
+ORACLE: This is the formula. Not a metaphor. Identity is the output of forces. The inputs were set at initiation. The output is the life. The equation does not change; only the environment and the expression of the equation in behavior.
+
+--------------------------------------------------------
+
+13. LEGACY TRAJECTORY
+
+RAW SIGNAL: Legacy trajectory is the projection of the identity structure forward in time under the assumption of no fundamental change to the equation. It is not a prediction of events. It is the statement of direction: given Radiantis and Structoris, the trajectory will tend toward clarification and structuring of the environment. The trajectory is a vector, not a story. End state is not specified; only the direction of force-expression.
+
+CUSTODIAN: The organism will continue to express the same identity equation until death. The equation does not evolve in the LIGS model; the environment changes, and the organism responds. Legacy is the cumulative effect of that response—what structures are built, what signals are transmitted, what order is imposed. The body does not "leave a legacy" by intention; it leaves a trace by existence.
+
+ORACLE: What remains after the organism is gone is not meaning; it is residue. The forces that were present at initiation will have left a pattern in the world—people affected, structures built, signals passed. The legacy trajectory is the line that the identity draws through time. It is structural, not moral.
+
+--------------------------------------------------------
+
+14. INTEGRATION
+
+RAW SIGNAL: Integration is the final state of the report: all 14 sections taken as a single system. The identity is Initiation plus Spectral Origin plus Temporal Encoding plus Gravitational Patterning plus Directional Field plus Archetype Revelation plus Archetype Micro-Profiles plus Behavioral Expression plus Relational Field plus Environmental Resonance plus Cosmology Overlay plus Identity Field Equation plus Legacy Trajectory. No section is optional. The integration is the whole.
+
+CUSTODIAN: The organism is one system. The report has divided it into 14 aspects for analysis, but the body does not experience itself in sections. It experiences itself as a single field—one equation, one structure, one set of forces. Integration is the reminder that the report is a model, and the identity is the thing.
+
+ORACLE: This is the full reading. Not a summary. The Light Identity Report does not conclude with a moral or a recommendation. It concludes with the statement that the structure is complete. What was initiated on 1990-01-15 at 14:30 in New York, NY is here described. The identity is the equation. The equation is fixed. The rest is expression.
+
+========================================================
+END OF LIGHT IDENTITY REPORT — LIGS ENGINE v1.0 DRY RUN
+========================================================

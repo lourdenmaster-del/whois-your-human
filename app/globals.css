@@ -1,26 +1,327 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #050814;
+  --text: #F5F5F5;
+  --accent-red: #FF3B3B;
+  --accent-violet: #7A4FFF;
+  --divider: #0A0F1C;
+  --glow: rgba(168, 85, 255, 0.25);
+  --muted: rgba(245, 245, 245, 0.6);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-text: var(--text);
+  --color-accent-red: var(--accent-red);
+  --color-accent-violet: var(--accent-violet);
+  --color-divider: var(--divider);
+  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
+  min-height: 100%;
+  overflow-y: scroll;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Light-writing effect: all text (illuminated) */
+@keyframes light-write-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* Applied to all text on the page */
+.light-writing-page,
+.light-writing-page * {
+  color: #f5f5f5;
+  text-shadow:
+    0 0 4px rgba(255, 255, 255, 0.3),
+    0 0 8px rgba(255, 255, 255, 0.15);
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.4);
+}
+
+/* Form controls: no stroke/shadow so native time/date inputs work */
+.light-writing-page input,
+.light-writing-page select,
+.light-writing-page textarea,
+.light-writing-page button {
+  text-shadow: none;
+  -webkit-text-stroke: none;
+}
+
+/* Hero headline only: self-writing reveal animation */
+.light-write {
+  clip-path: inset(0 100% 0 0);
+  animation: light-write-reveal 1.75s ease-in-out 1 forwards;
+}
+
+/* -------------------------------------------------------------------------
+   Beauty page — Soft Scientific aesthetic (Gen Z, LIGS-aligned)
+   ------------------------------------------------------------------------- */
+.beauty-theme {
+  --beauty-blush: #f5e6e8;
+  --beauty-cream: #fdf8f5;
+  --beauty-lavender: #ede9f5;
+  --beauty-white: #ffffff;
+  --beauty-text: #0d0b10;
+  --beauty-text-muted: #2a252e;
+  --beauty-orb-glow: rgba(255, 220, 230, 0.5);
+  --beauty-line: rgba(255, 255, 255, 0.4);
+}
+
+/* Main transparent so fixed background img shows through (same pattern as LIGS landing) */
+.beauty-theme.beauty-page {
+  min-height: 100%;
+  background: transparent;
+  color: var(--beauty-text);
+}
+
+/* Serif headings on Beauty — larger, bolder for readability */
+.beauty-theme .beauty-heading {
+  font-family: var(--font-beauty-serif), Georgia, serif;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* Body text — larger and medium weight for readability */
+.beauty-theme .beauty-body {
+  font-size: 1.125rem;
+  font-weight: 500;
+  line-height: 1.85;
+}
+
+/* Soft orb glow pulse */
+@keyframes beauty-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.02);
+  }
+}
+
+.beauty-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  animation: beauty-glow-pulse 6s ease-in-out infinite;
+}
+
+/* Subtle line/circle fade */
+@keyframes beauty-line-fade {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.beauty-theme .beauty-deco-line {
+  animation: beauty-line-fade 8s ease-in-out infinite;
+}
+
+/* Report generating overlay — graphic + message */
+@keyframes beauty-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes beauty-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+.beauty-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 20, 0.85);
+  backdrop-filter: blur(8px);
+}
+.beauty-loading-content {
+  text-align: center;
+  padding: 2.5rem 3rem;
+  max-width: 420px;
+}
+.beauty-loading-graphic {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 1.75rem;
+}
+.beauty-loading-graphic .ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(122, 79, 255, 0.35);
+  border-top-color: var(--accent-violet);
+  border-radius: 50%;
+  animation: beauty-loading-spin 1.2s linear infinite;
+}
+.beauty-loading-graphic .orb {
+  position: absolute;
+  inset: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255, 220, 230, 0.9), rgba(122, 79, 255, 0.4));
+  box-shadow: 0 0 40px rgba(122, 79, 255, 0.35);
+  animation: beauty-loading-pulse 2s ease-in-out infinite;
+}
+.beauty-loading-overlay .title {
+  font-family: var(--font-beauty-serif), Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.02em;
+}
+.beauty-loading-overlay .sub {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+}
+
+/* Override light-writing on Beauty — dark text, bolder, minimal shadow */
+.beauty-theme.beauty-page {
+  font-size: 1.0625rem;
+  font-weight: 500;
+}
+.beauty-theme.beauty-page,
+.beauty-theme.beauty-page .beauty-text-inverse {
+  color: var(--beauty-text);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  -webkit-text-stroke: none;
+}
+
+.beauty-theme.beauty-page .beauty-text-muted {
+  color: var(--beauty-text-muted);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Form inputs on Beauty: soft borders and rounded */
+.beauty-theme.beauty-page input,
+.beauty-theme.beauty-page textarea,
+.beauty-theme.beauty-page select {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(157, 147, 165, 0.25) !important;
+  color: var(--beauty-text) !important;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(61, 58, 74, 0.06);
+}
+
+.beauty-theme.beauty-page input::placeholder,
+.beauty-theme.beauty-page textarea::placeholder {
+  color: var(--beauty-text-muted);
+}
+
+.beauty-theme.beauty-page input:focus,
+.beauty-theme.beauty-page textarea:focus {
+  outline: none;
+  border-color: rgba(122, 79, 255, 0.4) !important;
+  box-shadow: 0 0 0 3px rgba(122, 79, 255, 0.1);
+}
+
+.beauty-theme.beauty-page label {
+  color: var(--beauty-text) !important;
+}
+
+.beauty-theme.beauty-page .beauty-form-card {
+  position: relative;
+  background: transparent;
+  backdrop-filter: none;
+  border-radius: 24px;
+  box-shadow: none;
+  border: none;
+}
+
+.beauty-theme.beauty-page .beauty-form-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: url("/beauty-textbox.png") center center / cover no-repeat;
+  opacity: 0.5;
+  z-index: 0;
+  pointer-events: none;
+}
+.beauty-theme.beauty-page .beauty-form-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 0.5;
+  pointer-events: none;
+}
+
+.beauty-theme.beauty-page .beauty-form-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Text inside text blocks — white, bigger, readable */
+.beauty-theme.beauty-page .beauty-form-card,
+.beauty-theme.beauty-page .beauty-form-card .beauty-body,
+.beauty-theme.beauty-page .beauty-form-card .beauty-text-inverse,
+.beauty-theme.beauty-page .beauty-form-card span.beauty-text-inverse,
+.beauty-theme.beauty-page .beauty-form-card p {
+  font-size: 1.35rem;
+  font-weight: 600;
+  color: #ffffff !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 0, 0, 0.2);
+}
+.beauty-theme.beauty-page .beauty-form-card .beauty-text-muted,
+.beauty-theme.beauty-page .beauty-form-card span.beauty-text-muted {
+  color: rgba(255, 255, 255, 0.88) !important;
+  font-size: 1.2rem;
+}
+.beauty-theme.beauty-page .beauty-form-card .beauty-heading,
+.beauty-theme.beauty-page .beauty-form-card h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff !important;
+}
+.beauty-theme.beauty-page .beauty-form-card code {
+  color: rgba(255, 255, 255, 0.95) !important;
+  font-size: 1.1rem;
+}
+.beauty-theme.beauty-page .beauty-form-card pre {
+  color: #ffffff !important;
+  font-size: 1.1rem;
+}
+
+.beauty-theme.beauty-page button[type="submit"] {
+  border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(255, 59, 59, 0.25);
 }

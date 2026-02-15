@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.ligs.io"
+        }
+      ],
+      "destination": "https://ligs.io/:path*",
+      "permanent": true
+    }
+  ]
+}
