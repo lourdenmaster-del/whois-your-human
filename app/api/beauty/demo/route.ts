@@ -57,12 +57,14 @@ export async function GET(request: Request) {
     }
 
     const engineData = (await engineRes.json()) as {
-      reportId?: string;
-      emotional_snippet?: string;
-      image_prompts?: string[];
+      data?: {
+        reportId?: string;
+        emotional_snippet?: string;
+        image_prompts?: string[];
+      };
     };
-    const reportId = engineData.reportId;
-    const imagePrompts = engineData.image_prompts ?? [];
+    const reportId = engineData.data?.reportId;
+    const imagePrompts = engineData.data?.image_prompts ?? [];
 
     if (!reportId) {
       log("warn", "No reportId from engine", { requestId });
@@ -95,7 +97,7 @@ export async function GET(request: Request) {
       reportExcerpt,
       fullReport,
       imageUrl,
-      emotionalSnippet: engineData.emotional_snippet ?? "",
+      emotionalSnippet: engineData.data?.emotional_snippet ?? "",
       subjectName: DEMO_SUBJECT.fullName,
     };
     log("info", "response", { requestId, status: 200 });

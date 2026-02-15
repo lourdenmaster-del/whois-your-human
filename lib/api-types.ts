@@ -11,11 +11,13 @@ export type EveBody = {
 
 export type EngineResponse = {
   status?: string;
-  reportId?: string;
   error?: string;
-  emotional_snippet?: string;
-  image_prompts?: string[];
-  vector_zero?: VectorZero;
+  data?: {
+    reportId?: string;
+    emotional_snippet?: string;
+    image_prompts?: string[];
+    vector_zero?: VectorZero;
+  };
 };
 
 export type ReportResponse = {

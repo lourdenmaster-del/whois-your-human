@@ -8,6 +8,7 @@ import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { saveBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { saveReport } from "@/lib/report-store";
 import { validateEngineBody } from "@/lib/validate-engine-body";
 
 console.log("ENGINE ROUTE LOADED");
@@ -59,11 +60,29 @@ export async function POST(req: Request) {
     const engineMs = Date.now() - tEngineStart;
     log("info", "stage", { requestId, stage: "engine_request_end", durationMs: mark() });
 
+    const rawEngineResponseText = await engineRes.text();
+    console.log("RAW_ENGINE_GENERATE_RESPONSE before JSON.parse:", rawEngineResponseText);
+
     let engineData: EngineResponse;
     try {
-      engineData = (await engineRes.json()) as EngineResponse;
+      engineData = JSON.parse(rawEngineResponseText) as EngineResponse;
     } catch {
-      return errorResponse(502, "ENGINE_JSON_PARSE_FAILED", requestId);
+      log("error", "ENGINE_JSON_PARSE_FAILED", {
+        requestId,
+        rawResponsePreview: rawEngineResponseText.slice(0, 2000),
+        engineStatus: engineRes.status,
+      });
+      return NextResponse.json(
+        {
+          error: "ENGINE_JSON_PARSE_FAILED",
+          requestId,
+          debug: {
+            rawEngineResponse: rawEngineResponseText.slice(0, 8000),
+            engineStatus: engineRes.status,
+          },
+        },
+        { status: 502 }
+      );
     }
 
     if (!engineRes.ok || engineData.error) {
@@ -75,13 +94,20 @@ export async function POST(req: Request) {
       );
     }
 
-    const reportId = engineData.reportId;
-    const vectorZero = engineData.vector_zero;
+    const reportId = engineData.data?.reportId;
+    const vectorZero = engineData.data?.vector_zero;
 
     if (!reportId) {
       log("warn", "engine did not return reportId", { requestId });
       return errorResponse(502, "ENGINE_MISSING_REPORT_ID", requestId);
     }
+
+    await saveReport(reportId, {
+      full_report: "",
+      emotional_snippet: engineData.data?.emotional_snippet ?? "",
+      image_prompts: engineData.data?.image_prompts ?? [],
+      ...(engineData.data?.vector_zero != null && { vector_zero: engineData.data.vector_zero }),
+    });
 
     const reportUrl = `${origin}/api/report/${reportId}`;
     log("info", "stage", { requestId, stage: "report_fetch_start", durationMs: mark() });
@@ -146,7 +172,7 @@ export async function POST(req: Request) {
 
     let parsed: { image: string; report: string };
     try {
-      console.log("RAW_MODEL_OUTPUT:", filterText);
+      console.log("RAW_MODEL_OUTPUT (filterText) before JSON.parse:", filterText);
       const raw = JSON.parse(filterText) as unknown;
       if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
         throw new Error("E.V.E. response is not a JSON object");
