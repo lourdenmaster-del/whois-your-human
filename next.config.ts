@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false, // avoids dev double-mount flicker (on/off/on)
-  allowedDevOrigins: ["127.0.0.1"],
 };
 
 export default nextConfig;

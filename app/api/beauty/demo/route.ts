@@ -87,7 +87,7 @@ export async function GET(request: Request) {
       response_format: "url",
     });
 
-    const imageUrl = imageResponse.data[0]?.url ?? null;
+    const imageUrl = imageResponse.data?.[0]?.url ?? null;
 
     const reportExcerpt = excerptFromReport(fullReport);
 

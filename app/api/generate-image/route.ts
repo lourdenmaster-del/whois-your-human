@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       response_format: "url",
     });
 
-    const tempUrl = imageResponse.data[0]?.url ?? null;
+    const tempUrl = imageResponse.data?.[0]?.url ?? null;
     if (!tempUrl) {
       log("warn", "No image URL in response", { requestId });
       return errorResponse(500, "No image URL in response", requestId);

@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /**
+ * Local/dev only — not used by Vercel build or production.
+ *
  * Full E2E test: E.V.E. → LIGS → imagery pipeline.
  * 1. POST /api/eve with Marilyn Monroe payload
  * 2. Saves full JSON response
  * 3. Calls /api/generate-image for each of the 3 beauty imagery slugs
  * 4. Prints Blob/API URLs and storage paths for all artifacts
  *
- * Requires: dev server running (npm run dev), OPENAI_API_KEY and BLOB_READ_WRITE_TOKEN in .env.local
+ * Requires: dev server running (npm run dev), OPENAI_API_KEY and BLOB_READ_WRITE_TOKEN in env (e.g. .env.local for local runs).
  * Usage: node scripts/e2e-eve-imagery.mjs [baseUrl]
  * Default baseUrl: http://localhost:3000
  *

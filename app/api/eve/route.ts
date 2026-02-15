@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       log("warn", "OPENAI_API_KEY not set", { requestId });
       return errorResponse(
         500,
-        "OPENAI_API_KEY not set. Add it to .env.local in ligs-frontend, then restart.",
+        "OPENAI_API_KEY not set. Set it in your environment (e.g. Vercel Project Settings → Environment Variables).",
         requestId
       );
     }

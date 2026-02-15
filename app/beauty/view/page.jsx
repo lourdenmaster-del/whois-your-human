@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { headers } from "next/headers";
 import LigsFooter from "@/components/LigsFooter";
 import BeautyViewClient from "./BeautyViewClient";
@@ -85,7 +86,13 @@ export async function generateMetadata({ searchParams }) {
 export default function BeautyViewPage() {
   return (
     <>
-      <BeautyViewClient />
+      <Suspense fallback={
+        <main className="beauty-theme min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+          <p className="beauty-body beauty-text-muted">Loading…</p>
+        </main>
+      }>
+        <BeautyViewClient />
+      </Suspense>
       <LigsFooter />
     </>
   );

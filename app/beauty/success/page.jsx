@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import LigsFooter from "@/components/LigsFooter";
 import { track } from "@/lib/analytics";
 
-export default function BeautySuccessPage() {
+function BeautySuccessContent() {
   const searchParams = useSearchParams();
   const reportId = searchParams.get("reportId");
 
@@ -56,5 +56,17 @@ export default function BeautySuccessPage() {
       </main>
       <LigsFooter />
     </>
+  );
+}
+
+export default function BeautySuccessPage() {
+  return (
+    <Suspense fallback={
+      <main className="beauty-theme min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+        <p className="beauty-body beauty-text-muted">Loading…</p>
+      </main>
+    }>
+      <BeautySuccessContent />
+    </Suspense>
   );
 }

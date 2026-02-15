@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
@@ -10,7 +9,8 @@ export async function POST(request: Request) {
   log("info", "request", { requestId, route: "/api/stripe/webhook" });
 
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
-  if (!webhookSecret) {
+  const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!webhookSecret || !secretKey) {
     return errorResponse(500, "STRIPE_NOT_CONFIGURED", requestId);
   }
 
@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
   let event: Stripe.Event;
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+    const stripe = new Stripe(secretKey);
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch {
     return errorResponse(400, "INVALID_STRIPE_SIGNATURE", requestId);

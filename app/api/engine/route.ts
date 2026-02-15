@@ -31,7 +31,7 @@ export async function POST(request: Request) {
         `Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures.`,
         `Cosmic identity architecture, infrared red #FF3B3B and ultraviolet violet #7A4FFF, spectral imprint, 50-80 words.`,
       ];
-      const fullReport = `[DRY RUN] Full report placeholder for ${fullName}\n\nInitiation: forces at ${birthDate} ${birthTime || "—"} in ${birthLocation}.\nSpectral Origin, Temporal Encoding, Gravitational Patterning, Directional Field, Archetype Revelation, Behavioral Expression, Relational Field, Environmental Resonance, Cosmology Overlay, Integration.\n\n(Set DRY_RUN=0 or remove it from .env.local to generate real reports.)`;
+      const fullReport = `[DRY RUN] Full report placeholder for ${fullName}\n\nInitiation: forces at ${birthDate} ${birthTime || "—"} in ${birthLocation}.\nSpectral Origin, Temporal Encoding, Gravitational Patterning, Directional Field, Archetype Revelation, Behavioral Expression, Relational Field, Environmental Resonance, Cosmology Overlay, Integration.\n\n(Set DRY_RUN=0 or remove the env var to generate real reports.)`;
       const vectorZero: VectorZero = {
         coherence_score: 0.85,
         primary_wavelength: "580–620 nm",
@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       log("warn", "OPENAI_API_KEY not set", { requestId });
       return errorResponse(
         500,
-        "OPENAI_API_KEY not set. Add it to .env.local in ligs-frontend, then restart: cd ligs-frontend && npm run dev",
+        "OPENAI_API_KEY not set. Set it in your environment (e.g. Vercel Project Settings → Environment Variables).",
         requestId
       );
     }
@@ -215,7 +215,7 @@ Email: ${email}
       return NextResponse.json(
         {
           error:
-            "OpenAI API quota exceeded. Check your plan and billing at https://platform.openai.com/account/billing. If you just added funds, wait a few minutes and try again. You can set DRY_RUN=1 in .env.local to test the app without using the API.",
+            "OpenAI API quota exceeded. Check your plan and billing at https://platform.openai.com/account/billing. If you just added funds, wait a few minutes and try again. You can set DRY_RUN=1 in your environment to test without using the API.",
           code: "QUOTA_EXCEEDED",
           detail:
             process.env.NODE_ENV === "development"

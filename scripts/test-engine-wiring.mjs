@@ -1,15 +1,17 @@
 #!/usr/bin/env node
 /**
+ * Local/dev only — not used by Vercel build or production.
+ *
  * Purpose: Verifies engine + report API wiring without calling OpenAI.
  *
  * Requirements:
- *   - DRY_RUN=1 in .env.local (and dev server started with that env).
+ *   - DRY_RUN=1 in env (and dev server started with that env).
  *   - Dev server running (npm run dev).
  *
  * Usage: node scripts/test-engine-wiring.mjs [port]
  *   Default port is 3000 if omitted.
  *
- * This script loads .env.local automatically before running.
+ * Loads .env.local if present (for local runs only).
  */
 
 import { readFileSync } from "fs";
@@ -33,7 +35,7 @@ function loadEnvLocal() {
 
 loadEnvLocal();
 if (process.env.DRY_RUN !== "1") {
-  console.error("Set DRY_RUN=1 in .env.local and restart the dev server, then run this script again.");
+  console.error("Set DRY_RUN=1 in your env and restart the dev server, then run this script again.");
   process.exit(1);
 }
 

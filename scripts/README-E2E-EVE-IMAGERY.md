@@ -1,10 +1,12 @@
 # E2E: E.V.E. → LIGS → imagery pipeline
 
+**Local development only.** This script is not used by Vercel build or production.
+
 Script: **`e2e-eve-imagery.mjs`**
 
 ## What it does
 
-1. **POST** `http://localhost:3000/api/eve` with static Marilyn Monroe payload:
+1. **POST** `http://localhost:3000/api/eve` (or the base URL you pass) with static Marilyn Monroe payload:
    ```json
    {
      "fullName": "Marilyn Monroe",
@@ -29,13 +31,14 @@ Script: **`e2e-eve-imagery.mjs`**
 ## Requirements
 
 - Dev server: `npm run dev` (default port 3000).
-- **.env.local**: `OPENAI_API_KEY` and `BLOB_READ_WRITE_TOKEN` (for Blob persistence).
+- Env: `OPENAI_API_KEY` and `BLOB_READ_WRITE_TOKEN` (e.g. in `.env.local` when running locally).
 - E.V.E. can take several minutes (engine + E.V.E. filter). If the request times out, use a longer Node/undici timeout (see below).
 
 ## Run
 
+From the project (repo) root:
+
 ```bash
-cd ligs-frontend
 node scripts/e2e-eve-imagery.mjs
 ```
 
@@ -57,8 +60,8 @@ UNDICI_HEADERS_TIMEOUT=600000 node scripts/e2e-eve-imagery.mjs
 
 - **Full JSON response** from `/api/eve` (saved to `e2e-eve-response.json` and printed).
 - **Blob / API URLs:**
-  - Full LIGS report: `http://localhost:3000/api/report/{reportId}` → content; Blob path: `ligs-reports/{reportId}.json`.
-  - Beauty profile: `http://localhost:3000/api/report/{reportId}/beauty` → content; Blob path: `ligs-beauty/{reportId}.json`.
+  - Full LIGS report: `<baseUrl>/api/report/{reportId}` → content; Blob path: `ligs-reports/{reportId}.json`.
+  - Beauty profile: `<baseUrl>/api/report/{reportId}/beauty` → content; Blob path: `ligs-beauty/{reportId}.json`.
   - Summary/snippet: inside the report JSON as `emotional_snippet`.
   - Imagery prompts: in the beauty profile under `imagery_prompts` (and printed).
   - Generated images: Blob URLs returned by each `/api/generate-image` call (printed per slug).

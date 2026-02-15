@@ -579,7 +579,7 @@ Beauty is the state your system was always trying to reach.`}
               Report tests
             </h3>
             <p className="beauty-body text-base font-semibold beauty-text-muted mb-3">
-              E.V.E. filter test (local): run in terminal from <code className="bg-black/10 px-1.5 py-0.5 rounded font-semibold">ligs-frontend</code>:
+              E.V.E. filter test (optional, when running locally): run in terminal from <code className="bg-black/10 px-1.5 py-0.5 rounded font-semibold">project root</code>:
             </p>
             <pre className="bg-black/15 rounded-xl p-4 text-sm font-bold text-[var(--beauty-text)] overflow-x-auto">
               npm run test:run

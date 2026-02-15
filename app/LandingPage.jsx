@@ -244,7 +244,7 @@ export default function Home() {
             </p>
             <div className="text-sm text-[#F5F5F5]/70 font-light space-y-2">
               <p>
-                <span className="text-[#7A4FFF]/90">Test:</span> Run in terminal from <code className="bg-[#0A0F1C]/60 px-1.5 py-0.5 text-[#F5F5F5]/80">ligs-frontend</code>: <code className="bg-[#0A0F1C]/60 px-1.5 py-0.5 text-[#F5F5F5]/80">npm run test:run</code> — E.V.E. filter test and Beauty Profile JSON will print there.
+                <span className="text-[#7A4FFF]/90">Test:</span> Run in terminal from <code className="bg-[#0A0F1C]/60 px-1.5 py-0.5 text-[#F5F5F5]/80">project root</code>: <code className="bg-[#0A0F1C]/60 px-1.5 py-0.5 text-[#F5F5F5]/80">npm run test:run</code> — E.V.E. filter test and Beauty Profile JSON will print there.
               </p>
               {result ? (
                 <p>

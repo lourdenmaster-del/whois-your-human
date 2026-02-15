@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
-import LandingPage from "./LandingPage.jsx";
+import LandingPage from "./LandingPage";
 
 function LandingFallback() {
   return (
