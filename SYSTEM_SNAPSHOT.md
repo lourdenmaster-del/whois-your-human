@@ -316,6 +316,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑02‑20 (Previews route delegation)
+
+**Dynamic route guard:** When `[reportId]` catches reserved segment "previews" or "debug" (e.g. in deployments where static routes lose precedence), it delegates to the sibling route handler. Ensures `/api/report/previews` always returns `{ previewCards }` regardless of route matching order.
+
 ## Verification Log – 2026‑02‑20 (Previews response shape)
 
 **Previews API:** GET `/api/report/previews` returns `{ previewCards, status, requestId }` at top level for spec compliance. Client (`fetchBlobPreviews`) reads `json?.data?.previewCards ?? json?.previewCards`.
