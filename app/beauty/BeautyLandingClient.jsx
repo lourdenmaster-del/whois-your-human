@@ -88,7 +88,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchBlobPreviews({ maxCards: 5, useBlob: true })
+    fetchBlobPreviews({ maxCards: 6, useBlob: true })
       .then(({ previewCards: cards }) => {
         if (!cancelled && Array.isArray(cards)) setPreviewCards(cards);
       })
@@ -406,7 +406,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
       {/* Previous Light Identity Reports / Examples */}
       <LandingPreviews
-        maxCards={5}
+        maxCards={6}
         useBlob={true}
         variant="beauty"
         initialCards={previewCards}
@@ -487,8 +487,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         </div>
       </section>
 
-      {/* Dev-only: Live test run (save to blob) — requires ?dev=1 */}
-      {showDevControls && (
+      {/* Dev-only: Live test run (save to blob) — never in production */}
+      {process.env.NODE_ENV !== "production" && showDevControls && (
         <section className={`${sectionClass} border-t border-amber-200/50 bg-amber-50/30`}>
           <div className="max-w-3xl mx-auto text-center space-y-3">
             <p className="text-xs uppercase tracking-widest text-amber-800/80 font-medium">

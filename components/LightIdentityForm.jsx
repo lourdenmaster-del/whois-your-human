@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const EMPTY_DEFAULTS = {
   name: "",
@@ -33,15 +33,29 @@ export default function LightIdentityForm({
   showOptionalNotes = false,
   submitButtonLabel = "Generate My Light Identity Report",
   showDryRunButton = false,
+  hideSubmitButton = false,
+  initialFormData = null,
+  onFormDataChange,
 }) {
-  const [formData, setFormData] = useState(getInitialDefaults());
+  const [formData, setFormData] = useState(() =>
+    initialFormData
+      ? { ...EMPTY_DEFAULTS, ...initialFormData }
+      : getInitialDefaults()
+  );
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (initialFormData && typeof initialFormData === "object") {
+      const next = { ...EMPTY_DEFAULTS, ...initialFormData };
+      setFormData(next);
+      onFormDataChange?.(next);
+    }
+  }, [initialFormData, onFormDataChange]);
+
   const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
+    const next = { ...formData, [e.target.name]: e.target.value };
+    setFormData(next);
+    onFormDataChange?.(next);
   };
 
   const runSubmit = async (dryRun) => {
@@ -185,7 +199,8 @@ export default function LightIdentityForm({
           </div>
         )}
 
-        {/* Submit Button(s) */}
+        {/* Submit Button(s) — hidden when parent controls CTA (e.g. Beauty pay-first flow) */}
+        {!hideSubmitButton && (
         <div className="pt-4 space-y-3">
           {showDryRunButton ? (
             <>
@@ -246,6 +261,7 @@ export default function LightIdentityForm({
             </button>
           )}
         </div>
+        )}
       </div>
     </form>
   );
