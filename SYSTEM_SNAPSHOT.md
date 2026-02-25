@@ -316,6 +316,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑02‑20 (Beauty assets + start page)
+
+**Missing production assets added:** `public/exemplars/` (6 archetype PNGs) and `public/signatures/` (beauty-hero, beauty-background, etc.) were untracked; production served 404 for exemplar images and hero backgrounds. Both folders committed. `app/beauty/start/page.jsx` added (was untracked; flow depends on it). Obsolete `public/beauty-background.png`, `public/beauty-hero.png` removed (replaced by signatures/).
+
 ## Verification Log – 2026‑02‑20 (Previews route delegation)
 
 **Dynamic route guard:** When `[reportId]` catches reserved segment "previews" or "debug" (e.g. in deployments where static routes lose precedence), it delegates to the sibling route handler. Ensures `/api/report/previews` always returns `{ previewCards }` regardless of route matching order.
