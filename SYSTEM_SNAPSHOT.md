@@ -316,6 +316,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑02‑20 (Previews response shape)
+
+**Previews API:** GET `/api/report/previews` returns `{ previewCards, status, requestId }` at top level for spec compliance. Client (`fetchBlobPreviews`) reads `json?.data?.previewCards ?? json?.previewCards`.
+
 ## Verification Log – 2026‑02‑25 (Hard cutover: single Beauty landing)
 
 **Single entrypoints:** `/` redirects to `/beauty`. `/beauty` renders only `BeautyLandingClient`. Removed `app/LandingPage.jsx`, `app/report-storage-test/page.jsx`, `app/api/beauty/demo/route.ts`. Dev section in BeautyLandingClient never renders in production (`NODE_ENV !== "production"` guard). `LightIdentityForm` supports `hideSubmitButton`, `onFormDataChange` for parent-controlled CTA. Previews: single source `GET /api/report/previews` returns `{ previewCards }`; BeautyLandingClient uses `fetchBlobPreviews`; 6 exemplar samples + blob previews.

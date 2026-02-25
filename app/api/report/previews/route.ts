@@ -7,9 +7,9 @@
  * Read-only; falls back to DRY_RUN mock cards when Blob is empty.
  */
 
+import { NextResponse } from "next/server";
 import { head, list } from "@vercel/blob";
 import { log } from "@/lib/log";
-import { successResponse } from "@/lib/success-response";
 import {
   getStorageInfo,
   BLOB_BEAUTY_PREFIX,
@@ -166,5 +166,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return successResponse(200, { previewCards }, requestId);
+  const payload = { previewCards, status: "ok" as const, requestId };
+  log("info", "response", { requestId, status: 200 });
+  return NextResponse.json(payload, { status: 200 });
 }
