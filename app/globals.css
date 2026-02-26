@@ -16,7 +16,7 @@
   --color-accent-red: var(--accent-red);
   --color-accent-violet: var(--accent-violet);
   --color-divider: var(--divider);
-  --font-sans: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 html {
@@ -31,7 +31,7 @@ body {
   min-height: 100%;
   background-color: var(--bg);
   color: var(--text);
-  font-family: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
 }
@@ -142,6 +142,19 @@ body {
   animation: beauty-line-fade 8s ease-in-out infinite;
 }
 
+/* -------------------------------------------------------------------------
+   Archetype Artifact — premium collectible presentation
+   ------------------------------------------------------------------------- */
+.beauty-theme {
+  --artifact-scrim: rgba(13, 11, 16, 0.55);
+  --artifact-scrim-light: rgba(253, 248, 245, 0.6);
+  --artifact-overlay-blur: 12px;
+  --artifact-panel-bg: rgba(253, 248, 245, 0.92);
+  --artifact-panel-border: rgba(122, 79, 255, 0.12);
+  --artifact-label: #2a252e;
+  --artifact-value: #0d0b10;
+}
+
 /* Report generating overlay — graphic + message */
 @keyframes beauty-loading-spin {
   to {
@@ -159,6 +172,19 @@ body {
     transform: scale(1.08);
   }
 }
+@keyframes beauty-start-dots-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.beauty-start-dot {
+  animation: beauty-start-dots-pulse 1.2s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beauty-start-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
 .beauty-loading-overlay {
   position: fixed;
   inset: 0;
@@ -167,6 +193,7 @@ body {
   align-items: center;
   justify-content: center;
   background: rgba(5, 8, 20, 0.85);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 .beauty-loading-content {

@@ -10,7 +10,7 @@ import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { saveReportAndConfirm } from "@/lib/report-store";
 import { validateEngineBody } from "@/lib/validate-engine-body";
-import { getArchetypeOrFallback } from "@/src/ligs/archetypes/contract";
+import { getArchetypeOrFallback, FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import { scanForbidden, redactForbidden } from "@/lib/engine/constraintGate";
 import {
   getIdempotentResult,
@@ -108,7 +108,7 @@ export function buildReportGenerationPrompt(
   archetype?: string,
   birthContext?: unknown
 ): string {
-  const arch = (archetype ?? "").trim() || "Stabiliora";
+  const arch = (archetype ?? "").trim() || FALLBACK_PRIMARY_ARCHETYPE;
   const contract = getArchetypeOrFallback(arch);
   const v = contract.voice;
 

@@ -3,6 +3,7 @@ import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { stripeTestModeRequired } from "@/lib/runtime-mode";
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
@@ -12,6 +13,11 @@ export async function POST(request: Request) {
   const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
   if (!webhookSecret || !secretKey) {
     return errorResponse(500, "STRIPE_NOT_CONFIGURED", requestId);
+  }
+
+  if (stripeTestModeRequired && secretKey.startsWith("sk_live_")) {
+    log("error", "stripe_live_key_in_non_prod", { requestId });
+    return errorResponse(500, "STRIPE_LIVE_KEY_NOT_ALLOWED_IN_DEV", requestId);
   }
 
   const rawBody = await request.text();
@@ -31,6 +37,13 @@ export async function POST(request: Request) {
 
   const session = event.data.object as Stripe.Checkout.Session;
   const reportId = typeof session.metadata?.reportId === "string" ? session.metadata.reportId.trim() : "";
+  const prePurchase = session.metadata?.prePurchase === "1";
+
+  if (prePurchase) {
+    log("info", "purchase_complete", { requestId, type: "pre_purchase" });
+    return successResponse(200, { received: true }, requestId);
+  }
+
   const email = typeof session.customer_details?.email === "string" ? session.customer_details.email.trim() : "";
 
   if (!reportId) {

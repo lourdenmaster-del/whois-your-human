@@ -15,7 +15,7 @@ import {
   resolveSecondaryArchetype,
   buildTriangulatedImagePrompt,
 } from "@/src/ligs/image/triangulatePrompt";
-import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import { LIGS_ARCHETYPES, FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
 import type { VectorZero } from "@/lib/vector-zero";
 import { errorResponse } from "@/lib/api-response";
@@ -206,7 +206,7 @@ export async function POST(req: Request) {
     const fullReport = reportData.full_report ?? "";
     const emotionalSnippet = reportData.emotional_snippet ?? "";
     const vectorZeroFromReport = reportData.vector_zero ?? vectorZero;
-    const archetypeName = extractArchetypeFromReport(fullReport) ?? "Stabiliora";
+    const archetypeName = extractArchetypeFromReport(fullReport) ?? FALLBACK_PRIMARY_ARCHETYPE;
     const archetypeVoiceBlock = buildArchetypeVoiceBlock(archetypeName);
     const phraseBankBlock = buildArchetypePhraseBankBlock(archetypeName);
 
@@ -359,7 +359,7 @@ export async function POST(req: Request) {
 
       const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
         ? archetypeName
-        : "Stabiliora") as LigsArchetype;
+        : FALLBACK_PRIMARY_ARCHETYPE) as LigsArchetype;
       const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
       const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
       const solarProfile = { sunLonDeg, twilightPhase };
@@ -683,7 +683,7 @@ export async function POST(req: Request) {
             (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as string;
           const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
             ? archetypeName
-            : "Stabiliora") as LigsArchetype;
+            : FALLBACK_PRIMARY_ARCHETYPE) as LigsArchetype;
           const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
           const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
           const descriptor = getMarketingDescriptor(archetypeName);

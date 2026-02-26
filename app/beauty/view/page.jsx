@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import LigsFooter from "@/components/LigsFooter";
 import BeautyViewClient from "./BeautyViewClient";
+import { log } from "@/lib/log";
 
 async function getOrigin() {
   if (process.env.NEXT_PUBLIC_VERCEL_URL) {
@@ -22,22 +23,34 @@ async function getOrigin() {
 }
 
 export async function generateMetadata({ searchParams }) {
-  const resolved = typeof searchParams?.then === "function" ? await searchParams : searchParams;
-  const reportId = resolved?.reportId != null
-    ? (Array.isArray(resolved.reportId) ? resolved.reportId[0] : resolved.reportId)
-    : null;
-
-  if (!reportId) {
-    return { title: "Light Identity Report" };
+  let requestId = "no-request-id";
+  try {
+    const h = await headers();
+    requestId = h.get("x-request-id") ?? h.get("x-vercel-id") ?? requestId;
+  } catch {
+    // ignore
   }
-
-  const origin = await getOrigin();
-  if (!origin) {
-    return { title: "Light Identity Report" };
-  }
+  log("info", "ssr_metadata", { route: "/beauty/view", requestId, timestamp: new Date().toISOString() });
 
   let profile = null;
+  let origin = null;
+  let reportId = null;
+
   try {
+    const resolved = typeof searchParams?.then === "function" ? await searchParams : searchParams;
+    reportId = resolved?.reportId != null
+      ? (Array.isArray(resolved.reportId) ? resolved.reportId[0] : resolved.reportId)
+      : null;
+
+    if (!reportId) {
+      return { title: "Light Identity Report" };
+    }
+
+    origin = await getOrigin();
+    if (!origin) {
+      return { title: "Light Identity Report" };
+    }
+
     const res = await fetch(`${origin}/api/beauty/${encodeURIComponent(reportId)}`, {
       cache: "no-store",
     });
@@ -87,7 +100,7 @@ export default function BeautyViewPage() {
   return (
     <>
       <Suspense fallback={
-        <main className="beauty-theme min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+        <main className="beauty-theme beauty-page min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24" style={{ background: "var(--beauty-cream, #fdf8f5)" }}>
           <p className="beauty-body beauty-text-muted">Loading…</p>
         </main>
       }>

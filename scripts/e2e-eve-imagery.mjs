@@ -138,13 +138,13 @@ async function main() {
   console.log("\n4. Fetching report and beauty profile for URLs...\n");
   const reportRes = await fetch(`${baseUrl}/api/report/${reportId}`);
   const reportData = reportRes.ok ? await reportRes.json() : null;
-  const beautyRes = await fetch(`${baseUrl}/api/report/${reportId}/beauty`);
+  const beautyRes = await fetch(`${baseUrl}/api/beauty/${reportId}`);
   const beautyData = beautyRes.ok ? await beautyRes.json() : null;
 
   console.log("--- Blob / API URLs and storage paths ---\n");
 
   const reportApiUrl = `${baseUrl}/api/report/${reportId}`;
-  const beautyApiUrl = `${baseUrl}/api/report/${reportId}/beauty`;
+  const beautyApiUrl = `${baseUrl}/api/beauty/${reportId}`;
 
   console.log("Full LIGS report:");
   console.log("  API URL (content):", reportApiUrl);

@@ -6,6 +6,22 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
+## 0. Imagery source of truth
+
+**Rule:** Final imagery is determined by **engine output + style pipeline**, not ad-hoc UI defaults.
+
+| Source | When used | Role |
+|--------|-----------|------|
+| **Engine output** | When present | `primaryArchetype` (from solar/report), `secondaryArchetype`, `voiceProfile` drive imagery |
+| **Profile** | API calls (image/generate, compose) | `profile.ligs.primary_archetype`, `profile.ligs.secondary_archetype` from caller |
+| **Style layer** | Always | `src/ligs/archetypes/contract.ts` + `buildImagePromptSpec` / `buildTriangulatedImagePrompt` determine visual grammar |
+| **FALLBACK_PRIMARY_ARCHETYPE** | Only when engine/profile archetype missing | `contract.ts`; used by API routes, minimal-profile, LigsStudio, ShareCard |
+| **DEFAULT_PROFILE** | LigsStudio fresh session | `LigsStudio.tsx`; UI default when no stored state |
+
+**Precedence:** Engine (primary + secondary + voiceProfile) > Profile > FALLBACK_PRIMARY_ARCHETYPE. E.V.E. affects copy/overlay/descriptors only; visuals come from archetype contract + triangulation. Guardrail test: `engineResultPromptGuardrail.test.ts`.
+
+---
+
 ## 1. Front-end architecture
 
 ### 1.1 App structure (App Router)
@@ -44,7 +60,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `LightIdentityForm` | `components/LightIdentityForm.jsx` | Shared form: name, birth date/time, location, email; optional dev defaults; `initialFormData` prop for restored/saved values; `hideSubmitButton` to hide built-in button (parent controls CTA); `onFormDataChange` for form state sync |
 | `PayUnlockButton` | `components/PayUnlockButton.tsx` | POST `/api/stripe/create-checkout-session` with `{ reportId }`; on success redirects to Stripe Checkout (`session.url`); on 404/BEAUTY_PROFILE_NOT_FOUND shows friendly error. Disables button while pending; shows "Stripe test mode". Used when reportId exists (form submit or restored via landing-storage). |
 | `StaticButton` | `components/StaticButton.jsx` | Disabled placeholder button when `lastFormData` is missing (e.g. user arrived via URL). Label "Preview & Pay to Unlock"; tooltip "Generate a report first to unlock". |
-| `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples** first (always, EXEMPLAR_CARDS, id="examples"); then **Previous Light Identity Reports** only when blob previews non-empty. Uses `fetchBlobPreviews`. Same card layout for both. Props: `maxCards`, `maxPreviews`, `useBlob`, `clearSelectionTrigger`, `initialCards`. |
+| `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples** first (always): 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` (manifest URLs) or fallback `/exemplars/{archetype}.png` or neutral placeholder; text from `manifest.marketingDescriptor` or `getMarketingDescriptor(archetype)`. Responsive grid: 1 col mobile, 2 col sm, 3 col md, 4 col lg. Then **Previous Light Identity Reports** when blob previews non-empty. Props: `maxCards`, `maxPreviews`, `useBlob`, `exemplarVersion`, `clearSelectionTrigger`, `initialCards`. |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
 | `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
@@ -57,7 +73,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `TestModeLogger` | `components/TestModeLogger.tsx` | Client component; logs "TEST MODE" to console when `NEXT_PUBLIC_TEST_MODE=1` |
 | `LigsFooter` | `components/LigsFooter.jsx` | Footer for landing |
 | `VoiceProfileBuilder` | `components/VoiceProfileBuilder.jsx` | 5-step wizard: archetype, descriptors, banned words, claims policy, channel adapters; builds + validates VoiceProfile; stores in local state |
-| `LigsStudio` | `components/LigsStudio.tsx` | Internal studio: VoiceProfile JSON, purpose, variationKey, size, background source (string only); Generate Background, Compose, Full Pipeline, 6 Variations, Generate Marketing; previews, spec/validation JSON, copy payload/response. **LIVE Results panel:** composed image (if compose ran), background image (if generate ran), overlaySpec JSON (collapsible), Open Viewer link; no DRY placeholders. **DRY mode:** placeholder labeled "Layout preview only"; short note instead of nag. **DRY_RUN** (`NEXT_PUBLIC_DRY_RUN=1` or `allowExternalWrites=false`): Dry Run Preview panel, banner "DRY RUN: No request was sent" — no network. Compare mode: ArtifactCompare with ArchetypeArtifactCard; **Live Test:** fullName, birthDate, birthTime, birthLocation, "Run LIVE ONCE" → POST `/api/dev/live-once` → Latest Run Output. Marketing: Generate Marketing → MarketingHeader; Show Marketing Layer toggle. |
+| `LigsStudio` | `components/LigsStudio.tsx` | Internal studio: VoiceProfile JSON (default Fluxionis, purpose marketing_background), purpose, variationKey (exemplar-v1), size, background source; **Reset to Fluxionis** button; Generate Background, Compose, Full Pipeline, 6 Variations, Generate Marketing, **Save to Landing**; previews, spec/validation JSON, copy payload/response. Save to Landing persists composed image to Blob via POST /api/exemplars/save. **LIVE Results panel:** composed image (if compose ran), background image (if generate ran), overlaySpec JSON (collapsible), Open Viewer link; no DRY placeholders. **DRY mode:** placeholder labeled "Layout preview only"; short note instead of nag. **DRY_RUN** (`NEXT_PUBLIC_DRY_RUN=1` or `allowExternalWrites=false`): Dry Run Preview panel, banner "DRY RUN: No request was sent" — no network. Compare mode: ArtifactCompare with ArchetypeArtifactCard; **Live Test:** fullName, birthDate, birthTime, birthLocation, "Run LIVE ONCE" → POST `/api/dev/live-once` → Latest Run Output. Marketing: Generate Marketing → MarketingHeader; Show Marketing Layer toggle. |
 | `MarketingHeader` | `components/MarketingHeader.tsx` | Displays archetype label, tagline, hit points, CTA; optional logo mark + marketing background. Uses descriptor + assets from /api/marketing/generate. Graceful degradation when assets missing. |
 
 ### 1.3 Client utilities
@@ -69,7 +85,8 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/analytics.js` | `track(event, reportId?)` → POST `/api/analytics/event` |
 | `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
-| `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — deterministic exemplar cards for landing Examples gallery; `{ reportId, subjectName, emotionalSnippet, dominantArchetype, imageUrls }`; used when blob previews empty or fail |
+| `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
+| `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `exemplarPath`, `exemplarManifestPath` — Blob storage at `ligs-exemplars/{archetype}/{version}/` |
 | `lib/runtime-mode.ts` | `isProd`, `isDryRun`, `isTestMode`, `allowExternalWrites`, `allowBlobWrites`, `stripeTestModeRequired` — unified env guard; when `TEST_MODE=1`: dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1` |
 | `lib/dry-run-config.ts` | Client-side `DRY_RUN`, `FAKE_PAY`, `TEST_MODE` from `NEXT_PUBLIC_*` env vars |
 | `lib/preflight.ts` | `runPreflight()` — server-only checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used by `/api/dev/preflight` and `/api/dev/beauty-live-once`. |
@@ -90,13 +107,13 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `src/ligs/voice/index.ts` | Barrel exports |
 | `src/ligs/voice/prompt/buildPromptPack.ts` | `buildPromptPack()`, `toSystemPrompt()` — LLM prompt pack from VoiceProfile |
 | `src/ligs/voice/prompt/archetypeAnchors.ts` | `ARCHETYPE_ANCHORS`, `getArchetypeAnchor()` — 12 LIGS archetype definitions |
-| `src/ligs/archetypes/contract.ts` | Single source of truth: `LIGS_ARCHETYPES`, `ArchetypeContract`, `ArchetypeContractMap`, `ARCHETYPE_CONTRACT_MAP`, `NEUTRAL_FALLBACK`, `getArchetypeContract`, `getArchetypeOrFallback`. Canonical 12 archetypes with voice, visual, marketingDescriptor, marketingVisuals, copyPhrases. |
+| `src/ligs/archetypes/contract.ts` | Single source of truth: `LIGS_ARCHETYPES`, `FALLBACK_PRIMARY_ARCHETYPE`, `ArchetypeContract`, `ARCHETYPE_CONTRACT_MAP`, `NEUTRAL_FALLBACK`, `getArchetypeContract`, `getArchetypeOrFallback`. Canonical 12 archetypes with voice, visual, marketingDescriptor, marketingVisuals, copyPhrases. Imagery fallback when engine output missing. |
 | `src/ligs/archetypes/adapters.ts` | Compatibility adapters: `getArchetypeVisualMapShape`, `getArchetypeVoiceAnchorShape`, `getMarketingDescriptor`, `getOverlayCopyBank`, `getMarketingVisuals`, `getVisualMapRecord`, `getVoiceAnchorRecord`, `getOverlayCopyRecord`, `getVisualParamsOrFallback`. Legacy `archetype-visual-map.ts`, `archetypeAnchors.ts`, `archetype-copy-map.ts` now derive from these adapters (thin re-exports); DO NOT EDIT headers point to contract. |
 | `src/ligs/voice/prompt/selfCheck.ts` | `buildSelfCheckRubric()`, `formatSelfCheckBlock()` — pre-final checklist |
 | `src/ligs/voice/validate/` | Post-generation validation: `validateVoiceOutput()`, banned words, claims, cadence, formatting, lexicon, channel structure |
 | `src/ligs/image/schema.ts` | `ImagePromptSpec` Zod schema: purpose, style (palette/materials arrays, texture_level/contrast_level enums), composition (symmetry/negative_space/flow_lines enums), constraints (no_text, no_logos, no_faces, no_figures, no_symbols, no_astrology, avoid_busy_textures, safety_notes?), output (aspectRatio, size "1024"|"1536", count 1–4), prompt, variation (variationId, motifs, randomnessLevel) |
 | `src/ligs/image/buildImagePromptSpec.ts` | `buildImagePromptSpec(profile, options)` — triangulated prompts; optional `solarProfile`, `twilightPhase`. Marketing purposes (marketing_background, marketing_overlay, share_card) route to buildTriangulatedMarketingPrompt; marketing_logo_mark uses buildLogoMarkPrompt; `NEGATIVE_EXCLUSIONS` exported |
-| `src/ligs/image/triangulatePrompt.ts` | `getPrimaryArchetypeFromSolarLongitude`, `resolveSecondaryArchetype`, `buildTriangulatedImagePrompt` — 3-stage coherence: primary (solar anchor, max 2 atoms) + secondary (texture/motion/contrast only, max 1 atom, capped 35% of primary) → resolved block (single palette/structure from primary). Modes: variation, signature, marketing_background, marketing_overlay, share_card. Twilight modulation. |
+| `src/ligs/image/triangulatePrompt.ts` | `getPrimaryArchetypeFromSolarLongitude`, `resolveSecondaryArchetype`, `buildTriangulatedImagePrompt` — 3-stage coherence: primary (solar anchor, max 2 atoms) + secondary (texture/motion/contrast only, max 1 atom, capped 35% of primary) → resolved block (single palette/structure from primary). Modes: variation, signature, marketing_background, marketing_overlay, share_card. Twilight modulation. **Tuning:** marketing_background archetype-aware mode (high-energy → "premium negative space, high-clarity field"); Ignispectrum secondary → Vectoris; marketing_background twilight default "day"; contract.visual.abstractPhysicalCues for archetype-native field line. |
 | `src/ligs/image/buildArchetypeVisualVoice.ts` | `buildArchetypeVisualVoiceSpec(archetype, { mode, entropy?, seed? })` — semi-living archetype visuals: fixed spine from voice contract + seeded variability from phrase banks; mode: exemplar \| variation \| signature |
 | `src/ligs/image/validateImagePromptSpec.ts` | Validates spec (required constraints true, negative contains exclusions, positive has no disallowed tokens); pass/score/issues; score 100 − 25×errors − 5×warnings |
 | `src/ligs/voice/api/generate-request-schema.ts` | Zod schema for POST /api/voice/generate body; `parseGenerateVoiceRequest()`, `GenerateVoiceRequest` |
@@ -112,7 +129,7 @@ See **docs/LIGS-VOICE-ENGINE-SPEC.md** for the full spec.
 
 - **Tailwind** (PostCSS) + `app/globals.css`
 - **Fonts:** system sans stack (root), system serif (beauty); no Google Fonts (build-safe offline/sandbox)
-- **Public:** `public/` (e.g. `signatures/beauty-background.png`, `signatures/beauty-hero.png`, `exemplars/*.png`, `favicon.ico`, etc.)
+- **Public:** `public/` (e.g. `signatures/beauty-background.png`, `signatures/beauty-hero.png`, `exemplars/*.png`, `favicon.ico`, `brand/ligs-mark-primary.png` global logo at `/brand/ligs-mark-primary.png`, etc.)
 
 ---
 
@@ -135,6 +152,9 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | POST | `/api/beauty/dry-run` | Simulates Beauty flow. Body `birthData`, `dryRun`. Calls `POST /api/engine/generate` with `dryRun: true`; saves BeautyProfileV1 to Blob via `saveBeautyProfileV1` (when `BLOB_READ_WRITE_TOKEN` set) so previews and `/beauty/view` work locally for $0. Returns `{ reportId, beautyProfile, checkout }`. No Stripe call. |
 | GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; enriches marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl from Blob; 404 if not found. |
 | GET | `/api/keepers/[reportId]` | Returns keeper manifest JSON from `ligs-keepers/{reportId}.json`. Query `?dry=1` loads from `ligs-keepers-dry/` for landing validation without spend. 404 when not found. Used by `/beauty?keeperReportId=X` for featured keeper hero. |
+| GET | `/api/exemplars` | Query `?version=v1`. Returns list of exemplar manifests for all 12 archetypes that exist in Blob. Used by landing Examples section. |
+| POST | `/api/exemplars/generate` | Body: `{ archetype, mode: "dry"|"live", version: "v1" }`. Generates exemplar pack: marketing_background + share_card (LIVE only), exemplar_card (compose, always). Saves to `ligs-exemplars/{archetype}/{version}/`. Stable idempotency keys: `exemplar-{archetype}-{version}-marketing_background`, `-share_card`. |
+| POST | `/api/exemplars/save` | Body: `{ archetype, version: "v1", exemplarCardB64, overlay? }`. Saves composed PNG to Blob, updates manifest. LigsStudio "Save to Landing" button. No extra generation. |
 
 ### 2.3 Report storage API
 
@@ -170,14 +190,14 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | POST | `/api/image/generate` | Body: `profile`, `purpose`, `image`, `variationKey?`, `archetype?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/image-generate/{key}.json` if exists (no provider call). Zod strict. buildImagePromptSpec → validateImagePromptSpec. LRU cache (max 200) + idempotency store. On success stores to idempotency when key present. ALLOW_EXTERNAL_WRITES server-only. Denylist pass. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit }`. |
-| POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?` (default square_card_v1), `output?` (size 1024|1536), `variationKey?`, `overlaySpec?`. If `overlaySpec` provided: validate and use directly (no regeneration). Else: generateOverlaySpec → validateOverlaySpec; 400 OVERLAY_SPEC_INVALID if fail. ALLOW_EXTERNAL_WRITES: when false, DRY_RUN (overlaySpec, overlayValidation, no image). When true: sharp compose (background + logo + text overlay + CTA chip) → PNG. Logo: BRAND_LOGO_PATH if readable; else spec-driven monogram "(L)" SVG (createMonogramLogoSvg from overlaySpec.styleTokens.logoStyle) when ENABLE_PLACEHOLDER_LOGO=true; else 400 BRAND_LOGO_REQUIRED. LigsStudio LIVE sends overlaySpec (from DRY preview or buildOverlaySpecWithCopy) so output matches DRY. Returns `{ requestId, dryRun, logoUsed?, overlaySpec, overlayValidation, image? }`. |
+| POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?` (default square_card_v1), `output?` (size 1024|1536), `variationKey?`, `overlaySpec?`. If `overlaySpec` provided: validate and use directly (no regeneration). Else: generateOverlaySpec → validateOverlaySpec; 400 OVERLAY_SPEC_INVALID if fail. ALLOW_EXTERNAL_WRITES: when false, DRY_RUN (overlaySpec, overlayValidation, no image). When true: sharp compose (background + logo + text overlay + CTA chip) → PNG. Logo: always `GLOBAL_LOGO_PATH` (`/brand/ligs-mark-primary.png`) with bottom-left placement (6% padding, 13% width, opacity 0.9); else "(L)" SVG when ENABLE_PLACEHOLDER_LOGO=true and file missing; else 400 BRAND_LOGO_REQUIRED. LigsStudio LIVE sends overlaySpec (from DRY preview or buildOverlaySpecWithCopy) so output matches DRY. Returns `{ requestId, dryRun, logoUsed?, overlaySpec, overlayValidation, image? }`. |
 | POST | `/api/generate-image` | Body `prompt`, optional `reportId`, `slug`. If `reportId` + slug and existing Blob image URL → return it. Else DALL·E 3 → optional save to Blob (`saveImageToBlob`) → return URL. Uses `OPENAI_API_KEY`. |
 
 ### 2.8 LIGS Studio
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| GET | `/api/ligs/status` | Returns `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }` for LIGS Studio Warning Lights. No auth. |
+| GET | `/api/ligs/status` | Returns `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }` for LIGS Studio Warning Lights. `logoConfigured=true` when BRAND_LOGO_PATH readable or when `public/brand/ligs-mark-primary.png` exists. No auth. |
 
 ### 2.9 Dev (non-production only)
 
@@ -217,8 +237,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `ALLOW_FORCE_LIVE` | `/api/engine/generate` | `"true"` = honor header `X-Force-Live: 1` to bypass dry-run. Default false; Force-Live cannot accidentally bypass dry-run when unset. |
 | `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
 | `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | `BeautyLandingClient.jsx` | `"1"` = show LIVE TEST RUN section on `/beauty?dev=1` even when NODE_ENV=production (Vercel Preview). |
-| `BRAND_LOGO_PATH` | `/api/image/compose`, `/api/ligs/status` | Path to brand logo image for compositing. Required for live compose unless `ENABLE_PLACEHOLDER_LOGO=true`. |
-| `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when BRAND_LOGO_PATH missing. Default false. Demo-safe. |
+| *(removed)* `BRAND_LOGO_PATH` | — | No longer used. Compose always uses `GLOBAL_LOGO_PATH` from `lib/brand.ts`. |
+| `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when global logo file missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
 | `STRIPE_SECRET_KEY` | `/api/stripe/create-checkout-session`, `/api/stripe/webhook` | Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | `/api/stripe/webhook` | Webhook signature verification |
@@ -287,7 +307,7 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 |---------|-----|
 | **OpenAI** | GPT-4o (report, image prompts, vector zero, E.V.E. filter), DALL·E 3 (images) |
 | **Wikimedia/Wikipedia** | On-this-day API (api.wikimedia.org, fallback en.wikipedia.org REST) — factual world history context for report prompts; free, no API key; 24h cache |
-| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json` |
+| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json`, exemplars `ligs-exemplars/{archetype}/{version}/{slug}.png` and `manifest.json` |
 | **Stripe** | Checkout Session, webhook `checkout.session.completed` |
 | **Resend or SendGrid** | Post-purchase email with view link and optional image |
 
@@ -322,6 +342,66 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑02‑20 (Imagery source of truth)
+
+**Imagery source of truth:** Engine output + style pipeline; no UI overrides. Added `FALLBACK_PRIMARY_ARCHETYPE` to contract.ts; replaced hardcoded "Stabiliora" in engine route, engine/generate, marketing/visuals, exemplars/generate, minimal-profile, LigsStudio, ShareCard. E.V.E. affects copy/voice only; visuals from contract + buildTriangulatedImagePrompt. Guardrail test `engineResultPromptGuardrail.test.ts`: primary=Fluxionis, secondary=Structoris; asserts both influences, twilight=day, no crisp drift.
+
+## Verification Log – 2026‑02‑20 (Studio Fluxionis archetype)
+
+**Studio moved to Fluxionis (final archetype):** DEFAULT_PROFILE.primary_archetype = "Fluxionis"; descriptors = ["flow", "adapt", "evolve", "fluent"]. Both Reset buttons now "Reset to Fluxionis". Fluxionis contract: mood fluid/adaptive/continuous motion/graceful change; palette oceanic teal/violet/soft ember accents; lighting soft with moving highlights/gentle caustic-like diffusion; layout flowing curves/wavefields/laminar streams; abstractPhysicalCues added. Fluxionis negative additions: busy noise, splashy paint, literal water, fantasy elements, rainbow. NOT high-energy. printFluxionisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Innovaris archetype)
+
+**Studio moved to Innovaris:** DEFAULT_PROFILE.primary_archetype = "Innovaris"; descriptors = ["innovate", "fresh", "breakthrough", "reimagine"]. Both Reset buttons now "Reset to Innovaris". Innovaris contract: mood inventive/exploratory/fresh/surprising-but-coherent; palette tempered brights/teal/violet/apricot hints; lighting clean with playful highlights; layout modular experimentation/gentle asymmetry/novel forms; abstractPhysicalCues added; contrast medium (NOT high-energy). Innovaris negative additions: tech HUD, circuitry, cyberpunk, neon. printInnovarisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Structoris archetype)
+
+**Studio moved to Structoris:** DEFAULT_PROFILE.primary_archetype = "Structoris"; descriptors = ["structure", "order", "architecture", "logic"]. Both Reset buttons now "Reset to Structoris". Structoris contract: mood architectural/grounded/structural integrity/engineered calm; palette stone/graphite/warm gray/off-white; lighting directional but soft; layout grid/beams/layered planes/modular blocks; abstractPhysicalCues added. Structoris negative additions: blueprint text, technical labels, UI overlay, dimensions. NOT high-energy. printStructorisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Vectoris archetype)
+
+**Studio moved to Vectoris:** DEFAULT_PROFILE.primary_archetype = "Vectoris"; descriptors = ["directional", "momentum", "path", "forward"]. Both Reset buttons now "Reset to Vectoris". Vectoris contract: mood directional/resolved/oriented/forward-clarity; palette cool neutrals + sharp violet/azure accent; lighting clear/crisp/slight edge highlights; layout strong directional lines/diagonal drift/clear pathing; abstractPhysicalCues added. Vectoris negative additions: HUD overlay, arrows, icons, typography. NOT high-energy (contrast medium). printVectorisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Obscurion archetype)
+
+**Studio moved to Obscurion:** DEFAULT_PROFILE.primary_archetype = "Obscurion"; descriptors = ["obscure", "layered", "enigmatic", "depth"]. Both Reset buttons now "Reset to Obscurion". Obscurion contract: mood concealed/velvety/enigmatic/depth-with-structure (distinct from Tenebris nocturne); palette deep smoke/blackened violet/muted indigo/graphite; lighting chiaroscuro-lite/controlled shadows/thin rim light; layout asymmetry with hidden axis; abstractPhysicalCues added. Obscurion negative additions: horror, gothic fantasy, occult symbols, skulls, bats, spooky. NOT high-energy (contrast medium). printObscurionPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Aequilibris archetype)
+
+**Studio moved to Aequilibris:** DEFAULT_PROFILE.primary_archetype = "Aequilibris"; descriptors = ["balance", "harmony", "equilibrium", "elegant"]. Both Reset buttons now "Reset to Aequilibris". Aequilibris contract: mood poised/harmonious/balanced tension; palette cool warm neutrals/pearl/soft stone/faint gold; lighting even with subtle specular accents; layout bilateral symmetry/gentle counterweights; flow_lines subtle arcs; abstractPhysicalCues added. Aequilibris negative additions: spa look, bland, sterile generic. NOT high-energy. printAequilibrisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Precisura archetype)
+
+**Studio moved to Precisura:** DEFAULT_PROFILE.primary_archetype = "Precisura"; descriptors = ["precise", "exact", "measured", "clear"]. Both Reset buttons now "Reset to Precisura". Precisura contract: mood crisp/exact/clean/surgical clarity; palette cool whites/graphite/muted steel/subtle violet accent; lighting clear/controlled/sharp edge definition; abstractPhysicalCues added. Precisura negative additions: messy gradients, painterly chaos, tech HUD, glare. Precisura NOT high-energy. printPrecisuraPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Radiantis archetype)
+
+**Studio moved to Radiantis:** DEFAULT_PROFILE.primary_archetype = "Radiantis"; descriptors = ["luminous", "clarity", "radiance", "uplifting"]. Both Reset buttons now "Reset to Radiantis". Radiantis contract: mood luminous/clear/uplifting/clean energy; palette bright warm whites/sunlit gold/soft apricot/airy pastels; lighting high-key/soft bloom/clean highlights; abstractPhysicalCues added. Radiantis negative additions: lens flares, glitter, neon, sci-fi, cheesy, inspirational stock, stock photo. Radiantis NOT high-energy (contrast medium, mood without vivid/energetic). printRadiantisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Studio Tenebris archetype)
+
+**Studio moved to Tenebris:** DEFAULT_PROFILE.primary_archetype = "Tenebris"; descriptors = ["shadow", "depth", "mystery", "quiet"]. Both Reset buttons now "Reset to Tenebris". Tenebris contract: full voice + visual + marketingDescriptor + marketingVisuals + copyPhrases; abstractPhysicalCues = "soft depth gradient, gentle edge falloff, restrained luminosity, premium nocturne field". Tenebris negative additions: spooky, scary, skulls, horror, occult symbols, gothic fantasy. Tenebris NOT high-energy (contrast medium, mood quiet/deep). printTenebrisPrompt.test.ts added.
+
+## Verification Log – 2026‑02‑20 (Ignispectrum marketing_background tuning)
+
+**High-energy archetype tuning (marketing_background only):** (1) Mode directive archetype-aware: when primary contrast_level===high or mood includes energetic/vivid/intense → "full-width, premium negative space, high-clarity field" instead of "soft". (2) resolveSecondaryArchetype: Ignispectrum+null/same → Vectoris (reinforce ignition); calm primaries keep next. (3) marketing_background + share_card twilightPhase default "day" (was nautical); buildImagePromptSpec + buildTriangulatedMarketingPrompt. (4) contract.visual.abstractPhysicalCues (optional): Ignispectrum has "white-hot core gradient, directional energy shear, prismatic heat haze"; added to resolved block as "• Field:" for marketing modes. (5) Motion line: high-energy primary → "directional momentum, crisp drift"; calm → "smooth transitions" or "directional flow".
+
+## Verification Log – 2026‑02‑20 (Examples: 12 archetype slots)
+
+**Landing Examples:** Now shows all 12 archetypes in `LIGS_ARCHETYPES` order. Responsive grid: 1 col mobile, 2 col sm, 3 col md, 4 col lg. Data: GET `/api/exemplars?version=v1` → manifest per archetype; image from `manifest.urls.exemplarCard` else `/exemplars/{archetype}.png` else neutral placeholder (no broken img). Text from `manifest.marketingDescriptor` else `getMarketingDescriptor(archetype)`. `ExemplarSlot` uses `onError` fallback for images.
+
+## Verification Log – 2026‑02‑26 (Exemplars save from Studio)
+
+**POST /api/exemplars/save:** Saves composed image only. Input: archetype, version, exemplarCardB64, optional overlay (headline, subhead, cta). Saves to `ligs-exemplars/{archetype}/v1/exemplar_card.png` and manifest. LigsStudio "Save to Landing" button enabled when compose result exists. Refresh /beauty to see in Examples.
+
+## Verification Log – 2026‑02‑26 (Global logo + Studio "Logo: OK")
+
+**Global logo (canonical):** `GLOBAL_LOGO_PATH = "/brand/ligs-mark-primary.png"` in `lib/brand.ts` — single source of truth. Served from `public/brand/ligs-mark-primary.png`. GET `/api/ligs/status` checks that file exists; `logoConfigured=true` when reachable. LigsStudio displays "Logo: OK" or "Logo: missing". POST `/api/image/compose` always uses global logo (or "(L)" placeholder when `ENABLE_PLACEHOLDER_LOGO=true`). Compose overlay: always bottom-left (6% padding, 13% width, opacity 0.9, no shadow/glow). BRAND_LOGO_PATH env removed.
+
+## Verification Log – 2026‑02‑26 (Exemplar Pack v1)
+
+**Exemplar Pack v1:** POST `/api/exemplars/generate` (body: `{ archetype, mode: "dry"|"live", version: "v1" }`) generates marketing_background + share_card (LIVE only), exemplar_card (compose always). Saves to `ligs-exemplars/{archetype}/{version}/`. Stable idempotency: `exemplar-{archetype}-{version}-marketing_background`, `-share_card`. GET `/api/exemplars?version=v1` returns list of manifests. `lib/exemplar-store.ts` for Blob storage. `LandingPreviews` fetches exemplars when available, fallback to `EXEMPLAR_CARDS`. Global logo: `public/brand/ligs-mark-primary.png`; compose uses it when BRAND_LOGO_PATH unset.
 
 ## Verification Log – 2026‑02‑20 (Keeper exact prompts + DRY prefix + live-run checklist)
 
@@ -383,7 +463,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 **Triangulation hardening:** Secondary block capped at 35% of primary chars (truncate at line boundary). Primary max 2 atoms, secondary max 1 atom. `buildCoherenceImageBlock` outputs resolved block: single palette/structure (primary wins), secondary contributes only texture/motion/contrast. New modes: marketing_background, marketing_overlay, share_card (entropy 0.6/0.8, negative-space guidance).
 
-**Marketing via triangulation:** `lib/marketing/visuals.ts` — `buildTriangulatedMarketingPrompt(identity, mode)` wraps buildTriangulatedImagePrompt; identity: primaryArchetype, secondaryArchetype?, solarProfile?, twilightPhase?, seed?. buildImagePromptSpec routes marketing_background, marketing_overlay, share_card to triangulation; same NEGATIVE_EXCLUSIONS. Removed buildMarketingBackgroundPrompt.
+**Marketing via triangulation:** `lib/marketing/visuals.ts` — `buildTriangulatedMarketingPrompt(identity, mode)` wraps buildTriangulatedImagePrompt; identity: primaryArchetype, secondaryArchetype?, solarProfile?, twilightPhase?, seed?. buildImagePromptSpec routes marketing_background, marketing_overlay, share_card to triangulation; same NEGATIVE_EXCLUSIONS. Removed buildMarketingBackgroundPrompt. Tenebris adds archetype-specific negatives (spooky, scary, skulls, horror, occult symbols, gothic fantasy). Radiantis adds (lens flares, glitter, neon, sci-fi, cheesy, inspirational stock, stock photo). Precisura adds (messy gradients, painterly chaos, tech HUD, glare). Aequilibris adds (spa look, bland, sterile generic). Obscurion adds (horror, gothic fantasy, occult symbols, skulls, bats, spooky). Vectoris adds (HUD overlay, arrows, icons, typography). Structoris adds (blueprint text, technical labels, UI overlay, dimensions). Innovaris adds (tech HUD, circuitry, cyberpunk, neon). Fluxionis adds (busy noise, splashy paint, literal water, fantasy elements, rainbow).
 
 ## Verification Log – 2026‑02‑25 (Hard cutover: single Beauty landing)
 
@@ -567,7 +647,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 **Glyph Field Renderer prompt builder:** Added `lib/marketing/glyphField.ts` with `buildGlyphFieldPrompt(archetype, contrastDelta?)` for the canonical "(L)" glyph. SECTION 1 (fixed glyph, topology, legibility); SECTION 2 (archetype field distortion from contract: palette, mood, materials, lighting, flow_lines, marketingVisuals). Deviation Budget: HIGH for expressive archetypes (emotional_temperature high or flow_lines present), LOW for stable. Hard constraints: no extra text, no zodiac, no corporate badge, no creatures. `getGlyphFieldNegative()` for negative prompt. Unit tests in `lib/marketing/__tests__/glyphField.test.ts`. No API changes.
 
-**LIGS Studio Warning Lights:** Added GET `/api/ligs/status` returning `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }`. LigsStudio fetches on mount and displays Warning Lights: Mode (LIVE/DRY_RUN), Provider, Logo (brand/placeholder (L)/missing), Cache, Request, Error.
+**LIGS Studio Warning Lights:** Added GET `/api/ligs/status` returning `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }`. LigsStudio fetches on mount and displays Warning Lights: Mode (LIVE/DRY_RUN), Provider, Logo (OK/placeholder (L)/missing), Cache, Request, Error.
 
 **Placeholder logo for compose:** When BRAND_LOGO_PATH missing and ENABLE_PLACEHOLDER_LOGO=true, compose uses "(L)" SVG (system sans, bold, centered circle). Same placement (br, paddingPct, maxWidthPct). Response includes logoUsed: "brand"|"placeholder". Without placeholder: 400 BRAND_LOGO_REQUIRED. 3 new compose tests.
 
