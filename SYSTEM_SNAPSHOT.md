@@ -74,10 +74,11 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/dry-run-config.ts` | Client-side `DRY_RUN`, `FAKE_PAY`, `TEST_MODE` from `NEXT_PUBLIC_*` env vars |
 | `lib/preflight.ts` | `runPreflight()` — server-only checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used by `/api/dev/preflight` and `/api/dev/beauty-live-once`. |
 | `lib/ligs-studio-utils.ts` | `pickBackgroundSource(imageResult)` — extracts `{ url }` or `{ b64 }` from image/generate response (images[0], image.url, image.b64); `backgroundToInputString(bg)` — converts to URL or data URL string for Background input |
-| `lib/marketing/` | Marketing Descriptor (archetype→label, tagline, hitPoints, CTA), buildMarketingImagePrompts (logo mark + background), buildLogoMarkPrompt + buildMarketingBackgroundPrompt (visuals.ts), archetypeStyle mapping. Glyph field: buildGlyphFieldPrompt (glyphField.ts) for "(L)" glyph with archetype-driven field (color, material, lighting, flow; Deviation Budget HIGH/LOW). POST /api/marketing/generate, POST /api/marketing/visuals. See docs/MARKETING-LAYER.md. |
+| `lib/marketing/` | Marketing Descriptor (archetype→label, tagline, hitPoints, CTA), buildMarketingImagePrompts (logo mark), buildLogoMarkPrompt, buildTriangulatedMarketingPrompt (visuals.ts) — marketing_background/overlay/share_card use triangulation. Glyph field: buildGlyphFieldPrompt (glyphField.ts) for "(L)" glyph with archetype-driven field. POST /api/marketing/generate, POST /api/marketing/visuals. See docs/MARKETING-LAYER.md. |
 | `lib/history/onThisDay.ts` | `getOnThisDayContext(month, day, lang)` — fetches "on this day" from Wikimedia/Wikipedia API; 24h in-memory cache; curation (events, births, holidays, max 6 items). Used by beauty/submit to enrich birthContext. |
 | `lib/astronomy/computeSunMoonContext.ts` | `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — Sun/Moon horizontal coords, twilight phase, sunrise/sunset, day length, moon phase/illumination. Uses astronomy-engine only (no external APIs). beauty/submit attaches sun + moon to birthContext; engine buildBirthContextBlock injects concise Sun/Moon section. |
 | `lib/engine/constraintGate.ts` | `scanForbidden(text)` — scans full_report for forbidden terms (chakra, kabbalah, sacred geometry, etc.); `redactForbidden(text, keys)` — replaces matches with [removed]. Engine/generate runs one repair OpenAI pass when hits > 0; re-scan; if hits remain, redacts in dev. |
+| `lib/idempotency-store.ts` | Blob-backed idempotency at `ligs-runs/{route}/{idempotencyKey}.json`. `getIdempotentResult`, `setIdempotentResult`, `isValidIdempotencyKey`, `deriveIdempotencyKey` (deterministic sub-keys for marketing/share replays). Routes: engine-generate, engine, marketing-generate, image-generate. In-memory fallback when no Blob. |
 
 ### 1.5 Voice Profile (LIGS)
 
@@ -94,7 +95,9 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `src/ligs/voice/prompt/selfCheck.ts` | `buildSelfCheckRubric()`, `formatSelfCheckBlock()` — pre-final checklist |
 | `src/ligs/voice/validate/` | Post-generation validation: `validateVoiceOutput()`, banned words, claims, cadence, formatting, lexicon, channel structure |
 | `src/ligs/image/schema.ts` | `ImagePromptSpec` Zod schema: purpose, style (palette/materials arrays, texture_level/contrast_level enums), composition (symmetry/negative_space/flow_lines enums), constraints (no_text, no_logos, no_faces, no_figures, no_symbols, no_astrology, avoid_busy_textures, safety_notes?), output (aspectRatio, size "1024"|"1536", count 1–4), prompt, variation (variationId, motifs, randomnessLevel) |
-| `src/ligs/image/buildImagePromptSpec.ts` | `buildImagePromptSpec(profile, { purpose, aspectRatio?, size?, count?, archetype?, variationKey? })` — maps VoiceProfile + archetype to ImagePromptSpec; deterministic motifs from hash(profile.id + purpose + variationKey); strict exclusions in negative prompt |
+| `src/ligs/image/buildImagePromptSpec.ts` | `buildImagePromptSpec(profile, options)` — triangulated prompts; optional `solarProfile`, `twilightPhase`. Marketing purposes (marketing_background, marketing_overlay, share_card) route to buildTriangulatedMarketingPrompt; marketing_logo_mark uses buildLogoMarkPrompt; `NEGATIVE_EXCLUSIONS` exported |
+| `src/ligs/image/triangulatePrompt.ts` | `getPrimaryArchetypeFromSolarLongitude`, `resolveSecondaryArchetype`, `buildTriangulatedImagePrompt` — 3-stage coherence: primary (solar anchor, max 2 atoms) + secondary (texture/motion/contrast only, max 1 atom, capped 35% of primary) → resolved block (single palette/structure from primary). Modes: variation, signature, marketing_background, marketing_overlay, share_card. Twilight modulation. |
+| `src/ligs/image/buildArchetypeVisualVoice.ts` | `buildArchetypeVisualVoiceSpec(archetype, { mode, entropy?, seed? })` — semi-living archetype visuals: fixed spine from voice contract + seeded variability from phrase banks; mode: exemplar \| variation \| signature |
 | `src/ligs/image/validateImagePromptSpec.ts` | Validates spec (required constraints true, negative contains exclusions, positive has no disallowed tokens); pass/score/issues; score 100 − 25×errors − 5×warnings |
 | `src/ligs/voice/api/generate-request-schema.ts` | Zod schema for POST /api/voice/generate body; `parseGenerateVoiceRequest()`, `GenerateVoiceRequest` |
 | `src/ligs/marketing/schema.ts` | `MarketingOverlaySpec` Zod schema: id, version, created_at, ligs, purpose, output, templateId, copy (headline/subhead/cta/disclaimer), placement (safeArea, logo, textBlock), styleTokens (incl. optional logoStyle: text, weight, tracking, opacity, blur, glow, radius, fill, stroke, circleFill, circleStroke), constraints. `getLogoStyleWithDefaults()`, `LogoStyle` type. |
@@ -121,8 +124,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/engine/generate` | Report-only. Validates body. If dry run: mock report → `saveReportAndConfirm` (retry + verify). Else: OpenAI → full report, snippet → **Constraint Gate** (`scanForbidden`; if hits: one repair OpenAI call, else redact) → image prompts, vector zero → **saveReportAndConfirm** (retry on transient errors, verify by read-back). Returns `status: "ok"` only when write is confirmed; on storage failure returns 503 and does not return `reportId`. Non-production: `meta.forbiddenHitsDetected` when repair was triggered. Header `X-Force-Live: 1` bypasses `DRY_RUN` for dev live-once. Uses `OPENAI_API_KEY`. |
-| POST | `/api/engine` | E.V.E. pipeline. Validates body → internal fetch to `POST /api/engine/generate` (saves report) → fetch `GET /api/report/{reportId}` → OpenAI E.V.E. filter (full structured JSON: vector_zero, light_signature, archetype, deviations, corrective_vector, imagery_prompts) → `buildBeautyProfile` → `buildCondensedFullReport` for user-facing `fullReport` → `saveBeautyProfileV1`. Payload `imageUrls: []`; GET `/api/beauty/[reportId]` enriches from Blob. If `allowExternalWrites` and not `dryRun`: uses `imagery_prompts` from Beauty Profile, calls `POST /api/generate-image` × 3 for slugs → images saved to `ligs-images/{reportId}/{slug}.png`. Uses `OPENAI_API_KEY`, `VERCEL_URL`. |
+| POST | `/api/engine/generate` | Report-only. Validates body. Optional `idempotencyKey` (UUID): when present, returns stored result from `ligs-runs/engine-generate/{key}.json` if exists (no OpenAI). **X-Force-Live** gated: header `X-Force-Live: 1` honored only when `ALLOW_FORCE_LIVE=true` (default false). If dry run: mock report → `saveReportAndConfirm`. Else: OpenAI → full report, snippet → Constraint Gate → image prompts, vector zero → saveReportAndConfirm. On success stores to idempotency when key present. Uses `OPENAI_API_KEY`. |
+| POST | `/api/engine` | E.V.E. pipeline. Optional `idempotencyKey` (UUID): when present, returns stored result from `ligs-runs/engine/{key}.json` if exists (no OpenAI). Validates body → internal fetch to `POST /api/engine/generate` (passes idempotencyKey) → fetch `GET /api/report/{reportId}` → OpenAI E.V.E. filter → `buildBeautyProfile` → `saveBeautyProfileV1`. If `allowExternalWrites` and not `dryRun`: (1) `POST /api/generate-image` × 3 (signatures); (2) `POST /api/image/generate` for marketing_background + marketing_logo_mark (triangulated) → save to Blob; (3) compose marketing card (bg + logo + overlay) → marketing_card.png; (4) `POST /api/image/generate` for share_card (triangulated) → share_card.png. Persists marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl. Idempotency: skips regenerate if URLs exist in Blob; derived keys for cache. Logs `assets_manifest` after DRY and LIVE. Uses `OPENAI_API_KEY`, `VERCEL_URL`. |
 
 ### 2.2 Beauty API
 
@@ -130,7 +133,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 |--------|--------|------------------|
 | POST | `/api/beauty/create` | Rate limit 5/60s. Validates engine body → POST to `/api/engine` → returns `reportId`. Uses `VERCEL_URL`. |
 | POST | `/api/beauty/dry-run` | Simulates Beauty flow. Body `birthData`, `dryRun`. Calls `POST /api/engine/generate` with `dryRun: true`; saves BeautyProfileV1 to Blob via `saveBeautyProfileV1` (when `BLOB_READ_WRITE_TOKEN` set) so previews and `/beauty/view` work locally for $0. Returns `{ reportId, beautyProfile, checkout }`. No Stripe call. |
-| GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; 404 if not found. |
+| GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; enriches marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl from Blob; 404 if not found. |
+| GET | `/api/keepers/[reportId]` | Returns keeper manifest JSON from `ligs-keepers/{reportId}.json`. Query `?dry=1` loads from `ligs-keepers-dry/` for landing validation without spend. 404 when not found. Used by `/beauty?keeperReportId=X` for featured keeper hero. |
 
 ### 2.3 Report storage API
 
@@ -165,7 +169,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/image/generate` | Body: `profile` (VoiceProfile), `purpose` (3–100 chars), `image` (aspectRatio, size "1024"|"1536", count 1–4), `variationKey?` (max 200), `archetype?`. Zod strict. 400 IMAGE_REQUEST_INVALID for invalid body; 400 VOICE_PROFILE_INVALID for invalid profile. buildImagePromptSpec → validateImagePromptSpec; 400 IMAGE_SPEC_INVALID if fail. Deterministic LRU cache (max 200) via sha256(profile.id+version+purpose+aspectRatio+size+count+archetype+variationKey). ALLOW_EXTERNAL_WRITES server-only: when false, DRY_RUN (images [], providerUsed null). Denylist pass on prompts. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit }`. Logs requestId, profileId, archetype, purpose, size, count, score, pass, dryRun, providerUsed, cacheHit. |
+| POST | `/api/image/generate` | Body: `profile`, `purpose`, `image`, `variationKey?`, `archetype?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/image-generate/{key}.json` if exists (no provider call). Zod strict. buildImagePromptSpec → validateImagePromptSpec. LRU cache (max 200) + idempotency store. On success stores to idempotency when key present. ALLOW_EXTERNAL_WRITES server-only. Denylist pass. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit }`. |
 | POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?` (default square_card_v1), `output?` (size 1024|1536), `variationKey?`, `overlaySpec?`. If `overlaySpec` provided: validate and use directly (no regeneration). Else: generateOverlaySpec → validateOverlaySpec; 400 OVERLAY_SPEC_INVALID if fail. ALLOW_EXTERNAL_WRITES: when false, DRY_RUN (overlaySpec, overlayValidation, no image). When true: sharp compose (background + logo + text overlay + CTA chip) → PNG. Logo: BRAND_LOGO_PATH if readable; else spec-driven monogram "(L)" SVG (createMonogramLogoSvg from overlaySpec.styleTokens.logoStyle) when ENABLE_PLACEHOLDER_LOGO=true; else 400 BRAND_LOGO_REQUIRED. LigsStudio LIVE sends overlaySpec (from DRY preview or buildOverlaySpecWithCopy) so output matches DRY. Returns `{ requestId, dryRun, logoUsed?, overlaySpec, overlayValidation, image? }`. |
 | POST | `/api/generate-image` | Body `prompt`, optional `reportId`, `slug`. If `reportId` + slug and existing Blob image URL → return it. Else DALL·E 3 → optional save to Blob (`saveImageToBlob`) → return URL. Uses `OPENAI_API_KEY`. |
 
@@ -182,7 +186,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | POST | `/api/dev/live-once` | Dev-only. 403 when `NODE_ENV=production`. Rate limit: 1 request per server process (429 "LIVE_ONCE already used; restart dev server"). Body: `fullName`, `birthDate`, `birthTime`, `birthLocation`, `email?` (default `dev@example.com`). Forwards to `POST /api/engine/generate` with `X-Force-Live: 1` (bypasses `DRY_RUN`). Returns engine JSON. Used by LigsStudio "Live Test" button. Set `DEBUG_PROMPT_AUDIT=1` to log prompt audit in terminal. |
 | POST | `/api/dev/verify-saved` | Dev-only. 403 in production. Body: `{ reportId }`. UNSAVED: returns `ok:false, reason:unsaved`. Else calls `getReport`; returns `ok:true` with `reportFound`, `keys`, `full_report_length`, `blobKey` when found, else `ok:false, reason:not_found`. Used by LigsStudio "Verify saved to Blob" button. |
 | GET | `/api/dev/preflight` | Dev-only. 403 in production. Runs `runPreflight()` — checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used before live Beauty run. |
-| POST | `/api/dev/beauty-live-once` | Dev-only. 403 in production. Rate limit: 1 per server process. Runs preflight; if pass, POST `/api/beauty/submit` with `dryRun: false`. Full pipeline (report + E.V.E. + images) → Blob. Returns `{ reportId, subjectName, dominantArchetype, viewUrl }`. Studio "LIVE TEST RUN (save to blob)" button. |
+| POST | `/api/dev/beauty-live-once` | Dev-only. 403 in production. **Golden Run:** exactly one live run per browser session (cookie `beauty-live-once-key`); retries with same `idempotencyKey` allowed (returns cached). Body may include `idempotencyKey` (else auto-generated). Runs preflight; POST `/api/beauty/submit` with `dryRun: false`, `idempotencyKey`. Logs: idempotencyHit, cacheHit/Miss, imageCount. Returns `{ reportId, subjectName, dominantArchetype, viewUrl, meta }`. |
 | GET | `/api/dev/verify-report` | Dev-only. 403 in production. Query `?reportId=X`. Verifies Beauty Profile in Blob, image URLs, schemaVersion, prompts, archetype. When DRY_RUN=1, also requires marketingCardUrl (profile or ligs-images/{reportId}/marketing_card). Returns `{ ok, checks, imageUrls, marketingCardUrl?, summary }`. |
 | GET | `/api/dev/verify-marketing-card` | Dev-only. 403 in production. Query `?reportId=X`. Verifies marketing_card blob exists. Returns `{ ok, marketingCardUrl?, summary }`. |
 
@@ -190,7 +194,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/marketing/generate` | Body: `primary_archetype` (required), `variationKey?`, `contrastDelta?` (0–1). Returns `{ descriptor, assets, requestId, dryRun }`. Deterministic descriptor from archetype; when ALLOW_EXTERNAL_WRITES, generates logo mark + marketing background via image provider. Reuses pickBackgroundSource. DRY_RUN returns descriptor + empty assets. |
+| POST | `/api/marketing/generate` | Body: `primary_archetype`, `variationKey?`, `contrastDelta?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/marketing-generate/{key}.json` if exists. Uses **cached path**: calls `POST /api/image/generate` twice (purpose marketing_logo_mark, marketing_background) so LRU cache applies; no direct `generateImagesViaProvider`. Returns `{ descriptor, assets, requestId, dryRun }`. DRY_RUN returns descriptor + empty assets. |
 | POST | `/api/marketing/visuals` | Body: `primary_archetype` (string), `variationKey?`, `contrastDelta?` (default 0.15). Wrapper: calls POST /api/image/generate twice (purpose marketing_logo_mark, marketing_background). Returns `{ logoMark?, marketingBackground?, warnings? }`. Normalizes via pickBackgroundSource. Partial success; warnings describe failures. |
 
 ---
@@ -210,6 +214,9 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `DRY_RUN` | `/api/engine` (and script) | `"1"` = mock report, no OpenAI |
 | `ALLOW_EXTERNAL_WRITES_IN_DEV` | `lib/runtime-mode.ts` | `"1"` = allow Blob/OpenAI writes in dev (test image generation locally) |
 | `ALLOW_EXTERNAL_WRITES` | `/api/voice/generate`, `/api/image/generate`, `/api/image/compose` | `"true"` = real LLM/image calls; otherwise dry-run. Server-side only; never client-controlled. |
+| `ALLOW_FORCE_LIVE` | `/api/engine/generate` | `"true"` = honor header `X-Force-Live: 1` to bypass dry-run. Default false; Force-Live cannot accidentally bypass dry-run when unset. |
+| `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
+| `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | `BeautyLandingClient.jsx` | `"1"` = show LIVE TEST RUN section on `/beauty?dev=1` even when NODE_ENV=production (Vercel Preview). |
 | `BRAND_LOGO_PATH` | `/api/image/compose`, `/api/ligs/status` | Path to brand logo image for compositing. Required for live compose unless `ENABLE_PLACEHOLDER_LOGO=true`. |
 | `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when BRAND_LOGO_PATH missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
@@ -280,7 +287,7 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 |---------|-----|
 | **OpenAI** | GPT-4o (report, image prompts, vector zero, E.V.E. filter), DALL·E 3 (images) |
 | **Wikimedia/Wikipedia** | On-this-day API (api.wikimedia.org, fallback en.wikipedia.org REST) — factual world history context for report prompts; free, no API key; 24h cache |
-| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg` |
+| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json` |
 | **Stripe** | Checkout Session, webhook `checkout.session.completed` |
 | **Resend or SendGrid** | Post-purchase email with view link and optional image |
 
@@ -316,6 +323,42 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑02‑20 (Keeper exact prompts + DRY prefix + live-run checklist)
+
+**Exact provider prompts in keeper manifest:** Keeper now stores the EXACT strings sent to the provider (positive, negative, full concatenated). `image/generate` returns `providerPrompt: { positive, negative, full }`; engine captures these and never rebuilds via `buildImagePromptSpec`. Only writes keeper when we have actual provider prompts for all image assets. Signatures: full = `${positive} Avoid: ${negative}`.slice(0,4000); marketing/logo/share: full = `${positive} Avoid: ${negative}.`.slice(0,4000).
+
+**DRY keeper prefix:** `saveKeeperManifest(manifest, dryRun=true)` writes to `ligs-keepers-dry/{reportId}.json`. `loadKeeperManifest(reportId, dry=true)` reads from that prefix. GET `/api/keepers/[reportId]?dry=1` loads DRY keepers. Landing `/beauty?keeperReportId=X&dry=1` fetches DRY keeper for validation without spend. Engine DRY marketing block writes keeper to `ligs-keepers-dry/` after composing deterministic marketing card.
+
+**Live-run checklist (8 bullets):** See docs/LIVE-RUN-CHECKLIST.md.
+
+---
+
+## Verification Log – 2026‑02‑20 (Full cylinders: LIVE marketing + share card)
+
+**Step 1 – Marketing assets:** Engine calls POST `/api/image/generate` for `marketing_background` (16:9) and `marketing_logo_mark` (1:1). Both triangulated via `buildTriangulatedMarketingPrompt` → `buildTriangulatedImagePrompt`. Saves to `ligs-images/{reportId}/marketing_background.png` and `ligs-images/{reportId}/logo_mark.png`. Persists `marketingBackgroundUrl`, `logoMarkUrl`.
+
+**Step 2 – Compose marketing card:** Uses `marketingBackgroundUrl` + `logoMarkUrl` + `buildOverlaySpecWithCopy` → `composeMarketingCardToBuffer` → `ligs-images/{reportId}/marketing_card.png`. Persists `marketingCardUrl`.
+
+**Step 3 – Share card:** POST `/api/image/generate` (purpose share_card); saves to `ligs-images/{reportId}/share_card.png`; persists `shareCardUrl`.
+
+**Logo mark triangulation:** `marketing_logo_mark` now routes through `buildTriangulatedMarketingPrompt` (mode `marketing_logo_mark`) instead of `buildLogoMarkPrompt`.
+
+**Idempotency:** Checks `getImageUrlFromBlob` before each generation; skips if asset exists. `deriveIdempotencyKey` for marketing-bg, logo-mark, share-card. GET `/api/beauty/[reportId]` enriches all four URLs from Blob.
+
+**Keeper bundle:** On full-cylinders LIVE success, engine writes `ligs-keepers/{reportId}.json` (asset manifest: reportId, archetypes, twilight, marketing descriptor, prompts for each asset, URLs, createdAt, identitySpecVersion). `saveKeeperManifest` in `lib/keeper-manifest.ts`. BeautyProfile gets `keeperReady: true` and `keeperManifestUrl`. GET `/api/keepers/[reportId]` returns manifest. Landing `/beauty?keeperReportId=X` fetches keeper and renders featured hero (background, logo, marketing card, share card, tagline, hitPoints).
+
+## Verification Log – 2026‑02‑20 (Anti-bullshit protections)
+
+**Idempotency keys:** `lib/idempotency-store.ts` — Blob `ligs-runs/{route}/{idempotencyKey}.json`. When `allowExternalWrites` or X-Force-Live honored, `idempotencyKey` (UUID) is **required**; missing → 400. engine/generate, engine, marketing/generate, image/generate. Engine client, LigsStudio, beauty/submit pass key per click.
+
+**Marketing cached path:** POST `/api/marketing/generate` now calls `POST /api/image/generate` twice (marketing_logo_mark, marketing_background) instead of `generateImagesViaProvider`; LRU cache applies.
+
+**Force-Live gate:** `X-Force-Live: 1` honored only when `ALLOW_FORCE_LIVE=true` (default false). Prevents accidental dry-run bypass.
+
+**Golden Run:** `/api/dev/beauty-live-once` — one live run per browser session (cookie); retries with same idempotencyKey allowed. Logs idempotencyHit, cacheHit/Miss, imageCount. **cylinders_report** at end: llmCallsAttempted, imageCallsAttempted, allowExternalWrites, idempotencyHit, routesHit.
+
+**FULL CYLINDERS rehearsal:** DRY_RUN=1 + ALLOW_EXTERNAL_WRITES=false → zero OpenAI spend. engine/generate + E.V.E. use fixtures. Preflight passes in rehearsal mode with just BLOB_READ_WRITE_TOKEN. See docs/FULL-CYLINDERS-REHEARSAL.md.
+
 ## Verification Log – 2026‑02‑20 (Beauty assets + start page)
 
 **Missing production assets added:** `public/exemplars/` (6 archetype PNGs) and `public/signatures/` (beauty-hero, beauty-background, etc.) were untracked; production served 404 for exemplar images and hero backgrounds. Both folders committed. `app/beauty/start/page.jsx` added (was untracked; flow depends on it). Obsolete `public/beauty-background.png`, `public/beauty-hero.png` removed (replaced by signatures/).
@@ -327,6 +370,20 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑02‑20 (Previews response shape)
 
 **Previews API:** GET `/api/report/previews` returns `{ previewCards, status, requestId }` at top level for spec compliance. Client (`fetchBlobPreviews`) reads `json?.data?.previewCards ?? json?.previewCards`.
+
+## Verification Log – 2026‑02‑26 (Image-model clean prompts + mechanical coherence)
+
+**Visual grammar line:** Replaced PRIMARY SUMMARY with single compact line: `PRIMARY: palette-bias spectrum, composition geometry, light-behavior` (no repeated adjectives). Mode directive first, then bullets in fixed order: Palette → Structure → Focal → Texture → Negative space (marketing) → Secondary (max 2 lines) → Twilight.
+
+**Secondary hard limits:** Secondary may not contain Palette/Structure/Focal words (SECONDARY_FORBIDDEN). Max 2 bullet lines, char cap ≤35% of primary. `buildProviderPromptString(positive, negative)` for DALL-E 3 "Avoid:" append.
+
+**Mode differentiation:** marketing_background: broad negative space, minimal texture, soft gradients. share_card: top band clear, framed center, stronger edge definition. Marketing modes add "no embedded text", "no UI elements" to negative.
+
+## Verification Log – 2026‑02‑26 (Triangulation hardening + marketing unification)
+
+**Triangulation hardening:** Secondary block capped at 35% of primary chars (truncate at line boundary). Primary max 2 atoms, secondary max 1 atom. `buildCoherenceImageBlock` outputs resolved block: single palette/structure (primary wins), secondary contributes only texture/motion/contrast. New modes: marketing_background, marketing_overlay, share_card (entropy 0.6/0.8, negative-space guidance).
+
+**Marketing via triangulation:** `lib/marketing/visuals.ts` — `buildTriangulatedMarketingPrompt(identity, mode)` wraps buildTriangulatedImagePrompt; identity: primaryArchetype, secondaryArchetype?, solarProfile?, twilightPhase?, seed?. buildImagePromptSpec routes marketing_background, marketing_overlay, share_card to triangulation; same NEGATIVE_EXCLUSIONS. Removed buildMarketingBackgroundPrompt.
 
 ## Verification Log – 2026‑02‑25 (Hard cutover: single Beauty landing)
 
@@ -422,7 +479,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ## Verification Log – 2026‑02‑20
 
-**Marketing Visuals slice:** POST `/api/marketing/visuals` wrapper calls image/generate twice (marketing_logo_mark, marketing_background). `lib/marketing/visuals.ts`: buildLogoMarkPrompt, buildMarketingBackgroundPrompt, archetypeStyle mapping, unknown fallback. buildImagePromptSpec extended for marketing purposes; variationKey encodes contrastDelta (cd0.15) and raw archetype (raw_X) for unknowns. Normalizes via pickBackgroundSource. Returns logoMark?, marketingBackground?, warnings[]. Unit + route tests.
+**Marketing Visuals slice:** POST `/api/marketing/visuals` wrapper calls image/generate twice (marketing_logo_mark, marketing_background). `lib/marketing/visuals.ts`: buildLogoMarkPrompt, buildTriangulatedMarketingPrompt (marketing_background/overlay/share_card use triangulation). buildImagePromptSpec routes marketing purposes to triangulation when applicable; variationKey encodes contrastDelta (cd0.15) and raw archetype (raw_X) for unknowns. Normalizes via pickBackgroundSource. Returns logoMark?, marketingBackground?, warnings[]. Unit + route tests.
 
 **Marketing Composer layer:** Added archetype-driven marketing: `lib/marketing/types.ts` (MarketingDescriptor, MarketingAssets), `descriptor.ts` (deterministic archetype→label, tagline, hitPoints, CTA), `prompts.ts` (buildMarketingImagePrompts for logo mark + header background), `minimal-profile.ts` (for future use). POST `/api/marketing/generate` accepts `primary_archetype`, returns `{ descriptor, assets }`; calls image provider when ALLOW_EXTERNAL_WRITES; DRY_RUN returns descriptor only. `MarketingHeader` component; LigsStudio: Generate Marketing + Show Marketing Layer toggle. contrastDelta (0–1) for marketing-surface clarity lift. docs/MARKETING-LAYER.md. Unit + route tests.
 
@@ -437,6 +494,14 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑02‑20 (Sun/Moon birth context)
 
 **Sun/Moon birth context:** Added `lib/astronomy/computeSunMoonContext.ts` with `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — computes Sun altitude/azimuth, twilight phase (day/civil/nautical/astronomical/night), sunrise/sunset (local), day length; Moon altitude/azimuth, phase name, illumination. Uses astronomy-engine (Equator, Horizon, Illumination, MoonPhase, SearchRiseSet) and luxon for timezone conversion. No external APIs. `POST /api/beauty/submit` calls it after deriveFromBirthData, attaches sun + moon to birthContext; on failure logs warning and continues without sun/moon. Engine `buildBirthContextBlock` includes concise Sun and Moon sections when present. Tests: computeSunMoonContext (twilightPhase, illuminationFrac, altitudes, sunrise/sunset); buildReportGenerationPrompt (Sun/Moon sections when present).
+
+---
+
+## Verification Log – 2026‑02‑20 (Archetype visual voice)
+
+**Archetype voice in image generation:** Added `src/ligs/image/buildArchetypeVisualVoice.ts` with `buildArchetypeVisualVoiceBlock(archetype)` — translates `getArchetypeVoiceAnchorShape` + `getArchetypePhraseBank` into visual grammar (bullet-style directives, &lt;20 lines, no literal objects). Injected into: (1) `buildImagePromptSpec` non-marketing path; (2) engine signature image path before `POST /api/generate-image`. Added `NEGATIVE_EXCLUSIONS` to signature image prompts (previously missing). Marketing visuals logic unchanged.
+
+**Semi-living archetype visuals:** Replaced `buildArchetypeVisualVoiceBlock` with `buildArchetypeVisualVoiceSpec(archetype, { mode, entropy?, seed? })`. Fixed visual spine from voice contract + seeded variability from phrase banks. mode: exemplar | variation | signature. Variation path: mode "variation", entropy 0.2, seed profile.id+purpose+variationKey. Signature path: mode "signature", entropy 0.3, seed reportId+slug. Exemplar mode ready for future injection.
 
 ---
 

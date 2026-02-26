@@ -48,11 +48,15 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const searchParams = useSearchParams();
   const dryRun = dryRunProp || (typeof window !== "undefined" && getDryRunFromUrl());
   const isDev = process.env.NODE_ENV !== "production";
+  const showDevOnPreview = process.env.NEXT_PUBLIC_SHOW_DEV_CONTROLS === "1" || process.env.NEXT_PUBLIC_SHOW_DEV_CONTROLS === "true";
   const devParam = searchParams?.get?.("dev");
-  const showDevControls = isDev && devParam === "1";
+  const showDevControls = devParam === "1" && (isDev || showDevOnPreview);
 
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
+  const [keeperManifest, setKeeperManifest] = useState(null);
+
+  const keeperReportId = searchParams?.get?.("keeperReportId");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -96,8 +100,22 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (!keeperReportId?.trim()) return;
+    let cancelled = false;
+    const dry = searchParams?.get?.("dry") === "1" || searchParams?.get?.("dry") === "true";
+    const qs = dry ? "?dry=1" : "";
+    fetch(`/api/keepers/${encodeURIComponent(keeperReportId.trim())}${qs}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((manifest) => {
+        if (!cancelled && manifest) setKeeperManifest(manifest);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [keeperReportId, searchParams]);
+
   const handleLiveTestRun = useCallback(async () => {
-    if (!isDev) return;
+    if (!showDevControls) return;
     setLiveTestError(null);
     setLiveTestStatus("Preflight…");
     try {
@@ -142,7 +160,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
     } finally {
       setLiveTestStatus(null);
     }
-  }, [isDev, router]);
+  }, [showDevControls, router]);
 
   const handleHeroCta = useCallback(() => {
     const el = document.getElementById("form");
@@ -279,6 +297,132 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         />
       )}
       <div className="relative z-10">
+        {keeperManifest && (() => {
+          const keeperDry = searchParams?.get?.("dry") === "1" || searchParams?.get?.("dry") === "true";
+          const urls = keeperManifest.urls ?? {};
+          const hasBg = !!urls.marketingBackground;
+          const hasLogo = !!urls.logoMark;
+          const hasCard = !!urls.marketingCard;
+          const hasShare = !!urls.shareCard;
+          const archetypeLabel = keeperManifest.primaryArchetype || "Light Signature";
+          const logoAlt = `${archetypeLabel} logo mark`;
+          const PlaceholderBlock = ({ aspect = "video", label = "—" }) => (
+            <div
+              className={`rounded-xl shadow-md bg-[#0A0F1C]/10 flex items-center justify-center beauty-text-muted text-xs border border-[#0A0F1C]/10 ${aspect === "video" ? "aspect-video" : aspect === "tile" ? "w-32 h-32" : "w-16 h-16"}`}
+              aria-hidden
+            >
+              {label}
+            </div>
+          );
+          return (
+            <section
+              className="relative px-6 py-8 sm:px-16 sm:py-12 border-b border-[var(--beauty-line,#e8e4e8)] bg-white/95 backdrop-blur-sm"
+              aria-label={keeperDry ? "Preview (DRY)" : "Featured Keeper"}
+            >
+              <span
+                className="absolute top-6 right-6 sm:top-8 sm:right-16 px-2.5 py-1 text-xs font-medium rounded-md beauty-text-muted bg-[#0A0F1C]/5"
+              >
+                {keeperDry ? "Preview (DRY)" : "Featured Keeper"}
+              </span>
+              <div className="max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <div className="space-y-4">
+                    {(hasBg || (keeperDry && !hasBg)) && (
+                      hasBg ? (
+                        <div
+                          className="aspect-video rounded-xl overflow-hidden bg-[#0A0F1C]/5 shadow-md"
+                          style={{
+                            backgroundImage: `url(${urls.marketingBackground})`,
+                            backgroundSize: "cover",
+                            backgroundPosition: "center",
+                          }}
+                        />
+                      ) : (
+                        <PlaceholderBlock aspect="video" label="Background" />
+                      )
+                    )}
+                    {(hasLogo || (keeperDry && !hasLogo)) && (
+                      hasLogo ? (
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={urls.logoMark}
+                            alt={logoAlt}
+                            className="w-16 h-16 object-contain rounded-md shadow-md"
+                          />
+                          <span className="text-sm beauty-text-muted">
+                            {keeperManifest.primaryArchetype}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <PlaceholderBlock aspect="logo" label="Logo" />
+                          <span className="text-sm beauty-text-muted">
+                            {keeperManifest.primaryArchetype ?? "—"}
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    {keeperManifest.marketingDescriptor?.tagline && (
+                      <p className="text-lg font-medium beauty-heading">
+                        {keeperManifest.marketingDescriptor.tagline}
+                      </p>
+                    )}
+                    {keeperManifest.marketingDescriptor?.hitPoints?.length > 0 && (
+                      <ul className="space-y-1 text-sm beauty-body">
+                        {keeperManifest.marketingDescriptor.hitPoints.slice(0, 3).map((hp, i) => (
+                          <li key={i} className="flex gap-2">
+                            <span className="text-[#7A4FFF]">•</span>
+                            <span>{hp}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <div className="flex flex-wrap gap-3 pt-2">
+                      {(hasCard || (keeperDry && !hasCard)) && (
+                        hasCard ? (
+                          <a
+                            href={urls.marketingCard}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block"
+                          >
+                            <img
+                              src={urls.marketingCard}
+                              alt="Marketing card"
+                              className="w-32 h-32 object-cover rounded-xl shadow-md"
+                            />
+                          </a>
+                        ) : (
+                          <PlaceholderBlock aspect="tile" label="Card" />
+                        )
+                      )}
+                      {(hasShare || (keeperDry && !hasShare)) && (
+                        hasShare ? (
+                          <a
+                            href={urls.shareCard}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block"
+                          >
+                            <img
+                              src={urls.shareCard}
+                              alt="Share card"
+                              className="w-32 h-32 object-cover rounded-xl shadow-md"
+                            />
+                          </a>
+                        ) : (
+                          <PlaceholderBlock aspect="tile" label="Share" />
+                        )
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          );
+        })()}
         <main className="beauty-theme beauty-page min-h-screen relative">
       {/* Hero */}
       <section
@@ -488,7 +632,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       </section>
 
       {/* Dev-only: Live test run (save to blob) — never in production */}
-      {process.env.NODE_ENV !== "production" && showDevControls && (
+      {showDevControls && (
         <section className={`${sectionClass} border-t border-amber-200/50 bg-amber-50/30`}>
           <div className="max-w-3xl mx-auto text-center space-y-3">
             <p className="text-xs uppercase tracking-widest text-amber-800/80 font-medium">
