@@ -5,6 +5,7 @@ import { buildMinimalVoiceProfile } from "@/lib/marketing/minimal-profile";
 import { LigsArchetypeEnum } from "@/src/ligs/voice/schema";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import { MarketingVisualsRequestSchema } from "./request-schema";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 const VALID_ARCHETYPES = new Set(LigsArchetypeEnum.options);
 
@@ -20,6 +21,8 @@ function getBaseUrl(req: Request): string {
 }
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
 
   try {

@@ -9,6 +9,7 @@ import { buildOverlaySpecWithCopy, getLogoStyleWithDefaults, type MarketingOverl
 import MarketingHeader from "./MarketingHeader";
 import ArtifactCompare from "./ArtifactCompare";
 import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "./ArchetypeArtifactCard";
+import { useApiStatus } from "@/hooks/useApiStatus";
 
 /** Client-side placeholder generators (zero network, canvas-based). */
 function createDryBackgroundPlaceholder(archetypeName: string, size = 1024): string {
@@ -432,6 +433,7 @@ function LatestRunOutputPanel({
 }
 
 export default function LigsStudio() {
+  const { disabled: apiDisabled } = useApiStatus();
   const [profileJson, setProfileJson] = useState(DEFAULT_PROFILE);
   const [purpose, setPurpose] = useState("marketing_background");
   const [variationKey, setVariationKey] = useState("exemplar-v1");
@@ -719,7 +721,7 @@ export default function LigsStudio() {
   }, [liveFullName, liveBirthDate, liveBirthTime, liveBirthLocation, performDryRunExit]);
 
   const runGenerateBackground = useCallback(async () => {
-    if (!profile) return;
+    if (!profile || apiDisabled) return;
     setLoading(true);
     setImageResult(null);
     try {
@@ -749,10 +751,10 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [profile, purpose, size, variationKey, imageAspectRatio]);
+  }, [apiDisabled, profile, purpose, size, variationKey, imageAspectRatio]);
 
   const runCompose = useCallback(async () => {
-    if (!profile) return;
+    if (!profile || apiDisabled) return;
     let bg: { url?: string; b64?: string } = {};
     if (backgroundSource.trim().startsWith("http")) {
       bg = { url: backgroundSource.trim() };
@@ -801,10 +803,10 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [profile, purpose, size, variationKey, backgroundSource, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
+  }, [apiDisabled, profile, purpose, size, variationKey, backgroundSource, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
 
   const runFullPipeline = useCallback(async () => {
-    if (!profile) return;
+    if (!profile || apiDisabled) return;
     setLoading(true);
     setImageResult(null);
     setComposeResult(null);
@@ -869,10 +871,10 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [profile, purpose, size, variationKey, imageAspectRatio, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
+  }, [apiDisabled, profile, purpose, size, variationKey, imageAspectRatio, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
 
   const run6Variations = useCallback(async () => {
-    if (!profile) return;
+    if (!profile || apiDisabled) return;
     setLoading(true);
     setComposeResult(null);
     const results: string[] = [];
@@ -926,10 +928,10 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [profile, purpose, size, imageAspectRatio]);
+  }, [apiDisabled, profile, purpose, size, imageAspectRatio]);
 
   const runGenerateMarketing = useCallback(async () => {
-    if (!profile) return;
+    if (!profile || apiDisabled) return;
     const archetype = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype;
     if (!archetype) {
       setLastError("Profile has no primary_archetype");
@@ -959,7 +961,7 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [profile, variationKey]);
+  }, [apiDisabled, profile, variationKey]);
 
   const canSaveToLanding =
     composeResult?.image &&
@@ -967,7 +969,7 @@ export default function LigsStudio() {
     (composeResult.image as { b64: string }).b64.length > 0;
 
   const runSaveToLanding = useCallback(async () => {
-    if (!profile || !canSaveToLanding) return;
+    if (!profile || !canSaveToLanding || apiDisabled) return;
     const arch = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
     const exemplarCardB64 = (composeResult!.image as { b64: string }).b64.replace(/^data:image\/\w+;base64,/, "").trim();
     const spec = composeResult!.overlaySpec as { copy?: { headline?: string; subhead?: string; cta?: string } } | undefined;
@@ -1000,7 +1002,7 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [profile, composeResult, canSaveToLanding]);
+  }, [apiDisabled, profile, composeResult, canSaveToLanding]);
 
   const runLiveOnce = useCallback(async () => {
     const confirmed = window.confirm(
@@ -1785,10 +1787,10 @@ export default function LigsStudio() {
             <button
               type="button"
               className="px-3 py-2 rounded bg-accent-violet text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canRun || loading}
+              disabled={apiDisabled || !canRun || loading}
               onClick={runGenerateBackground}
             >
-              {loading ? "…" : "Generate Background"}
+              {apiDisabled ? "Unavailable" : loading ? "…" : "Generate Background"}
             </button>
             <button
               type="button"
@@ -1801,10 +1803,10 @@ export default function LigsStudio() {
             <button
               type="button"
               className="px-3 py-2 rounded bg-accent-violet text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canRun || loading}
+              disabled={apiDisabled || !canRun || loading}
               onClick={runCompose}
             >
-              {loading ? "…" : "Compose Marketing Card"}
+              {apiDisabled ? "Unavailable" : loading ? "…" : "Compose Marketing Card"}
             </button>
             <button
               type="button"
@@ -1817,35 +1819,35 @@ export default function LigsStudio() {
             <button
               type="button"
               className="px-3 py-2 rounded bg-accent-violet text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canRun || loading}
+              disabled={apiDisabled || !canRun || loading}
               onClick={runFullPipeline}
             >
-              {loading ? "…" : "Run Full Pipeline"}
+              {apiDisabled ? "Unavailable" : loading ? "…" : "Run Full Pipeline"}
             </button>
             <button
               type="button"
               className="px-3 py-2 rounded border border-gray-300 text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canRun || loading}
+              disabled={apiDisabled || !canRun || loading}
               onClick={run6Variations}
             >
-              {loading ? "…" : "Generate 6 Variations"}
+              {apiDisabled ? "Unavailable" : loading ? "…" : "Generate 6 Variations"}
             </button>
             <button
               type="button"
               className="px-3 py-2 rounded bg-violet-100 text-violet-800 border border-violet-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canRun || loading}
+              disabled={apiDisabled || !canRun || loading}
               onClick={runGenerateMarketing}
             >
-              {loading ? "…" : "Generate Marketing"}
+              {apiDisabled ? "Unavailable" : loading ? "…" : "Generate Marketing"}
             </button>
             <button
               type="button"
               className="px-3 py-2 rounded bg-emerald-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700"
-              disabled={!canSaveToLanding || loading}
+              disabled={apiDisabled || !canSaveToLanding || loading}
               onClick={runSaveToLanding}
               title={canSaveToLanding ? "Save composed image to Blob and wire to landing Examples" : "Compose an image first"}
             >
-              {loading ? "…" : "Save to Landing"}
+              {apiDisabled ? "Unavailable" : loading ? "…" : "Save to Landing"}
             </button>
           </div>
           {savedExemplarUrls?.exemplarCard && (

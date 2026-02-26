@@ -193,10 +193,11 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?` (default square_card_v1), `output?` (size 1024|1536), `variationKey?`, `overlaySpec?`. If `overlaySpec` provided: validate and use directly (no regeneration). Else: generateOverlaySpec → validateOverlaySpec; 400 OVERLAY_SPEC_INVALID if fail. ALLOW_EXTERNAL_WRITES: when false, DRY_RUN (overlaySpec, overlayValidation, no image). When true: sharp compose (background + logo + text overlay + CTA chip) → PNG. Logo: always `GLOBAL_LOGO_PATH` (`/brand/ligs-mark-primary.png`) with bottom-left placement (6% padding, 13% width, opacity 0.9); else "(L)" SVG when ENABLE_PLACEHOLDER_LOGO=true and file missing; else 400 BRAND_LOGO_REQUIRED. LigsStudio LIVE sends overlaySpec (from DRY preview or buildOverlaySpecWithCopy) so output matches DRY. Returns `{ requestId, dryRun, logoUsed?, overlaySpec, overlayValidation, image? }`. |
 | POST | `/api/generate-image` | Body `prompt`, optional `reportId`, `slug`. If `reportId` + slug and existing Blob image URL → return it. Else DALL·E 3 → optional save to Blob (`saveImageToBlob`) → return URL. Uses `OPENAI_API_KEY`. |
 
-### 2.8 LIGS Studio
+### 2.8 LIGS Studio & status
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
+| GET | `/api/status` | Returns `{ disabled: boolean }` for production kill-switch. When `LIGS_API_OFF=1`, `disabled: true`. Frontend hides/disables sensitive CTAs when disabled. No auth. |
 | GET | `/api/ligs/status` | Returns `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }` for LIGS Studio Warning Lights. `logoConfigured=true` when BRAND_LOGO_PATH readable or when `public/brand/ligs-mark-primary.png` exists. No auth. |
 
 ### 2.9 Dev (non-production only)
@@ -223,6 +224,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Variable | Where used | Purpose |
 |----------|------------|--------|
+| `LIGS_API_OFF` | `lib/api-kill-switch.ts`, all sensitive POST routes, GET `/api/status` | `"1"` or `"true"` = production kill-switch; blocks image gen, Blob writes, Stripe checkout, marketing/exemplar/engine/beauty/voice/email. Returns 503 `{ disabled: true, reason: "maintenance" }`. Frontend uses GET `/api/status` to hide/disable CTAs. |
 | `NEXT_PUBLIC_DRY_RUN` | `lib/dry-run-config.ts`, LigsStudio | `"1"` or `"true"` = client never sends generate/verify requests; shows Dry Run Preview and banner |
 | `NEXT_PUBLIC_FAKE_PAY` | `lib/dry-run-config.ts`, BeautyLandingClient, PayUnlockButton, PreviewCardModal | `"1"` or `"true"` = CTA bypasses Stripe; sets unlock, redirects to /beauty/start (marketing testing) |
 | `NEXT_PUBLIC_TEST_MODE` | `lib/runtime-mode.ts`, `lib/dry-run-config.ts`, compose, generate-image, TestModeLogger | `"1"` or `"true"` = dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1`; logs "TEST MODE" in console |
@@ -722,6 +724,8 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ---
 
 ## Verification Log – 2026‑02‑20
+
+**Production API kill-switch:** Added `LIGS_API_OFF=1` env var. When set, `lib/api-kill-switch.ts` returns 503 `{ disabled: true, reason: "maintenance" }` from all sensitive POST routes (image/generate, image/compose, generate-image, marketing/*, exemplars/*, beauty/submit, beauty/dry-run, beauty/create, engine, engine/generate, voice/generate, stripe/create-checkout-session, email/send-beauty-profile). GET `/api/status` returns `{ disabled }` for frontend. Frontend uses `useApiStatus()` to hide/disable CTAs in BeautyLandingClient, Beauty start, PayUnlockButton, PreviewCardModal, LigsStudio.
 
 **E.V.E. archetype phrase bank:** Added `src/ligs/voice/archetypePhraseBank.ts` with deterministic phrase banks for all 12 archetypes (sensoryMetaphors 5, behavioralTells 5, relationalTells 5, shadowDrift 3, resetMoves 3). Injected into E.V.E. prompt via `buildPhraseBankBlock`. Updated voice rules: RAW SIGNAL 8–14 words, no "you", no archetype names; CUSTODIAN must include "In practice…" and "You tend to…"; ORACLE 1–2 sentences with concrete moment image. Tests: phrase bank coverage, RAW SIGNAL no "you", CUSTODIAN phrases, ORACLE sentence count. Example outputs: `docs/EVE-EXAMPLE-OUTPUTS.md`.
 

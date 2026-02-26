@@ -7,6 +7,7 @@ import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client"
 import { unwrapResponse } from "@/lib/unwrap-response";
 import { saveLastFormData, loadLastFormData, isBeautyUnlocked } from "@/lib/landing-storage";
 import { TEST_MODE } from "@/lib/dry-run-config";
+import { useApiStatus } from "@/hooks/useApiStatus";
 
 const PAGE_BG_URL = "/signatures/beauty-background.png";
 
@@ -24,6 +25,7 @@ function getTestModeFromUrl() {
 
 export default function BeautyStartPage() {
   const router = useRouter();
+  const { disabled: apiDisabled } = useApiStatus();
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -59,6 +61,7 @@ export default function BeautyStartPage() {
 
   const handleFormSubmit = useCallback(
     async (formData) => {
+      if (apiDisabled) return;
       setLoading(true);
       setError(null);
       try {
@@ -80,7 +83,7 @@ export default function BeautyStartPage() {
         setLoading(false);
       }
     },
-    [dryRun, router]
+    [apiDisabled, dryRun, router]
   );
 
   const showBrandedLoading = !mounted || !unlocked;
@@ -158,12 +161,18 @@ export default function BeautyStartPage() {
                 {error}
               </div>
             )}
+            {apiDisabled && (
+              <p className="mb-6 p-4 border border-amber-300 bg-amber-50 text-amber-800 font-light text-sm rounded">
+                Temporarily unavailable for maintenance. Please try again later.
+              </p>
+            )}
             <div className="max-w-xl mx-auto">
               <LightIdentityForm
                 onSubmit={handleFormSubmit}
                 showOptionalNotes={true}
-                submitButtonLabel="Generate my report"
+                submitButtonLabel={apiDisabled ? "Unavailable" : "Generate my report"}
                 initialFormData={lastFormData}
+                hideSubmitButton={apiDisabled}
               />
             </div>
             <p className="text-sm beauty-text-muted">

@@ -43,6 +43,7 @@ import {
   IDENTITY_SPEC_VERSION,
   type KeeperManifest,
 } from "@/lib/keeper-manifest";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 const IMAGE_SLUGS = [
   "vector_zero_beauty_field",
@@ -56,6 +57,8 @@ const FALLBACK_PROMPT =
 console.log("ENGINE ROUTE LOADED");
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   console.log("ENTERED_ENGINE_ROUTE");
   const requestId = crypto.randomUUID();
   const start = Date.now();

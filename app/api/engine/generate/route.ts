@@ -17,6 +17,7 @@ import {
   setIdempotentResult,
   isValidIdempotencyKey,
 } from "@/lib/idempotency-store";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 if (process.env.DRY_RUN === "1") {
   console.log("DRY_RUN ENABLED — skipping OpenAI calls, returning fixture mock");
@@ -136,6 +137,8 @@ Apply this voice to: (1) the emotional_snippet, and (2) every ORACLE section in 
 }
 
 export async function POST(request: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   console.log("AUDIT_HIT_ENGINE_GENERATE");
   console.log("AUDIT_ENV", {
     DEBUG_PROMPT_AUDIT: process.env.DEBUG_PROMPT_AUDIT,

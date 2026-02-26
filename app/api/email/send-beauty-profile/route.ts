@@ -3,6 +3,7 @@ import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 const DEFAULT_FROM = "Beauty <onboarding@resend.dev>";
 
@@ -43,6 +44,8 @@ function escapeHtml(s: string): string {
 }
 
 export async function POST(request: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   log("info", "request", { requestId, route: "/api/email/send-beauty-profile" });
 

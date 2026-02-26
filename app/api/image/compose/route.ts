@@ -11,6 +11,7 @@ import {
   createMonogramLogoSvg,
   composeMarketingCardToBuffer,
 } from "@/lib/marketing/compose-card";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 async function loadBackgroundImage(
   background: { url?: string; b64?: string }
@@ -29,6 +30,8 @@ async function loadBackgroundImage(
 }
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   const { isTestMode } = await import("@/lib/runtime-mode");
   const ALLOW_EXTERNAL_WRITES =

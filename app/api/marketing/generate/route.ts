@@ -11,6 +11,7 @@ import {
   isValidIdempotencyKey,
 } from "@/lib/idempotency-store";
 import { LigsArchetypeEnum } from "@/src/ligs/voice/schema";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 function getBaseUrl(req: Request): string {
   try {
@@ -24,6 +25,8 @@ function getBaseUrl(req: Request): string {
 }
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   const ALLOW_EXTERNAL_WRITES = process.env.ALLOW_EXTERNAL_WRITES === "true";
   const dryRun = !ALLOW_EXTERNAL_WRITES;

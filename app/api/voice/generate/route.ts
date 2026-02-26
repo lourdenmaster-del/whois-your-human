@@ -10,6 +10,7 @@ import {
   type GenerateVoiceRequest,
 } from "@/src/ligs/voice/api/generate-request-schema";
 import { log } from "@/lib/log";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 import type {
   ValidationIssue,
   VoiceValidationResult,
@@ -191,6 +192,8 @@ async function runRewritePass(opts: {
 }
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
 
   try {

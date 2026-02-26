@@ -3,8 +3,11 @@ import { log } from "@/lib/log";
 import { rateLimit } from "@/lib/rate-limit";
 import { successResponse } from "@/lib/success-response";
 import { validateEngineBody } from "@/lib/validate-engine-body";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 export async function POST(request: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   try {
     await rateLimit(request, "beauty_create", 5, 60_000);

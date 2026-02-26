@@ -25,6 +25,7 @@ import { LIGS_ARCHETYPES, FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetyp
 import { GLOBAL_LOGO_PATH } from "@/lib/brand";
 import { composeExemplarCardToBuffer } from "@/lib/marketing/compose-card";
 import { allowExternalWrites, isDryRun } from "@/lib/runtime-mode";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 import sharp from "sharp";
 
 const VALID_ARCHETYPES = new Set(LIGS_ARCHETYPES);
@@ -62,6 +63,8 @@ const zSchema = {
 };
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   const ALLOW_EXTERNAL_WRITES = process.env.ALLOW_EXTERNAL_WRITES === "true";
 

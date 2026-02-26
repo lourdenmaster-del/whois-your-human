@@ -17,6 +17,7 @@ import { buildOverlaySpecWithCopy } from "@/src/ligs/marketing";
 import { createArchetypeGradientSvgBuffer } from "@/lib/marketing/gradient-background";
 import { composeMarketingCardToBuffer } from "@/lib/marketing/compose-card";
 import type { BeautyProfileV1 } from "@/lib/beauty-profile-schema";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E";
@@ -56,6 +57,8 @@ function buildDryRunBeautyProfileV1(
 }
 
 export async function POST(request: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   log("info", "request", { requestId, route: "/api/beauty/dry-run" });
 

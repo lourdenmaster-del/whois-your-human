@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { setBeautyUnlocked } from "@/lib/landing-storage";
 import { FAKE_PAY } from "@/lib/dry-run-config";
+import { useApiStatus } from "@/hooks/useApiStatus";
 
 interface BirthData {
   fullName: string;
@@ -30,6 +31,7 @@ interface PayUnlockProps {
 }
 
 export default function PayUnlockButton({ birthData }: PayUnlockProps) {
+  const { disabled: apiDisabled } = useApiStatus();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -38,6 +40,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const handlePreview = async () => {
+    if (apiDisabled) return;
     setLoading(true);
     setError(null);
 
@@ -93,7 +96,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const handleProceed = async () => {
-    if (!reportId) return;
+    if (!reportId || apiDisabled) return;
     if (FAKE_PAY) {
       console.log("FAKE PAY MODE – no charge made");
       setBeautyUnlocked();
@@ -155,11 +158,11 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
       <div className="flex flex-col items-center space-y-2">
         <button
           onClick={handlePreview}
-          disabled={loading}
+          disabled={apiDisabled || loading}
           className="px-8 py-3.5 bg-[#FF3B3B] text-white text-sm font-semibold transition-all duration-300 hover:bg-[#ff5252] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ borderRadius: 0 }}
         >
-          {loading ? "Generating Preview…" : "Preview & Pay to Unlock"}
+          {apiDisabled ? "Unavailable" : loading ? "Generating Preview…" : "Preview & Pay to Unlock"}
         </button>
         {error && <p className="text-red-500 text-sm">{error}</p>}
       </div>
@@ -261,10 +264,10 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
             </p>
             <button
               onClick={handleProceed}
-              disabled={redirecting}
+              disabled={apiDisabled || redirecting}
               className="w-full px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {redirecting ? "Redirecting…" : "Proceed to Checkout"}
+              {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Proceed to Checkout"}
             </button>
           </div>
         </div>

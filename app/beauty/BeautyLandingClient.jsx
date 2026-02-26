@@ -8,6 +8,7 @@ import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, setBeautyDraft, sa
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { fetchBlobPreviews } from "@/lib/api-client";
 import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
+import { useApiStatus } from "@/hooks/useApiStatus";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -56,6 +57,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const [initialFormData, setInitialFormData] = useState(null);
   const [keeperManifest, setKeeperManifest] = useState(null);
 
+  const { disabled: apiDisabled } = useApiStatus();
   const keeperReportId = searchParams?.get?.("keeperReportId");
 
   useEffect(() => {
@@ -592,23 +594,28 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
           {alreadyPurchasedMessage && (
             <p className="text-amber-700 text-sm bg-amber-50 px-4 py-2 rounded-lg">{alreadyPurchasedMessage}</p>
           )}
+          {apiDisabled && (
+            <p className="text-amber-700 text-sm bg-amber-50 px-4 py-2 rounded-lg">Temporarily unavailable for maintenance. Please try again later.</p>
+          )}
           <div className="flex flex-col items-center justify-center gap-4">
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <button
                 type="button"
                 onClick={handleCtaPrimary}
-                disabled={!formValid || ctaCheckoutLoading || generateLoading}
+                disabled={apiDisabled || !formValid || ctaCheckoutLoading || generateLoading}
                 className="px-8 py-4 bg-[#7A4FFF] text-white text-base font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {ctaCheckoutLoading
-                  ? "Redirecting…"
-                  : generateLoading
-                    ? "Generating…"
-                    : formValid && (unlocked || TEST_MODE)
-                      ? "Generate my report"
-                      : formValid
-                        ? "Buy now ($39.99)"
-                        : "Continue"}
+                {apiDisabled
+                  ? "Unavailable"
+                  : ctaCheckoutLoading
+                    ? "Redirecting…"
+                    : generateLoading
+                      ? "Generating…"
+                      : formValid && (unlocked || TEST_MODE)
+                        ? "Generate my report"
+                        : formValid
+                          ? "Buy now ($39.99)"
+                          : "Continue"}
               </button>
               <a
                 href="#examples"
@@ -623,7 +630,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
             <button
               type="button"
               onClick={handleAlreadyPurchased}
-              className="text-sm beauty-text-muted hover:text-[#7A4FFF] transition-colors underline"
+              disabled={apiDisabled}
+              className="text-sm beauty-text-muted hover:text-[#7A4FFF] transition-colors underline disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Already purchased? Enter your details →
             </button>

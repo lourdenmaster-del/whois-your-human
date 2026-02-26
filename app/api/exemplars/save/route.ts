@@ -16,6 +16,7 @@ import {
   saveExemplarManifest,
 } from "@/lib/exemplar-store";
 import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 const VALID_ARCHETYPES = new Set(LIGS_ARCHETYPES);
 
@@ -28,6 +29,8 @@ function validVersion(v: unknown): boolean {
 }
 
 export async function POST(req: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
 
   try {

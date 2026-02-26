@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { setBeautyUnlocked } from "@/lib/landing-storage";
 import { FAKE_PAY } from "@/lib/dry-run-config";
+import { useApiStatus } from "@/hooks/useApiStatus";
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3ELight Signature%3C/text%3E%3C/svg%3E";
@@ -85,13 +86,14 @@ function Carousel({ imageUrls, labels = CAROUSEL_LABELS, variant = "dark" }) {
 }
 
 export default function PreviewCardModal({ card, onClose, maxImages = 3, onProceed, variant = "dark" }) {
+  const { disabled: apiDisabled } = useApiStatus();
   const [checkoutError, setCheckoutError] = useState(null);
   const [redirecting, setRedirecting] = useState(false);
   const imageUrls = (card?.imageUrls ?? card?.images ?? []).slice(0, maxImages);
   const isBeauty = variant === "beauty";
 
   const handleProceed = async () => {
-    if (!card) return;
+    if (!card || apiDisabled) return;
     if (card.reportId?.startsWith?.("preview-")) {
       window.location.href = isBeauty ? "#form" : "#section-5";
       return;
@@ -177,6 +179,11 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
             {checkoutError}
           </p>
         )}
+        {apiDisabled && (
+          <p className="text-amber-600 text-sm font-normal mb-2" role="alert">
+            Temporarily unavailable for maintenance.
+          </p>
+        )}
         <p className={`text-xs ${mutedClass} text-center mb-2`}>
           Stripe test mode — no real charges
         </p>
@@ -184,10 +191,10 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
           <button
             type="button"
             onClick={handleProceed}
-            disabled={redirecting}
+            disabled={apiDisabled || redirecting}
             className="flex-1 px-6 py-3 bg-[#7A4FFF] text-white text-sm font-semibold hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
           >
-            {redirecting ? "Redirecting…" : "Proceed to checkout"}
+            {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Proceed to checkout"}
           </button>
           <button
             type="button"

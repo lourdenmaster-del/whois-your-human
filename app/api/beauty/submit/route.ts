@@ -5,6 +5,7 @@ import { computeSunMoonContext, type SunContext, type MoonContext } from "@/lib/
 import { getOnThisDayContext, type OnThisDayContext } from "@/lib/history/onThisDay";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
+import { killSwitchResponse } from "@/lib/api-kill-switch";
 
 /** Base derivation + optional sun/moon/onThisDay enrichment. */
 type EnrichedBirthContext = DeriveFromBirthDataResult & {
@@ -20,6 +21,8 @@ type EnrichedBirthContext = DeriveFromBirthDataResult & {
  * call OpenAI or the engine directly; all requests go through this route.
  */
 export async function POST(request: Request) {
+  const kill = killSwitchResponse();
+  if (kill) return kill;
   const requestId = crypto.randomUUID();
   log("info", "request", { requestId, method: "POST", path: "/api/beauty/submit" });
 
