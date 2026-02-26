@@ -83,21 +83,49 @@ export default function BeautyStartPage() {
     [dryRun, router]
   );
 
-  if (!mounted) {
-    return (
-      <main className="beauty-theme min-h-screen font-sans flex flex-col items-center justify-center px-6 py-24">
-        <h1 className="text-4xl font-bold text-[#7A4FFF] mb-4">START PAGE FORM</h1>
-        <p className="beauty-body beauty-text-muted">Loading…</p>
-      </main>
-    );
-  }
+  const showBrandedLoading = !mounted || !unlocked;
 
-  if (!unlocked) {
+  if (showBrandedLoading) {
     return (
-      <main className="beauty-theme min-h-screen font-sans flex flex-col items-center justify-center px-6 py-24">
-        <h1 className="text-4xl font-bold text-red-600 mb-4">START PAGE (redirecting - not unlocked)</h1>
-        <p className="beauty-body beauty-text-muted">unlocked={String(unlocked)} TEST_MODE={String(TEST_MODE)}</p>
-      </main>
+      <div
+        className="beauty-theme relative min-h-screen flex flex-col items-center justify-center px-6"
+        style={{
+          backgroundImage: `url(${PAGE_BG_URL})`,
+          backgroundRepeat: "no-repeat",
+          backgroundSize: "cover",
+          backgroundPosition: "center top",
+          backgroundAttachment: "fixed",
+        }}
+      >
+        <div
+          className="absolute inset-0 z-0"
+          style={{ background: "rgba(0,0,0,0.25)" }}
+          aria-hidden
+        />
+        <div className="relative z-10 text-center max-w-md mx-auto">
+          <p className="text-sm uppercase tracking-[0.2em] beauty-text-muted font-medium mb-6">
+            Light Identity
+          </p>
+          <h1
+            className="text-2xl sm:text-3xl font-semibold tracking-wide beauty-heading text-[var(--beauty-text,#0d0b10)] mb-4"
+            style={{ letterSpacing: "0.02em" }}
+          >
+            Preparing your report…
+          </h1>
+          <p className="text-base beauty-body beauty-text-muted leading-relaxed mb-10">
+            One moment while we bring your Light Signature into view.
+          </p>
+          <div
+            className="flex items-center justify-center gap-2"
+            role="status"
+            aria-label="Loading"
+          >
+            <span className="beauty-start-dot w-2 h-2 rounded-full bg-[#7A4FFF]/80" />
+            <span className="beauty-start-dot w-2 h-2 rounded-full bg-[#7A4FFF]/80" />
+            <span className="beauty-start-dot w-2 h-2 rounded-full bg-[#7A4FFF]/80" />
+          </div>
+        </div>
+      </div>
     );
   }
 

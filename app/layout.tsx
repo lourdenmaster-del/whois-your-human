@@ -1,13 +1,8 @@
 import type { Metadata } from "next";
-import { Space_Grotesk } from "next/font/google";
 import "./globals.css";
+import { TestModeLogger } from "@/components/TestModeLogger";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
+// System font stack (no network fetch) — build-safe in sandbox; Space Grotesk was removed for offline builds
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ligs.io";
 
 export const metadata: Metadata = {
@@ -37,7 +32,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${spaceGrotesk.variable} antialiased font-sans`}>
+      <body className="antialiased font-sans">
+        <TestModeLogger />
         {children}
       </body>
     </html>

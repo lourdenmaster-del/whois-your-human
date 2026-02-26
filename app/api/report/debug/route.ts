@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import {

@@ -5,6 +5,11 @@ import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { getImageUrlFromBlob, saveImageToBlob } from "@/lib/report-store";
+import { isTestMode } from "@/lib/runtime-mode";
+
+/** Placeholder data URL for TEST_MODE dry image generation. */
+const DRY_IMAGE_PLACEHOLDER =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024' viewBox='0 0 1024 1024'%3E%3Crect fill='%23050814' width='1024' height='1024'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='24' text-anchor='middle' dy='.3em' font-family='system-ui'%3ETEST MODE – no image generated%3C/text%3E%3C/svg%3E";
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
@@ -18,6 +23,11 @@ export async function POST(request: Request) {
     if (!prompt) {
       log("warn", "validation failed", { requestId, error: "Missing or invalid prompt" });
       return errorResponse(400, "Missing or invalid prompt", requestId);
+    }
+
+    if (isTestMode) {
+      log("info", "TEST_MODE – returning placeholder image", { requestId, reportId, slug });
+      return successResponse(200, { url: DRY_IMAGE_PLACEHOLDER }, requestId);
     }
 
     if (reportId && slug !== "image") {

@@ -1,0 +1,80 @@
+"use client";
+
+import { useState } from "react";
+
+const PLACEHOLDER_IMAGE =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E";
+
+const LABELS = ["Vector Zero", "Light Signature", "Final Beauty"];
+
+export default function PreviewCarousel({ imageUrls = [], labels = LABELS, subjectName }) {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [touchStart, setTouchStart] = useState(null);
+  const urls = Array.isArray(imageUrls)
+    ? imageUrls
+    : [PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGE];
+  const safeUrls = urls.slice(0, 3);
+  while (safeUrls.length < 3) safeUrls.push(PLACEHOLDER_IMAGE);
+
+  const next = () => setCurrentSlide((s) => (s + 1) % safeUrls.length);
+  const prev = () => setCurrentSlide((s) => (s - 1 + safeUrls.length) % safeUrls.length);
+
+  const handleTouchStart = (e) =>
+    setTouchStart(e.touches[0] ? e.touches[0].clientX : null);
+  const handleTouchEnd = (e) => {
+    if (touchStart == null) return;
+    const endX = e.changedTouches[0]?.clientX ?? touchStart;
+    const delta = touchStart - endX;
+    if (delta > 50) next();
+    else if (delta < -50) prev();
+    setTouchStart(null);
+  };
+
+  return (
+    <div className="relative">
+      <div
+        className="flex items-center justify-center gap-2 touch-pan-y"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        <button
+          type="button"
+          onClick={prev}
+          className="px-3 py-2 border border-[#7A4FFF]/50 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors shrink-0 rounded-lg"
+          aria-label="Previous image"
+        >
+          ‹
+        </button>
+        <div className="flex-1 min-w-0 aspect-[4/3] overflow-hidden bg-[#0A0F1C]/10 rounded-2xl">
+          <img
+            src={safeUrls[currentSlide] ?? PLACEHOLDER_IMAGE}
+            alt={subjectName ? `${labels[currentSlide]} for ${subjectName}` : labels[currentSlide]}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <button
+          type="button"
+          onClick={next}
+          className="px-3 py-2 border border-[#7A4FFF]/50 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors shrink-0 rounded-lg"
+          aria-label="Next image"
+        >
+          ›
+        </button>
+      </div>
+      <p className="text-center text-xs beauty-text-muted mt-2 font-light">
+        {labels[currentSlide] ?? `Slide ${currentSlide + 1}`}
+      </p>
+      <div className="flex justify-center gap-1.5 mt-2">
+        {safeUrls.map((_, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setCurrentSlide(i)}
+            className={`w-2 h-2 rounded-full transition-colors ${i === currentSlide ? "bg-[#7A4FFF]" : "bg-[var(--beauty-text-muted)]/30"}`}
+            aria-label={`Go to slide ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}

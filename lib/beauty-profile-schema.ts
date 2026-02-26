@@ -1,18 +1,49 @@
 import type { VectorZero } from "@/lib/vector-zero";
 import type { BeautyProfile } from "@/lib/eve-spec";
 
+/** Stable engine/build identifier for audit. */
+export const SCHEMA_VERSION = "beautyProfileV2";
+
+/** Derive engineVersion from env when available. */
+export function getEngineVersion(): string {
+  const sha = process.env.VERCEL_GIT_COMMIT_SHA;
+  if (sha && typeof sha === "string") return `ev-${sha.slice(0, 7)}`;
+  return "ev-dev";
+}
+
 /**
  * Canonical Beauty Profile schema (v1) — matches the shape produced by /api/engine.
+ * New saves include schemaVersion and engineVersion.
  */
 export interface BeautyProfileV1 extends BeautyProfile {
   version: "1.0";
+  /** New saves: "beautyProfileV2". Old reports omit. */
+  schemaVersion?: string;
+  /** New saves: ev-{sha} or ev-dev. Old reports omit. */
+  engineVersion?: string;
   reportId: string;
   subjectName?: string;
+  /** Dominant archetype name (e.g. from extractArchetypeFromReport) for ShareCard and marketing. */
+  dominantArchetype?: string;
   emotionalSnippet?: string;
   imagePrompts?: string[];
   imageUrls?: string[];
   fullReport?: string;
   vectorZero?: VectorZero;
+  /** Full prompts + slug used for each image (no truncation). New saves only. */
+  imagePromptsUsed?: Array<{ slug: string; prompt: string }>;
+  /** URL of marketing background image. Set when generated (live only). */
+  marketingBackgroundUrl?: string;
+  /** URL of logo mark image. Set when generated (live only). */
+  logoMarkUrl?: string;
+  /** URL of composed marketing card. Set when marketing card is generated (dry or live). */
+  marketingCardUrl?: string;
+  /** URL of share card image. Set when share card is generated (live only). */
+  shareCardUrl?: string;
+  /** True when keeper manifest was saved on full-cylinders success. */
+  keeperReady?: boolean;
+  /** URL to ligs-keepers/{reportId}.json when keeperReady. */
+  keeperManifestUrl?: string;
   timings: {
     totalMs: number;
     engineMs: number;
