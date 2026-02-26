@@ -37,6 +37,10 @@ This project is **cloud-clean**: the repo is the single source of truth for code
 
 - **Code:** Push to GitHub; Vercel builds from the repo.
 - **Landing images:** Any new landing images must live in `public/signatures` or `public/exemplars` and must be committed. Do not add images to other locations or leave them untracked.
+
+**Stability Anchor:** Tag `beauty-stable-v1` → commit `ecb4a17`. Rollback point for `/beauty` landing assets and `/beauty/start` route. To rollback: `git checkout beauty-stable-v1`.
+
+**Branch policy:** All work must be on a feature branch. Branch naming: `beauty/...`. PR required before merge to `main`. No direct pushes to `main`.
 - **Env:** Set in [Vercel Project Settings → Environment Variables](https://vercel.com/docs/projects/environment-variables). See `.env.example` for the list (OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, etc.).
 - **Secrets:** Do not commit `.env` or `.env.local`; they are gitignored. Use only Vercel (or your own env) for production.
 
