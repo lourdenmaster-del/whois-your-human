@@ -36,6 +36,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 This project is **cloud-clean**: the repo is the single source of truth for code. Builds, env vars, Stripe handlers, and all routes run entirely on Vercel. No reliance on any local machine.
 
 - **Code:** Push to GitHub; Vercel builds from the repo.
+- **Landing images:** Any new landing images must live in `public/signatures` or `public/exemplars` and must be committed. Do not add images to other locations or leave them untracked.
 - **Env:** Set in [Vercel Project Settings → Environment Variables](https://vercel.com/docs/projects/environment-variables). See `.env.example` for the list (OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, etc.).
 - **Secrets:** Do not commit `.env` or `.env.local`; they are gitignored. Use only Vercel (or your own env) for production.
 
