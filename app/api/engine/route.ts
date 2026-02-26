@@ -2,14 +2,56 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import type { EngineResponse, ReportResponse } from "@/lib/api-types";
 import type { BeautyProfileV1 } from "@/lib/beauty-profile-schema";
-import { EVE_FILTER_SPEC, buildBeautyProfile } from "@/lib/eve-spec";
+import {
+  EVE_FILTER_SPEC,
+  buildBeautyProfile,
+  buildCondensedFullReport,
+  extractArchetypeFromReport,
+  buildArchetypeVoiceBlock,
+  buildArchetypePhraseBankBlock,
+} from "@/lib/eve-spec";
+import {
+  getPrimaryArchetypeFromSolarLongitude,
+  resolveSecondaryArchetype,
+  buildTriangulatedImagePrompt,
+} from "@/src/ligs/image/triangulatePrompt";
+import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import type { LigsArchetype } from "@/src/ligs/voice/schema";
 import type { VectorZero } from "@/lib/vector-zero";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { saveBeautyProfileV1 } from "@/lib/beauty-profile-store";
-import { saveReport } from "@/lib/report-store";
+import { SCHEMA_VERSION, getEngineVersion } from "@/lib/beauty-profile-schema";
 import { validateEngineBody } from "@/lib/validate-engine-body";
+import { allowExternalWrites, isTestMode } from "@/lib/runtime-mode";
+import {
+  getIdempotentResult,
+  setIdempotentResult,
+  isValidIdempotencyKey,
+  deriveIdempotencyKey,
+} from "@/lib/idempotency-store";
+import { saveImageToBlob, getImageUrlFromBlob } from "@/lib/report-store";
+import { buildMinimalVoiceProfile } from "@/lib/marketing/minimal-profile";
+import { pickBackgroundSource } from "@/lib/ligs-studio-utils";
+import { buildOverlaySpecWithCopy } from "@/src/ligs/marketing";
+import { createArchetypeGradientSvgBuffer } from "@/lib/marketing/gradient-background";
+import { composeMarketingCardToBuffer } from "@/lib/marketing/compose-card";
+import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
+import {
+  saveKeeperManifest,
+  IDENTITY_SPEC_VERSION,
+  type KeeperManifest,
+} from "@/lib/keeper-manifest";
+
+const IMAGE_SLUGS = [
+  "vector_zero_beauty_field",
+  "light_signature_aesthetic_field",
+  "final_beauty_field",
+] as const;
+
+const FALLBACK_PROMPT =
+  "Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures, no faces.";
 
 console.log("ENGINE ROUTE LOADED");
 
@@ -27,16 +69,48 @@ export async function POST(req: Request) {
       log("warn", "validation failed", { requestId, error: validation.error.message });
       return errorResponse(400, validation.error.message, requestId);
     }
-    const { fullName, birthDate, birthTime, birthLocation, email } = validation.value;
+    const { fullName, birthDate, birthTime, birthLocation, email, dryRun: bodyDryRun } = validation.value;
+    const validated = validation.value as Record<string, unknown>;
+    const derivedData = validated.birthContext ?? validated.astrology;
+    const idempotencyKey = validated.idempotencyKey as string | undefined;
+    const willSpend = allowExternalWrites && bodyDryRun !== true;
 
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
-      log("warn", "OPENAI_API_KEY not set", { requestId });
+    if (willSpend && !isValidIdempotencyKey(idempotencyKey)) {
+      log("warn", "idempotency_key_required", { requestId });
       return errorResponse(
-        500,
-        "OPENAI_API_KEY not set. Set it in your environment (e.g. Vercel Project Settings → Environment Variables).",
+        400,
+        "idempotencyKey (UUID) is required when making live E.V.E. and image calls. Provide it in the request body to prevent duplicate spend.",
         requestId
       );
+    }
+
+    // Idempotency: return cached full engine response if same key completed previously
+    if (isValidIdempotencyKey(idempotencyKey)) {
+      const cached = await getIdempotentResult<Record<string, unknown>>("engine", idempotencyKey, {
+        requestId,
+      });
+      if (cached) {
+        log("info", "idempotency_hit", { requestId, route: "engine" });
+        const reportIdCached = cached.reportId as string | undefined;
+        log("info", "assets_manifest", {
+          requestId,
+          reportId: reportIdCached ?? null,
+          signatureImageUrls: (cached.imageUrls as string[] | undefined) ?? [],
+          marketingBackgroundUrl: (cached.marketingBackgroundUrl as string) ?? null,
+          logoMarkUrl: (cached.logoMarkUrl as string) ?? null,
+          marketingCardUrl: (cached.marketingCardUrl as string) ?? null,
+          shareCardUrl: (cached.shareCardUrl as string) ?? null,
+          idempotencyHit: true,
+        });
+        const cylindersMeta = {
+          llmCallsAttempted: 0,
+          imageCallsAttempted: 0,
+          allowExternalWrites,
+          idempotencyHit: true,
+          routesHit: ["engine"],
+        };
+        return successResponse(200, { ...cached, idempotencyHit: true, meta: cylindersMeta }, requestId);
+      }
     }
 
     const origin =
@@ -55,6 +129,9 @@ export async function POST(req: Request) {
         birthTime: birthTime ?? "",
         birthLocation,
         email,
+        ...(derivedData != null && { birthContext: derivedData }),
+        ...(bodyDryRun === true && { dryRun: true }),
+        ...(idempotencyKey && { idempotencyKey }),
       }),
     });
     const engineMs = Date.now() - tEngineStart;
@@ -102,65 +179,101 @@ export async function POST(req: Request) {
       return errorResponse(502, "ENGINE_MISSING_REPORT_ID", requestId);
     }
 
-    await saveReport(reportId, {
-      full_report: "",
-      emotional_snippet: engineData.data?.emotional_snippet ?? "",
-      image_prompts: engineData.data?.image_prompts ?? [],
-      ...(engineData.data?.vector_zero != null && { vector_zero: engineData.data.vector_zero }),
+    // Do NOT overwrite full_report. engine/generate already saved it via saveReportAndConfirm.
+    // Fetch the report as stored; E.V.E. requires full_report to be present.
+    log("info", "report_fetch_before_eve", {
+      requestId,
+      reportId,
+      note: "full_report must remain intact from engine/generate",
     });
-
     const reportUrl = `${origin}/api/report/${reportId}`;
     log("info", "stage", { requestId, stage: "report_fetch_start", durationMs: mark() });
     const tReportStart = Date.now();
     const reportRes = await fetch(reportUrl);
     const reportFetchMs = Date.now() - tReportStart;
     log("info", "stage", { requestId, stage: "report_fetch_end", durationMs: mark() });
-    const reportData = (await reportRes.json()) as ReportResponse & { error?: string };
+    const reportJson = (await reportRes.json()) as
+      | (ReportResponse & { error?: string })
+      | { status: string; data: ReportResponse; error?: string };
 
-    if (!reportRes.ok || reportData.error) {
+    if (!reportRes.ok || (reportJson as { error?: string }).error) {
       const status = reportRes.status >= 400 ? reportRes.status : 502;
       return errorResponse(status, "REPORT_NOT_FOUND", requestId);
     }
 
+    const reportData =
+      (reportJson as { data?: ReportResponse }).data ?? (reportJson as ReportResponse);
     const fullReport = reportData.full_report ?? "";
     const emotionalSnippet = reportData.emotional_snippet ?? "";
     const vectorZeroFromReport = reportData.vector_zero ?? vectorZero;
+    const archetypeName = extractArchetypeFromReport(fullReport) ?? "Stabiliora";
+    const archetypeVoiceBlock = buildArchetypeVoiceBlock(archetypeName);
+    const phraseBankBlock = buildArchetypePhraseBankBlock(archetypeName);
 
     if (!fullReport) {
       log("warn", "stored report has no full_report", { requestId });
       return errorResponse(502, "REPORT_MISSING_FULL_REPORT", requestId);
     }
 
-    const openai = new OpenAI({ apiKey });
+    const engineDryRun = process.env.DRY_RUN === "1" || process.env.DRY_RUN === "true";
 
     log("info", "stage", { requestId, stage: "beauty_filter_start", durationMs: mark() });
     const tBeautyStart = Date.now();
     let filterText: string;
-    try {
-      console.log("VALIDATION_PASSED");
-      console.log("BEFORE_MODEL_CALL");
-      const eveFilterResponse = await openai.chat.completions.create({
+    if (engineDryRun) {
+      filterText = JSON.stringify({
+        vector_zero: vectorZeroFromReport ?? {
+          three_voice: { raw_signal: "Baseline.", custodian: "Default.", oracle: "Identity at rest." },
+          beauty_baseline: { color_family: "warm-neutral", texture_bias: "smooth", shape_bias: "balanced", motion_bias: "steady" },
+        },
+        light_signature: { raw_signal: "Spectral pattern.", custodian: "Light vectors.", oracle: "Signature emerges." },
+        archetype: { raw_signal: "Archetype.", custodian: "Core pattern.", oracle: "How it presents." },
+        deviations: { raw_signal: "Drift.", custodian: "Under pressure.", oracle: "Where it bends." },
+        corrective_vector: { raw_signal: "Return.", custodian: "To center.", oracle: "Stabilization." },
+        imagery_prompts: {
+          vector_zero_beauty_field: FALLBACK_PROMPT,
+          light_signature_aesthetic_field: FALLBACK_PROMPT,
+          final_beauty_field: FALLBACK_PROMPT,
+        },
+      });
+      log("info", "E.V.E. DRY_RUN fixture used — zero OpenAI spend", { requestId });
+    } else {
+      const apiKey = process.env.OPENAI_API_KEY?.trim();
+      if (!apiKey) {
+        log("warn", "OPENAI_API_KEY not set", { requestId });
+        return errorResponse(
+          500,
+          "OPENAI_API_KEY not set. Set it in your environment (e.g. Vercel Project Settings → Environment Variables).",
+          requestId
+        );
+      }
+      const openai = new OpenAI({ apiKey });
+      try {
+        console.log("VALIDATION_PASSED");
+        console.log("BEFORE_MODEL_CALL");
+        const eveFilterResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `${EVE_FILTER_SPEC}\n\nSTRICT OUTPUT: You must respond with valid JSON only. No prose, no markdown, no comments, no trailing commas, no additional fields. The only allowed shape is: {"image":"<base64 or URL>","report":"<string>"}`,
+            content: `${EVE_FILTER_SPEC}\n\nOutput valid JSON only. No prose, no markdown, no comments, no trailing commas. Use exactly the structure defined above.`,
           },
           {
             role: "user",
-            content: `Transform this LIGS output into the Beauty-Only Profile. Output only a single JSON object with exactly two keys: "image" (base64 or URL string) and "report" (string). Nothing else.\n\nFull report:\n${fullReport.slice(0, 8000)}\n\nEmotional snippet: ${emotionalSnippet}\n\n${vectorZeroFromReport ? `Vector Zero (use this for vector_zero section):\n${JSON.stringify(vectorZeroFromReport)}` : ""}`,
+            content: `Extract the Beauty-Only Profile from this LIGS report. Output the full JSON structure per the spec (vector_zero, light_signature, archetype, deviations, corrective_vector, imagery_prompts).\n\n${archetypeVoiceBlock}\n\n${phraseBankBlock ? `\n${phraseBankBlock}\n\n` : ""}Full report:\n${fullReport.slice(0, 8000)}\n\nEmotional snippet: ${emotionalSnippet}\n\n${vectorZeroFromReport ? `Vector Zero (use this for vector_zero section):\n${JSON.stringify(vectorZeroFromReport)}` : ""}`,
           },
         ],
         response_format: { type: "json_object" },
         temperature: 0.5,
       });
-      console.log("AFTER_MODEL_CALL");
-      console.log("MODEL_CALL_RESPONSE:", eveFilterResponse);
-      filterText = eveFilterResponse.choices[0]?.message?.content ?? "";
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      log("error", "E.V.E. model call failed", { requestId, message: msg });
-      throw new Error(`E.V.E. model call failed: ${msg}`);
+        console.log("AFTER_MODEL_CALL");
+        console.log("MODEL_CALL_RESPONSE:", eveFilterResponse);
+        filterText = eveFilterResponse.choices[0]?.message?.content ?? "";
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("error", "E.V.E. model call failed", { requestId, message: msg });
+        throw new Error(`E.V.E. model call failed: ${msg}`);
+      }
     }
     const beautyFilterMs = Date.now() - tBeautyStart;
     log("info", "stage", { requestId, stage: "beauty_filter_end", durationMs: mark() });
@@ -170,7 +283,7 @@ export async function POST(req: Request) {
       return errorResponse(500, "BEAUTY_FILTER_EMPTY_OUTPUT", requestId);
     }
 
-    let parsed: { image: string; report: string };
+    let filterOutput: Record<string, unknown>;
     try {
       console.log("RAW_MODEL_OUTPUT (filterText) before JSON.parse:", filterText);
       const raw = JSON.parse(filterText) as unknown;
@@ -178,37 +291,18 @@ export async function POST(req: Request) {
         throw new Error("E.V.E. response is not a JSON object");
       }
       const obj = raw as Record<string, unknown>;
-      const keys = Object.keys(obj);
-      if (keys.length !== 2 || !keys.includes("image") || !keys.includes("report")) {
-        throw new Error(
-          `E.V.E. response must have exactly "image" and "report" keys; got: ${keys.join(", ") || "none"}`
-        );
+      const required = ["vector_zero", "light_signature", "archetype", "deviations", "corrective_vector", "imagery_prompts"];
+      const missing = required.filter((k) => !(k in obj));
+      if (missing.length > 0) {
+        throw new Error(`E.V.E. response missing required keys: ${missing.join(", ")}`);
       }
-      if (typeof obj.image !== "string" || typeof obj.report !== "string") {
-        throw new Error('E.V.E. response "image" and "report" must be strings');
-      }
-      parsed = { image: obj.image, report: obj.report };
+      filterOutput = obj;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       log("error", "E.V.E. invalid JSON or shape", { requestId, message: msg });
       throw new Error(`E.V.E. invalid JSON output: ${msg}`);
     }
 
-    const filterOutput = {
-      vector_zero: {
-        three_voice: { raw_signal: "", custodian: "", oracle: "" },
-        beauty_baseline: { color_family: "", texture_bias: "", shape_bias: "", motion_bias: "" },
-      },
-      light_signature: { raw_signal: parsed.report, custodian: "", oracle: "" },
-      archetype: { raw_signal: "", custodian: "", oracle: "" },
-      deviations: { raw_signal: "", custodian: "", oracle: "" },
-      corrective_vector: { raw_signal: "", custodian: "", oracle: "" },
-      imagery_prompts: {
-        vector_zero_beauty_field: "",
-        light_signature_aesthetic_field: "",
-        final_beauty_field: "",
-      },
-    };
     const beautyProfile = buildBeautyProfile(filterOutput, vectorZeroFromReport);
 
     const timings = {
@@ -217,17 +311,475 @@ export async function POST(req: Request) {
       reportFetchMs,
       beautyFilterMs,
     };
+    const imagePromptsUsed = [
+      { slug: IMAGE_SLUGS[0], prompt: beautyProfile.imagery_prompts.vector_zero_beauty_field },
+      { slug: IMAGE_SLUGS[1], prompt: beautyProfile.imagery_prompts.light_signature_aesthetic_field },
+      { slug: IMAGE_SLUGS[2], prompt: beautyProfile.imagery_prompts.final_beauty_field },
+    ];
+
     const payload: BeautyProfileV1 = {
       version: "1.0",
+      schemaVersion: SCHEMA_VERSION,
+      engineVersion: getEngineVersion(),
       reportId,
+      subjectName: fullName,
+      dominantArchetype: archetypeName,
+      emotionalSnippet: emotionalSnippet || undefined,
       ...beautyProfile,
       timings,
-      imageUrls: [parsed.image],
-      fullReport: parsed.report,
+      imageUrls: [],
+      /** Full prompts + params used for image generation (no truncation). */
+      imagePromptsUsed,
+      fullReport: buildCondensedFullReport(beautyProfile, {
+        archetypeName,
+        useElegantLabels: true,
+      }),
     };
     await saveBeautyProfileV1(reportId, payload, requestId);
 
-    return successResponse(200, payload, requestId);
+    // Generate 3 images to ligs-images/{reportId}/{slug} when allowed (prod, not dryRun).
+    if (allowExternalWrites && !bodyDryRun) {
+      const prompts = beautyProfile.imagery_prompts;
+      const imagePrompts = [
+        prompts.vector_zero_beauty_field,
+        prompts.light_signature_aesthetic_field,
+        prompts.final_beauty_field,
+      ];
+
+      const derived = derivedData as Record<string, unknown> | undefined;
+      const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
+      const sunCtx = derived?.sun as Record<string, unknown> | undefined;
+      const twilightPhase =
+        (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as
+          | "day"
+          | "civil"
+          | "nautical"
+          | "astronomical"
+          | "night";
+
+      const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
+        ? archetypeName
+        : "Stabiliora") as LigsArchetype;
+      const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
+      const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
+      const solarProfile = { sunLonDeg, twilightPhase };
+
+      if (typeof process !== "undefined" && process.env?.NODE_ENV !== "production") {
+        log("info", "triangulation_debug", {
+          requestId,
+          primaryArchetype,
+          secondaryArchetype,
+          twilightPhase,
+          sunLonDeg,
+        });
+      }
+
+      log("info", "stage", { requestId, stage: "image_generation_start", reportId, promptCount: imagePrompts.length });
+      const signatureUrls: string[] = [];
+      const signaturePrompts: Array<{ slug: string; positive: string; negative: string; full: string }> = [];
+      for (let i = 0; i < IMAGE_SLUGS.length; i++) {
+        const slug = IMAGE_SLUGS[i];
+        const basePrompt = imagePrompts[i] ?? imagePrompts[i - 1] ?? imagePrompts[0] ?? FALLBACK_PROMPT;
+        const { positive, negative } = buildTriangulatedImagePrompt({
+          primaryArchetype,
+          secondaryArchetype,
+          solarProfile,
+          twilightPhase,
+          mode: "signature",
+          seed: reportId + slug,
+          basePrompt,
+        });
+        const full = (`${positive} Avoid: ${negative}`).slice(0, 4000);
+        signaturePrompts.push({ slug: IMAGE_SLUGS[i], positive, negative, full });
+        const prompt = full;
+        try {
+          const genRes = await fetch(`${origin}/api/generate-image`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt, reportId, slug }),
+          });
+          const genData = (await genRes.json().catch(() => ({}))) as { data?: { url?: string }; url?: string; error?: string };
+          const url = genData.data?.url ?? genData.url;
+          if (genRes.ok && url) {
+            signatureUrls.push(url);
+            log("info", "image_generated", { requestId, reportId, slug });
+          } else {
+            signatureUrls.push("");
+            log("warn", "image_generation_failed", { requestId, reportId, slug, error: genData.error });
+          }
+        } catch (e) {
+          signatureUrls.push("");
+          log("warn", "image_generation_error", {
+            requestId,
+            reportId,
+            slug,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
+      }
+      (payload as unknown as Record<string, unknown>).imageUrls = signatureUrls;
+      await saveBeautyProfileV1(reportId, payload, requestId);
+      log("info", "stage", { requestId, stage: "image_generation_end", reportId });
+
+      // LIVE: Step 1 – marketing_background + logo_mark (triangulated, cached)
+      // Step 2 – compose marketing card (bg + logo + overlay)
+      // Step 3 – share_card (triangulated)
+      const payloadRecord = payload as unknown as Record<string, unknown>;
+      if (isValidIdempotencyKey(idempotencyKey)) {
+        const profile = buildMinimalVoiceProfile(archetypeName, {
+          deterministicId: `minimal_${archetypeName}_${reportId}`,
+        });
+        const vk = `cd0.15_${reportId}`;
+        const imageGenBody = (purpose: string, keySuffix: string, aspectRatio: "1:1" | "16:9" = "16:9") =>
+          JSON.stringify({
+            profile,
+            purpose,
+            image: { aspectRatio, size: "1024" as const, count: 1 },
+            variationKey: vk,
+            archetype: archetypeName,
+            idempotencyKey: deriveIdempotencyKey(idempotencyKey, keySuffix),
+          });
+
+        let marketingBackgroundUrl = payloadRecord.marketingBackgroundUrl as string | undefined;
+        let logoMarkUrl = payloadRecord.logoMarkUrl as string | undefined;
+        let marketingCardUrl = payloadRecord.marketingCardUrl as string | undefined;
+        let shareCardUrl = payloadRecord.shareCardUrl as string | undefined;
+
+        // Idempotency: skip if already in Blob
+        if (!marketingBackgroundUrl) marketingBackgroundUrl = (await getImageUrlFromBlob(reportId, "marketing_background")) ?? undefined;
+        if (!logoMarkUrl) logoMarkUrl = (await getImageUrlFromBlob(reportId, "logo_mark")) ?? undefined;
+        if (!shareCardUrl) shareCardUrl = (await getImageUrlFromBlob(reportId, "share_card")) ?? undefined;
+
+        let marketingBgSpec: { positive: string; negative: string; full: string } | null = null;
+        let logoMarkSpec: { positive: string; negative: string; full: string } | null = null;
+        let shareCardSpec: { positive: string; negative: string; full: string } | null = null;
+        let overlaySpecForKeeper: { headline: string; subhead?: string; cta?: string } | null = null;
+
+        // Step 1a: Generate marketing_background
+        if (!marketingBackgroundUrl) {
+          try {
+            const res = await fetch(`${origin}/api/image/generate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: imageGenBody("marketing_background", "marketing-bg"),
+            });
+            const data = (await res.json()) as { images?: Array<{ url?: string }>; providerPrompt?: { positive: string; negative: string; full: string } };
+            if (data?.providerPrompt) marketingBgSpec = data.providerPrompt;
+            const src = pickBackgroundSource(data?.images ? { images: data.images } : null);
+            if (src?.url) {
+              const imgRes = await fetch(src.url);
+              if (imgRes.ok) {
+                const buf = await imgRes.arrayBuffer();
+                marketingBackgroundUrl = (await saveImageToBlob(reportId, "marketing_background", buf, imgRes.headers.get("content-type") || "image/png")) ?? undefined;
+                if (marketingBackgroundUrl) payloadRecord.marketingBackgroundUrl = marketingBackgroundUrl;
+              }
+            }
+          } catch (e) {
+            log("warn", "marketing_background_failed", { requestId, reportId, message: e instanceof Error ? e.message : String(e) });
+          }
+        }
+
+        // Step 1b: Generate logo_mark
+        if (!logoMarkUrl) {
+          try {
+            const res = await fetch(`${origin}/api/image/generate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: imageGenBody("marketing_logo_mark", "logo-mark", "1:1"),
+            });
+            const data = (await res.json()) as { images?: Array<{ url?: string }>; providerPrompt?: { positive: string; negative: string; full: string } };
+            if (data?.providerPrompt) logoMarkSpec = data.providerPrompt;
+            const src = pickBackgroundSource(data?.images ? { images: data.images } : null);
+            if (src?.url) {
+              const imgRes = await fetch(src.url);
+              if (imgRes.ok) {
+                const buf = await imgRes.arrayBuffer();
+                logoMarkUrl = (await saveImageToBlob(reportId, "logo_mark", buf, imgRes.headers.get("content-type") || "image/png")) ?? undefined;
+                if (logoMarkUrl) payloadRecord.logoMarkUrl = logoMarkUrl;
+              }
+            }
+          } catch (e) {
+            log("warn", "logo_mark_failed", { requestId, reportId, message: e instanceof Error ? e.message : String(e) });
+          }
+        }
+
+        await saveBeautyProfileV1(reportId, payload, requestId);
+
+        // Step 2: Compose marketing card (bg + logo + overlay)
+        if (marketingBackgroundUrl && logoMarkUrl) {
+          try {
+            const [bgRes, logoRes] = await Promise.all([
+              fetch(marketingBackgroundUrl),
+              fetch(logoMarkUrl),
+            ]);
+            if (bgRes.ok && logoRes.ok) {
+              const bgBuf = Buffer.from(await bgRes.arrayBuffer());
+              const logoBuf = Buffer.from(await logoRes.arrayBuffer());
+              const overlaySpec = buildOverlaySpecWithCopy(
+                profile,
+                { purpose: "beauty_marketing_card", templateId: "square_card_v1", size: "1024", variationKey: reportId },
+                undefined,
+                archetypeName
+              );
+              overlaySpecForKeeper = { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta };
+              const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, bgBuf, { size: 1024, logoBuffer: logoBuf });
+              marketingCardUrl = (await saveImageToBlob(reportId, "marketing_card", new Uint8Array(pngBuffer).buffer, "image/png")) ?? undefined;
+              if (marketingCardUrl) payloadRecord.marketingCardUrl = marketingCardUrl;
+            }
+          } catch (e) {
+            log("warn", "marketing_card_compose_failed", { requestId, reportId, message: e instanceof Error ? e.message : String(e) });
+          }
+        } else if (marketingBackgroundUrl) {
+          // Fallback: compose with background only (monogram logo)
+          try {
+            const bgRes = await fetch(marketingBackgroundUrl);
+            if (bgRes.ok) {
+              const bgBuf = Buffer.from(await bgRes.arrayBuffer());
+              const overlaySpec = buildOverlaySpecWithCopy(
+                profile,
+                { purpose: "beauty_marketing_card", templateId: "square_card_v1", size: "1024", variationKey: reportId },
+                undefined,
+                archetypeName
+              );
+              overlaySpecForKeeper = { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta };
+              const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, bgBuf, { size: 1024 });
+              marketingCardUrl = (await saveImageToBlob(reportId, "marketing_card", new Uint8Array(pngBuffer).buffer, "image/png")) ?? undefined;
+              if (marketingCardUrl) payloadRecord.marketingCardUrl = marketingCardUrl;
+            }
+          } catch (e) {
+            log("warn", "marketing_card_compose_failed", { requestId, reportId, message: e instanceof Error ? e.message : String(e) });
+          }
+        }
+
+        // Step 3: Generate share_card
+        if (!shareCardUrl) {
+          try {
+            const res = await fetch(`${origin}/api/image/generate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: imageGenBody("share_card", "share-card"),
+            });
+            const data = (await res.json()) as { images?: Array<{ url?: string }>; providerPrompt?: { positive: string; negative: string; full: string } };
+            if (data?.providerPrompt) shareCardSpec = data.providerPrompt;
+            const src = pickBackgroundSource(data?.images ? { images: data.images } : null);
+            if (src?.url) {
+              const imgRes = await fetch(src.url);
+              if (imgRes.ok) {
+                const buf = await imgRes.arrayBuffer();
+                shareCardUrl = (await saveImageToBlob(reportId, "share_card", buf, imgRes.headers.get("content-type") || "image/png")) ?? undefined;
+                if (shareCardUrl) payloadRecord.shareCardUrl = shareCardUrl;
+              }
+            }
+          } catch (e) {
+            log("warn", "share_card_failed", { requestId, reportId, message: e instanceof Error ? e.message : String(e) });
+          }
+        }
+
+        await saveBeautyProfileV1(reportId, payload, requestId);
+
+        // Keeper bundle: write manifest on full-cylinders success (LIVE)
+        const sigUrls = (payloadRecord.imageUrls as string[] | undefined) ?? [];
+        const hasAllUrls =
+          sigUrls.length >= 3 &&
+          marketingBackgroundUrl &&
+          logoMarkUrl &&
+          marketingCardUrl &&
+          shareCardUrl;
+        // Only write keeper when we have EXACT provider prompts (no rebuild via buildImagePromptSpec)
+        if (hasAllUrls && marketingBgSpec && logoMarkSpec && shareCardSpec) {
+          const descriptor = getMarketingDescriptor(archetypeName);
+          if (!overlaySpecForKeeper) {
+            const os = buildOverlaySpecWithCopy(
+              profile,
+              { purpose: "beauty_marketing_card", templateId: "square_card_v1", size: "1024", variationKey: reportId },
+              undefined,
+              archetypeName
+            );
+            overlaySpecForKeeper = { headline: os.copy.headline, subhead: os.copy.subhead, cta: os.copy.cta };
+          }
+
+          const keeperManifest: KeeperManifest = {
+            reportId,
+            primaryArchetype,
+            secondaryArchetype,
+            twilightPhase,
+            sunLonDeg,
+            marketingDescriptor: {
+              tagline: descriptor.tagline,
+              hitPoints: descriptor.hitPoints ?? [],
+              ctaText: descriptor.ctaText,
+              ctaStyle: descriptor.ctaStyle,
+            },
+            prompts: {
+              signatures: signaturePrompts,
+              marketing_background: marketingBgSpec,
+              logo_mark: logoMarkSpec,
+              marketing_card: overlaySpecForKeeper ?? { headline: "", subhead: "", cta: "" },
+              share_card: shareCardSpec,
+            },
+            urls: {
+              signature_0: sigUrls[0] ?? "",
+              signature_1: sigUrls[1] ?? "",
+              signature_2: sigUrls[2] ?? "",
+              marketingBackground: marketingBackgroundUrl ?? "",
+              logoMark: logoMarkUrl ?? "",
+              marketingCard: marketingCardUrl ?? "",
+              shareCard: shareCardUrl ?? "",
+            },
+            createdAt: Date.now(),
+            identitySpecVersion: IDENTITY_SPEC_VERSION,
+          };
+          const keeperManifestUrl = await saveKeeperManifest(keeperManifest);
+          if (keeperManifestUrl) {
+            payloadRecord.keeperReady = true;
+            payloadRecord.keeperManifestUrl = keeperManifestUrl;
+            await saveBeautyProfileV1(reportId, payload, requestId);
+            log("info", "keeper_manifest_saved", { requestId, reportId, keeperManifestUrl });
+          }
+        }
+      }
+    }
+
+    // Marketing card: when dry (no paid API calls), create deterministic composed card and save to Blob
+    const marketingDry =
+      isTestMode ||
+      bodyDryRun === true ||
+      !allowExternalWrites ||
+      process.env.DRY_RUN === "1" ||
+      process.env.DRY_RUN === "true";
+    if (marketingDry) {
+      try {
+        const profile = buildMinimalVoiceProfile(archetypeName);
+        const overlaySpec = buildOverlaySpecWithCopy(profile, {
+          purpose: "beauty_marketing_card",
+          templateId: "square_card_v1",
+          size: "1024",
+          variationKey: reportId,
+        }, undefined, archetypeName);
+        const backgroundBuffer = createArchetypeGradientSvgBuffer(archetypeName);
+        const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, backgroundBuffer, { size: 1024 });
+        log("info", "marketing_card_composed", {
+          requestId,
+          reportId,
+          archetypeName,
+        });
+        const imageBuffer = new Uint8Array(pngBuffer).buffer;
+        const url = await saveImageToBlob(
+          reportId,
+          "marketing_card",
+          imageBuffer,
+          "image/png"
+        );
+        if (url) {
+          (payload as unknown as Record<string, unknown>).marketingCardUrl = url;
+          await saveBeautyProfileV1(reportId, payload, requestId);
+          log("info", "marketing_card_saved", { requestId, reportId, url });
+
+          // DRY keeper: write to ligs-keepers-dry/ for landing validation without spend
+          const derived = derivedData as Record<string, unknown> | undefined;
+          const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
+          const sunCtx = derived?.sun as Record<string, unknown> | undefined;
+          const twilightPhase =
+            (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as string;
+          const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
+            ? archetypeName
+            : "Stabiliora") as LigsArchetype;
+          const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
+          const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
+          const descriptor = getMarketingDescriptor(archetypeName);
+          const emptyPrompt = { positive: "", negative: "", full: "" };
+          const dryKeeper: KeeperManifest = {
+            reportId,
+            primaryArchetype,
+            secondaryArchetype,
+            twilightPhase,
+            sunLonDeg,
+            marketingDescriptor: {
+              tagline: descriptor.tagline,
+              hitPoints: descriptor.hitPoints ?? [],
+              ctaText: descriptor.ctaText,
+              ctaStyle: descriptor.ctaStyle,
+            },
+            prompts: {
+              signatures: IMAGE_SLUGS.map((slug) => ({ slug, ...emptyPrompt })),
+              marketing_background: emptyPrompt,
+              logo_mark: emptyPrompt,
+              marketing_card: { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta },
+              share_card: emptyPrompt,
+            },
+            urls: {
+              signature_0: "",
+              signature_1: "",
+              signature_2: "",
+              marketingBackground: "",
+              logoMark: "",
+              marketingCard: url,
+              shareCard: "",
+            },
+            createdAt: Date.now(),
+            identitySpecVersion: IDENTITY_SPEC_VERSION,
+          };
+          const dryKeeperUrl = await saveKeeperManifest(dryKeeper, true);
+          if (dryKeeperUrl) {
+            log("info", "keeper_manifest_dry_saved", { requestId, reportId, dryKeeperUrl });
+          }
+        }
+      } catch (e) {
+        log("warn", "marketing_card_compose_failed", {
+          requestId,
+          reportId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
+
+    const imageCallsAttempted =
+      allowExternalWrites && !bodyDryRun ? 6 : 0; /* 3 signatures + marketing_background + logo_mark + share_card */
+    const llmCallsAttempted = engineDryRun ? 0 : 5;
+    const cylindersMeta = {
+      llmCallsAttempted,
+      imageCallsAttempted,
+      allowExternalWrites,
+      idempotencyHit: false,
+      routesHit: ["engine-generate", "engine"] as const,
+    };
+
+    // D) Assets manifest (DRY run path – no LIVE marketing assets)
+    const finalPayload = payload as unknown as Record<string, unknown>;
+    const sigUrlsFinal = (finalPayload.imageUrls as string[] | undefined) ?? [];
+    let sigUrlsResolved = sigUrlsFinal.slice(0, 3);
+    if (reportId && (sigUrlsResolved.length < 3 || sigUrlsResolved.some((u) => !u))) {
+      for (let i = 0; i < 3; i++) {
+        if (!sigUrlsResolved[i]) sigUrlsResolved[i] = (await getImageUrlFromBlob(reportId, IMAGE_SLUGS[i])) ?? "";
+      }
+    }
+    log("info", "assets_manifest", {
+      requestId,
+      reportId: reportId ?? null,
+      signatureImageUrls: sigUrlsResolved,
+      marketingBackgroundUrl: (finalPayload.marketingBackgroundUrl as string) ?? null,
+      logoMarkUrl: (finalPayload.logoMarkUrl as string) ?? null,
+      marketingCardUrl: (finalPayload.marketingCardUrl as string) ?? null,
+      shareCardUrl: (finalPayload.shareCardUrl as string) ?? null,
+      idempotencyHit: false,
+    });
+
+    if (isValidIdempotencyKey(idempotencyKey)) {
+      await setIdempotentResult(
+        "engine",
+        idempotencyKey,
+        {
+          ...payload,
+          dryRun: bodyDryRun === true,
+          allowExternalWrites,
+          timestamp: Date.now(),
+          meta: cylindersMeta,
+        },
+        { requestId }
+      );
+    }
+
+    return successResponse(200, { ...payload, meta: cylindersMeta }, requestId);
   } catch (err) {
     const message =
       err instanceof Error ? err.message : String(err);

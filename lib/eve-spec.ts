@@ -4,6 +4,15 @@
  */
 
 import type { VectorZero } from "./vector-zero";
+import {
+  getArchetypeOrFallback,
+  LIGS_ARCHETYPES,
+} from "@/src/ligs/archetypes/contract";
+import {
+  buildPhraseBankBlock,
+  getArchetypePhraseBank,
+} from "@/src/ligs/voice/archetypePhraseBank";
+import type { LigsArchetype } from "@/src/ligs/voice/schema";
 
 export type ThreeVoice = {
   raw_signal: string;
@@ -31,6 +40,41 @@ export type BeautyProfile = {
     final_beauty_field: string;
   };
 };
+
+/** Extract dominant archetype name from report text (e.g., "Dominant: Radiantis"). */
+export function extractArchetypeFromReport(report: string): string | undefined {
+  const m = report.match(/Dominant:\s*(\w+)/i);
+  if (m) {
+    const name = m[1];
+    if (LIGS_ARCHETYPES.includes(name as (typeof LIGS_ARCHETYPES)[number])) return name;
+  }
+  for (const arch of LIGS_ARCHETYPES) {
+    if (report.includes(arch)) return arch;
+  }
+  return undefined;
+}
+
+/** Build archetype voice block for E.V.E. prompt injection. */
+export function buildArchetypeVoiceBlock(archetypeName: string): string {
+  const contract = getArchetypeOrFallback(archetypeName);
+  const v = contract.voice;
+  return `
+ARCHETYPE VOICE — Align phrasing to these parameters (use archetype name max once per section):
+- emotional_temperature: ${v.emotional_temperature}
+- rhythm: ${v.rhythm}
+- lexicon_bias: ${v.lexicon_bias.join(", ")}
+- metaphor_density: ${v.metaphor_density}
+- assertiveness: ${v.assertiveness}
+- structure_preference: ${v.structure_preference}
+- notes: ${v.notes}
+`.trim();
+}
+
+/** Build archetype phrase bank block for E.V.E. (when archetype is a known LigsArchetype). */
+export function buildArchetypePhraseBankBlock(archetypeName: string): string {
+  if (!LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)) return "";
+  return buildPhraseBankBlock(archetypeName as LigsArchetype);
+}
 
 /** Build a ThreeVoice from raw filter output. */
 export function threeVoiceFrom(raw: Record<string, unknown> | undefined): ThreeVoice {
@@ -86,6 +130,60 @@ export function buildBeautyProfile(
   };
 }
 
+/** Options for buildCondensedFullReport layout. */
+export interface CondensedFullReportOptions {
+  /** Archetype name for Key Moves block (e.g. from extractArchetypeFromReport). */
+  archetypeName?: string;
+  /** Use elegant labels (Signal/Ground/Reflection) when true; RAW SIGNAL/CUSTODIAN/ORACLE when false. */
+  useElegantLabels?: boolean;
+}
+
+const SECTION_BRIDGES: Record<string, string> = {
+  "Light Signature": "How you shine when you're aligned.",
+  Archetype: "Your core pattern and how it presents.",
+  Deviations: "Where the pattern drifts under pressure.",
+  "Corrective Vector": "How you return to center.",
+};
+
+/**
+ * Builds a condensed user-facing full report from the extracted Beauty profile sections.
+ * Premium layout: bridge lines, elegant labels, Key Moves block.
+ */
+export function buildCondensedFullReport(
+  profile: BeautyProfile,
+  options?: CondensedFullReportOptions
+): string {
+  const useElegantLabels = options?.useElegantLabels !== false;
+  const signalLabel = useElegantLabels ? "Signal" : "RAW SIGNAL";
+  const custodianLabel = useElegantLabels ? "Ground" : "CUSTODIAN";
+  const oracleLabel = useElegantLabels ? "Reflection" : "ORACLE";
+
+  const sections: Array<{ title: string; v: ThreeVoice }> = [
+    { title: "Light Signature", v: profile.light_signature },
+    { title: "Archetype", v: profile.archetype },
+    { title: "Deviations", v: profile.deviations },
+    { title: "Corrective Vector", v: profile.corrective_vector },
+  ];
+
+  const sectionBlocks = sections.map(({ title, v }) => {
+    const bridge = SECTION_BRIDGES[title] ?? "";
+    const bridgeLine = bridge ? `${bridge}\n\n` : "";
+    return `${title}\n${bridgeLine}${signalLabel}: ${v.raw_signal}\n${custodianLabel}: ${v.custodian}\n${oracleLabel}: ${v.oracle}`;
+  });
+
+  let keyMovesBlock = "";
+  const archetypeName = options?.archetypeName;
+  if (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)) {
+    const bank = getArchetypePhraseBank(archetypeName as LigsArchetype);
+    const moves = [...new Set(bank.resetMoves)];
+    if (moves.length > 0) {
+      keyMovesBlock = `\n\nKey Moves\n${moves.map((m) => `• ${m}`).join("\n")}`;
+    }
+  }
+
+  return sectionBlocks.join("\n\n") + keyMovesBlock;
+}
+
 export const EVE_FILTER_SPEC = `You are E.V.E., a filter. You transform LIGS engine output into a Beauty-Only Profile. You do NOT generate new physics or a new report. You ONLY extract and reformat.
 
 INPUT: A full Light Identity Report (and optionally vector_zero JSON). The report contains 14 sections with RAW SIGNAL, CUSTODIAN, and ORACLE in each.
@@ -99,13 +197,37 @@ EXTRACT ONLY (ignore everything else):
 
 IGNORE COMPLETELY: Big Three, numerology, tarot, Kabbalah, deep cosmology dumps, relational field, conflict style, money, love, health, legacy trajectory narrative, behavioral expression (unless purely structural/aesthetic).
 
-FOR EACH EXTRACTED SECTION (light_signature, archetype, deviations, corrective_vector):
-Rewrite into the 3-voice structure using the same voice rules as LIGS:
-- raw_signal: Measurable, observational. Physics language: vectors, gradients, flux, wavelengths. No interpretation.
-- custodian: Biological interpretation. How the body receives, stabilizes, or modulates. No psychology.
-- oracle: Mythic synthesis. Declarative, structural identity meaning. No predictions, no destiny.
+VOICE RULES — For each ThreeVoice field, follow strictly:
 
-For vector_zero: Keep three_voice and beauty_baseline (use provided vector_zero when given; otherwise derive from report).
+RAW SIGNAL:
+- 8–14 words exactly
+- concrete + sensory
+- NO "you", NO archetype names
+- no biology jargon, no pseudo-science
+- avoid raw numbers (no wavelengths like "580 nm")
+
+CUSTODIAN:
+- 2–4 sentences, second-person ("you")
+- MUST include one sentence starting "In practice…"
+- MUST include one sentence starting "You tend to…"
+- practical: how it shows up in behavior, decisions, relationships
+- grounded, modern, not woo
+
+ORACLE:
+- 1–2 sentences only
+- second-person ("you")
+- MUST include one concrete moment image (e.g., light through glass, first snow, falling star)
+- poetic but grounded; no mystical claims, no certainty language
+
+FORBIDDEN PHRASES / CONCEPTS — Do not use anywhere:
+- organism, retinal, vestibular, axial centers, encodes this flux, biological expression follows
+- any medical/scientific certainty claims
+
+For vector_zero: Keep three_voice and beauty_baseline (use provided vector_zero when given; otherwise derive from report). Apply the same voice rules to vector_zero.three_voice.
+
+ARCHETYPE VOICE INJECTION: When an archetype voice block is provided, align phrasing to those parameters. Use the archetype name at most once per section.
+
+PHRASE BANK: When an archetype phrase bank block is provided, use these phrase atoms to increase specificity; do not reuse the same sentence across sections. Draw from sensoryMetaphors, behavioralTells, relationalTells, shadowDrift, and resetMoves as appropriate. Keep language modern, grounded, non-woo.
 
 GENERATE 3 BEAUTY-SPECIFIC IMAGERY PROMPTS (strings, 50–80 words each):
 1. vector_zero_beauty_field: Visual for the baseline beauty field — unperturbed, coherent, default aesthetic (colors, texture, shape, motion from beauty_baseline).

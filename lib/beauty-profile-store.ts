@@ -1,4 +1,5 @@
 import { put, head } from "@vercel/blob";
+import { allowBlobWrites } from "@/lib/runtime-mode";
 import { assertBeautyProfileV1 } from "@/lib/beauty-profile-schema";
 import type { BeautyProfileV1 } from "@/lib/beauty-profile-schema";
 import { log } from "@/lib/log";
@@ -14,6 +15,10 @@ export async function saveBeautyProfileV1(
   requestId: string
 ): Promise<void> {
   assertBeautyProfileV1(profile);
+  if (!allowBlobWrites) {
+    log("info", "beauty_profile_save_skipped_blob_disabled", { requestId, reportId });
+    return;
+  }
   if (!useBlob()) {
     throw new Error("BEAUTY_PROFILE_WRITE_FAILED");
   }
