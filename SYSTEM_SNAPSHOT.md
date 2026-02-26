@@ -109,7 +109,7 @@ See **docs/LIGS-VOICE-ENGINE-SPEC.md** for the full spec.
 
 - **Tailwind** (PostCSS) + `app/globals.css`
 - **Fonts:** system sans stack (root), system serif (beauty); no Google Fonts (build-safe offline/sandbox)
-- **Public:** `public/` (e.g. `beauty-background.png`, `beauty-hero.png`, `favicon.ico`, etc.)
+- **Public:** `public/` (e.g. `signatures/beauty-background.png`, `signatures/beauty-hero.png`, `exemplars/*.png`, `favicon.ico`, etc.)
 
 ---
 

@@ -34,7 +34,7 @@ Analysis of structural inconsistencies, redundancies, outdated patterns, unused 
 | `app/beauty/page.jsx` | “Demo Beauty Signature” section uses `demoLoading`, `demoError`, and `demoData` state. `demoLoading` and `demoError` are never set to true/non-null; `demoData` is initialized to a static object (e.g. imageUrl: "/beauty-preview.png") and never updated from GET `/api/beauty/demo`. | The demo API exists and is documented but is never called from the Beauty page. UI is built for loading/error/data but only shows static placeholder. Misleading for users who expect “sample reading” to come from the API. |
 | `components/LightIdentityForm.jsx` | `TEST_DEFAULTS` includes a real-looking email (`lourdenmaster@gmail.com`) and pre-filled name/location. Used as initial form state. | Test data lives in a shared component; if deployed to production as-is, forms are pre-filled with what looks like personal data. Should be empty or clearly test-only (e.g. env-driven). |
 | `app/page.tsx` | Root page is TypeScript (`page.tsx`) and wraps `LandingPage.jsx`. Other pages are JSX (`beauty/page.jsx`, `report-storage-test/page.jsx`). | Mixed TS/JS for pages; no functional problem but inconsistent. |
-| `app/beauty/layout.jsx` | Uses static image `src="/beauty-background.png"`. Does not use `StabilioraBackground.jsx` or `lib/beauty-background.js` (BEAUTY_BACKGROUND_DATA_URL). | Two alternative implementations for “beauty background” (component + data URL) exist elsewhere and are unused; only the PNG is used. Dead code and possible confusion. |
+| `app/beauty/layout.jsx` | Layout has `background: transparent`; page components use `/signatures/beauty-background.png`. Does not use `StabilioraBackground.jsx` or `lib/beauty-background.js` (BEAUTY_BACKGROUND_DATA_URL). | Two alternative implementations for “beauty background” (component + data URL) exist elsewhere and are unused; only the PNG is used. Dead code and possible confusion. |
 | SYSTEM_ARCHITECTURE.md | Describes GET `/api/report/[reportId]/beauty` as “Not currently used by UI”. | Accurate; no frontend calls it. |
 
 ---
@@ -75,7 +75,7 @@ Analysis of structural inconsistencies, redundancies, outdated patterns, unused 
 | File path | Description | Why it matters |
 |-----------|-------------|----------------|
 | `lib/engine-version.ts` | Exports `ENGINE_VERSION` ("1.1") and `ENGINE_NAME` ("LIGS Engine"). Not imported anywhere. | Dead code. Version could be used for headers, debug, or logging; as-is it is redundant with comments/spec. |
-| `lib/beauty-background.js` | Exports `BEAUTY_BACKGROUND_DATA_URL` (inline SVG as data URL). Not imported anywhere. | Dead code. Beauty layout uses `/beauty-background.png` instead. Either remove or wire for environments where the PNG is not available. |
+| `lib/beauty-background.js` | Exports `BEAUTY_BACKGROUND_DATA_URL` (inline SVG as data URL). Not imported anywhere. | Dead code. Beauty page components use `/signatures/beauty-background.png` instead. Either remove or wire for environments where the PNG is not available. |
 | `components/StabilioraBackground.jsx` | React component rendering an SVG “Stabiliora” background. Not imported anywhere. | Dead code. Same visual role as the PNG used in beauty layout; duplicate implementation. |
 | `scripts/dry-run-report-v1.txt` | Static text file: sample LIGS dry-run report. Not referenced by tests or scripts. | Reference artifact only. Could be useful for docs or manual comparison; currently unreferenced. Optional to keep or move to docs/tests. |
 

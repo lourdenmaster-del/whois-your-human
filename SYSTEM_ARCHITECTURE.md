@@ -71,7 +71,7 @@ Structured overview of apps, API routes, jobs, external services, and environmen
 
 - **Static / public assets**  
   - Landing background image: hardcoded URL `https://dka9ns5uuh3ltho4.public.blob.vercel-storage.com/form%20background.png`.  
-  - Local assets: e.g. `/beauty-background.png`, `/beauty-textbox.png`, `/beauty-hero.png`, etc., served by Next.js.
+  - Local assets: e.g. `/signatures/beauty-background.png`, `/signatures/beauty-hero.png`, `/exemplars/*.png`, etc., served by Next.js.
 
 - **Database / queues / other pipelines**  
   - No database. No queues. No separate “image pipeline” service beyond DALL-E + Blob in the generate-image route.
