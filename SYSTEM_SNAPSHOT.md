@@ -25,9 +25,9 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 ## 0.5 Public surface area (MVP waitlist-only)
 
 **Production entry points:**
-- `/` → redirects to `/origin`
+- `/` → 308 redirect to `/origin` (middleware)
 - `/origin` — Canonical public landing. Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
-- `/beauty` → 301 redirect to `/origin`
+- `/beauty`, `/beauty/` → 308 redirect to `/origin` (middleware; most reliable on Vercel)
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
@@ -42,8 +42,9 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
+| `middleware.ts` | Root | Redirects `/` → `/origin`, `/beauty` and `/beauty/` → `/origin` (308 permanent). Matcher: `['/', '/beauty', '/beauty/']`. Does NOT redirect `/beauty/start`, `/beauty/view`, etc. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
-| `app/page.tsx` | Server | Redirects to `/origin` (single entrypoint) |
+| `app/page.tsx` | Server | Fallback redirect to `/origin` (middleware handles first) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
 | `app/globals.css` | Global styles | Tailwind + app CSS |
 
@@ -375,9 +376,13 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑02 (Middleware redirects, production fix)
+
+**Production redirect fix:** `/origin` 404 and `/beauty` not redirecting on Vercel. Switched from `next.config` redirects to `middleware.ts`. `middleware.ts` at repo root: redirects `/` → `/origin`, `/beauty` and `/beauty/` → `/origin` (308 permanent). Matcher `['/', '/beauty', '/beauty/']` so `/beauty/start`, `/beauty/view`, etc. are NOT redirected. Removed redirects from `next.config.ts`.
+
 ## Verification Log – 2026‑03‑02 (Origin canonical, Beauty 301 redirect)
 
-**Public entry route rename:** `/origin` is the canonical public landing page. `/beauty` and `/beauty/` redirect permanently (301) to `/origin`. Root `/` redirects to `/origin`. Waitlist submissions from `/origin` use `source: "origin"` for analytics. Hero, waitlist, static 12-grid intact. Flow pages (`/beauty/start`, `/beauty/view`, etc.) unchanged.
+**Public entry route rename:** `/origin` is the canonical public landing page. `/beauty` and `/beauty/` redirect permanently (308 via middleware) to `/origin`. Root `/` redirects to `/origin`. Waitlist submissions from `/origin` use `source: "origin"` for analytics. Hero, waitlist, static 12-grid intact. Flow pages (`/beauty/start`, `/beauty/view`, etc.) unchanged.
 
 ## Verification Log – 2026‑02‑20 (Compose visibility + debug overlay)
 
