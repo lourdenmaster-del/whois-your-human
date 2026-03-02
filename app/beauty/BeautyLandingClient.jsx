@@ -22,7 +22,8 @@ function getDryRunFromUrl() {
   return params.get("dryRun") === "1" || params.get("dryRun") === "true";
 }
 
-const PAGE_BG_URL = "/signatures/beauty-background.png";
+const PAGE_BG_URL = "/ligs-landing-bg.png";
+const HERO_LOGO_URL = "/ligs-logo.jpeg";
 
 function isFormValid(formData) {
   if (!formData || typeof formData !== "object") return false;
@@ -274,7 +275,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
               display: "inline-block",
               padding: "24px 32px",
               borderRadius: "28px",
-              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 100%), url(${PAGE_BG_URL})`,
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 100%), url(${HERO_LOGO_URL})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",

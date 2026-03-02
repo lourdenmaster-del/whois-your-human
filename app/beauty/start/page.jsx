@@ -9,7 +9,7 @@ import { saveLastFormData, loadLastFormData, isBeautyUnlocked } from "@/lib/land
 import { TEST_MODE } from "@/lib/dry-run-config";
 import { useApiStatus } from "@/hooks/useApiStatus";
 
-const PAGE_BG_URL = "/signatures/beauty-background.png";
+const PAGE_BG_URL = "/ligs-landing-bg.png";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;

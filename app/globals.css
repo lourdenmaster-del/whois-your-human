@@ -297,7 +297,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: url("/beauty-textbox.png") center center / cover no-repeat;
+  background: url("/ligs-landing-bg.png") center center / cover no-repeat;
   opacity: 0.5;
   z-index: 0;
   pointer-events: none;
