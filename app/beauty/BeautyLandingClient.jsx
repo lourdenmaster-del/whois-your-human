@@ -261,8 +261,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
                 backgroundImage: "url(/ligs-logo.jpeg)",
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "center",
-                backgroundSize: "75%",
-                opacity: 0.18,
+                backgroundSize: "85%",
+                opacity: 0.28,
                 zIndex: 0,
               }}
               aria-hidden
