@@ -237,7 +237,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
   return (
     <div
-      className="origin-landing relative min-h-screen"
+      className="origin-landing origin-page-bg relative min-h-screen"
       style={{
         backgroundImage: "url(/ligs-landing-bg.png)",
         backgroundRepeat: "no-repeat",
@@ -252,11 +252,11 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       <section
         className={`${sectionClass} min-h-[80vh] flex flex-col justify-center relative overflow-hidden`}
       >
-        <div className="relative z-10 max-w-3xl mx-auto text-center px-4">
-          <div className="hero-panel relative inline-block text-left" style={{ padding: "32px 40px", borderRadius: "28px", boxShadow: "0 12px 40px rgba(0,0,0,0.4)", background: "rgba(0,0,0,0.35)" }}>
-            {/* Logo watermark — behind hero text only */}
+        <div className="relative z-10 max-w-3xl mx-auto text-center px-4 sm:px-6">
+          <div className="hero-panel relative inline-block text-left w-full max-w-2xl" style={{ padding: "20px 16px", borderRadius: "20px", boxShadow: "0 12px 40px rgba(0,0,0,0.4)", background: "rgba(0,0,0,0.35)" }}>
+            {/* Logo watermark — behind hero text only, responsive */}
             <div
-              className="absolute inset-0 pointer-events-none"
+              className="hero-watermark absolute inset-0 pointer-events-none overflow-hidden"
               style={{
                 backgroundImage: "url(/ligs-logo.jpeg)",
                 backgroundRepeat: "no-repeat",
@@ -270,7 +270,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
             {/* Hero text — above watermark */}
             <div className="relative" style={{ zIndex: 1 }}>
             <h1
-              className={`${headingClass} text-4xl sm:text-5xl lg:text-6xl mb-6`}
+              className={`${headingClass} mb-6 hero-headline`}
               style={{ letterSpacing: "0.02em" }}
             >
               <a
@@ -282,17 +282,17 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
                 (L)igs
               </a>
             </h1>
-            <p className={`${textClass} max-w-xl mx-auto mb-6`}>
+            <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
               A new scientific field for understanding how physical forces shape
               identity.
             </p>
-            <p className={`${textClass} max-w-xl mx-auto mb-6`}>
+            <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
               Your biology, your behavior, and your inner architecture are not
               random. They are the result of visible and invisible forces that
               imprint a unique Light Signature at birth — a pattern that stays with
               you for life.
             </p>
-            <p className={`${textClass} max-w-xl mx-auto mb-6`}>
+            <p className={`${textClass} max-w-xl mx-auto mb-6 hero-subhead`}>
               LIGS reveals that pattern. The Light Identity Report interprets it.
             </p>
             <button

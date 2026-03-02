@@ -153,6 +153,34 @@ body {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7), 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
+/* Hero typography — clamp for responsive scaling */
+.hero-headline { font-size: clamp(28px, 7vw, 44px) !important; }
+.hero-subhead { font-size: clamp(14px, 4vw, 18px) !important; line-height: 1.6 !important; }
+
+/* Origin hero mobile responsiveness */
+@media (max-width: 640px) {
+  .origin-page-bg {
+    background-position: center top !important;
+    background-attachment: scroll !important;
+  }
+  .hero-panel {
+    padding: 20px 16px !important;
+    border-radius: 18px !important;
+  }
+  .hero-watermark {
+    background-size: 100% !important;
+    background-position: center !important;
+    opacity: 0.25 !important;
+  }
+}
+
+@media (min-width: 641px) {
+  .hero-panel {
+    padding: 32px 40px !important;
+    border-radius: 28px !important;
+  }
+}
+
 /* Main transparent so fixed background img shows through (same pattern as LIGS landing) */
 .beauty-theme.beauty-page {
   min-height: 100%;

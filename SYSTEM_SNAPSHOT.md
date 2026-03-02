@@ -376,9 +376,13 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑02 (Origin hero mobile responsiveness)
+
+**Mobile hero:** Origin hero now responsive on small screens. `app/globals.css`: `.origin-page-bg` @media (max-width:640px) → `background-position: center top`, `background-attachment: scroll`; `.hero-panel` → `padding: 20px 16px`, `border-radius: 18px` on mobile, `32px 40px` / `28px` on desktop; `.hero-headline` / `.hero-subhead` use `clamp()` for font scaling (28–44px, 14–18px); `.hero-watermark` on mobile → `background-size: 100%`, `opacity: 0.25`. `components/LandingPreviews.jsx`: locked blur overlay uses `maxWidth/maxHeight: 95%` (removed fixed min/max pixels) for responsive scaling without overflow.
+
 ## Verification Log – 2026‑03‑02 (Hero layering + text contrast)
 
-**Hero:** Page background = ligs-landing-bg.png (dark geometric texture). Hero panel has logo watermark (ligs-logo.jpeg, 75% size, opacity 0.18, z-index 0) behind hero text. Hero text in relative wrapper (z-index 1). Panel bg rgba(0,0,0,0.35) for legibility. **Text:** Added `--text-on-dark`, `--text-on-dark-muted` to :root. Origin landing uses these for all body text; form inputs keep dark text on light bg. No black text on dark background. `.hero-panel` replaces `.hero-logo-panel`.
+**Hero:** Page background = ligs-landing-bg.png (dark geometric texture). Hero panel has logo watermark (ligs-logo.jpeg, 85% size, opacity 0.28, z-index 0) behind hero text. Hero text in relative wrapper (z-index 1). Panel bg rgba(0,0,0,0.35) for legibility. **Text:** Added `--text-on-dark`, `--text-on-dark-muted` to :root. Origin landing uses these for all body text; form inputs keep dark text on light bg. No black text on dark background. `.hero-panel` replaces `.hero-logo-panel`.
 
 ## Verification Log – 2026‑03‑02 (Middleware redirects, production fix)
 
