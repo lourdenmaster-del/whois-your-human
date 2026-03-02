@@ -33,7 +33,7 @@ function isFormValid(formData) {
   return Boolean(n && d && l && e);
 }
 
-export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
+export default function BeautyLandingClient({ dryRun: dryRunProp = false, showDeployStamp = false }) {
   const [ctaCheckoutLoading, setCtaCheckoutLoading] = useState(false);
   const [ctaCheckoutError, setCtaCheckoutError] = useState(null);
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
@@ -237,9 +237,17 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
   return (
     <div className="origin-landing relative min-h-screen">
+      {showDeployStamp && (
+        <div
+          className="fixed left-0 top-0 z-[99999] px-2 py-1 text-[10px] font-mono font-bold text-white bg-black/90"
+          aria-hidden
+        >
+          DEPLOY f6b7b2d
+        </div>
+      )}
       {/* Dedicated page bg layer — reliable on iOS Safari (avoids background-attachment:fixed) */}
       <div className="origin-page-bg" aria-hidden />
-      <div className="relative z-10">
+      <div className="relative z-[1]">
         <main className="origin-landing beauty-theme beauty-page min-h-screen relative">
       {/* Hero — texture is page bg; hero panel has logo watermark behind text only */}
       <section
@@ -254,8 +262,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
               className="hero-watermark-img"
               aria-hidden
             />
-            {/* Hero text — above watermark */}
-            <div className="relative" style={{ zIndex: 1 }}>
+            {/* Hero text — above watermark (z-2 so above watermark + scrim) */}
+            <div className="relative" style={{ zIndex: 2 }}>
             <h1
               className={`${headingClass} mb-6 hero-headline`}
               style={{ letterSpacing: "0.02em" }}
