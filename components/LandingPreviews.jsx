@@ -60,12 +60,12 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
             className="absolute left-1/2 top-1/2 flex items-center justify-center"
             style={{
               transform: "translate(-50%, -50%)",
-              width: "45%",
-              height: "22%",
-              minWidth: "120px",
-              minHeight: "48px",
-              maxWidth: "180px",
-              maxHeight: "72px",
+              width: "72%",
+              height: "44%",
+              minWidth: "200px",
+              minHeight: "96px",
+              maxWidth: "340px",
+              maxHeight: "140px",
               borderRadius: "9999px",
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
@@ -75,7 +75,7 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
             }}
           >
             <span
-              className="text-[10px] sm:text-xs font-medium tracking-widest uppercase"
+              className="text-xs sm:text-sm font-medium tracking-widest uppercase"
               style={{
                 color: "rgba(255,255,255,0.9)",
                 letterSpacing: "0.2em",
