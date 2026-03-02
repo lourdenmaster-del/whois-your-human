@@ -25,13 +25,14 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 ## 0.5 Public surface area (MVP waitlist-only)
 
 **Production entry points:**
-- `/` → redirects to `/beauty`
-- `/beauty` — Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
+- `/` → redirects to `/origin`
+- `/origin` — Canonical public landing. Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
+- `/beauty` → 301 redirect to `/origin`
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Not linked from /beauty:** `/beauty/start`, `/beauty/view`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
+**Not linked from /origin:** `/beauty/start`, `/beauty/view`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
 
 ---
 
@@ -42,18 +43,25 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | Path | Type | Purpose |
 |------|------|--------|
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
-| `app/page.tsx` | Server | Redirects to `/beauty` (single entrypoint) |
+| `app/page.tsx` | Server | Redirects to `/origin` (single entrypoint) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
 | `app/globals.css` | Global styles | Tailwind + app CSS |
 
-**Beauty section** (nested under `app/beauty/`):
+**Origin section** (canonical landing):
+
+| Path | Type | Purpose |
+|------|------|--------|
+| `app/origin/page.jsx` | Server | Renders `BeautyLandingClient`. Canonical public landing. |
+| `app/origin/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent. |
+
+**Beauty section** (nested under `app/beauty/` — `/beauty` 301 → `/origin`):
 
 | Path | Type | Purpose |
 |------|------|--------|
 | `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent (page-level bg set per route) |
 | `app/beauty/page.jsx` | Server | Renders `BeautyLandingClient` only. Single Beauty landing. |
 | `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
-| `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/beauty` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
+| `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
 | `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses ArchetypeArtifactCard (hero + info panel), PreviewCarousel, EmotionalSnippet, FullReportAccordion, ShareCard. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`) |
@@ -366,6 +374,10 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑02 (Origin canonical, Beauty 301 redirect)
+
+**Public entry route rename:** `/origin` is the canonical public landing page. `/beauty` and `/beauty/` redirect permanently (301) to `/origin`. Root `/` redirects to `/origin`. Waitlist submissions from `/origin` use `source: "origin"` for analytics. Hero, waitlist, static 12-grid intact. Flow pages (`/beauty/start`, `/beauty/view`, etc.) unchanged.
 
 ## Verification Log – 2026‑02‑20 (Compose visibility + debug overlay)
 

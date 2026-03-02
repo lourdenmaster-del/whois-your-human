@@ -117,7 +117,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         const res = await fetch("/api/waitlist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, source: "beauty" }),
+          body: JSON.stringify({ email, source: "origin" }),
         });
         const data = await res.json();
         if (!res.ok) {
