@@ -50,9 +50,9 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, full-viewport background `/stabiliora-background.svg` |
+| `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent (page-level bg set per route) |
 | `app/beauty/page.jsx` | Server | Renders `BeautyLandingClient` only. Single Beauty landing. |
-| `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. No "View report", no "Previous Light Identity Reports", no maintenance blocker. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
+| `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/beauty` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
 | `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses ArchetypeArtifactCard (hero + info panel), PreviewCarousel, EmotionalSnippet, FullReportAccordion, ShareCard. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
@@ -546,6 +546,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 **Purpose dropdown:** Replaced free-text purpose with select (marketing_background, share_card, archetype_background_from_glyph). When archetype is Ignispectrum, purpose defaults to archetype_background_from_glyph.
 
 **Safety:** Dry Run Mode checkbox unchanged; no LIVE calls unless user unchecks and clicks Generate/Compose/Full Pipeline.
+
+## Verification Log – 2026‑02‑20 (Beauty hero: dark geometric only)
+
+**Hero background:** Replaced all hero/landing backgrounds with `/ligs-landing-bg.png` (dark geometric) only. Removed `ligs-logo.jpeg` from hero content box; hero card now uses same dark geometric with subtle scrim. Gradient overlays lightened (0.25/0.08/0.3) for dark bg. No beauty-background.png, beauty-hero.png, /signatures/, or fetchBlobPreviews in hero path.
 
 ## Verification Log – 2026‑02‑20 (Beauty waitlist-only: remove Previous Light Identity Reports)
 

@@ -22,8 +22,8 @@ function getDryRunFromUrl() {
   return params.get("dryRun") === "1" || params.get("dryRun") === "true";
 }
 
-const PAGE_BG_URL = "/ligs-landing-bg.png";
-const HERO_LOGO_URL = "/ligs-logo.jpeg";
+/** Single source: dark geometric background. No beauty-background, beauty-hero, or blob-driven hero. */
+const HERO_BG_URL = "/ligs-landing-bg.png";
 
 function isFormValid(formData) {
   if (!formData || typeof formData !== "object") return false;
@@ -240,7 +240,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
     <div
       className="relative min-h-screen"
       style={{
-        backgroundImage: `url(${PAGE_BG_URL})`,
+        backgroundImage: `url(${HERO_BG_URL})`,
         backgroundRepeat: "no-repeat",
         backgroundSize: "cover",
         backgroundPosition: "center top",
@@ -256,7 +256,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `url(${PAGE_BG_URL})`,
+            backgroundImage: `url(${HERO_BG_URL})`,
             backgroundSize: "cover",
             backgroundPosition: "center",
             backgroundRepeat: "no-repeat",
@@ -265,7 +265,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            background: "linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.15) 50%, rgba(0,0,0,0.4) 100%)",
+            background: "linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.3) 100%)",
           }}
         />
         <div className="relative z-10 max-w-3xl mx-auto text-center">
@@ -275,11 +275,11 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
               display: "inline-block",
               padding: "24px 32px",
               borderRadius: "28px",
-              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.2) 100%), url(${HERO_LOGO_URL})`,
+              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 100%), url(${HERO_BG_URL})`,
               backgroundSize: "cover",
               backgroundPosition: "center",
               backgroundRepeat: "no-repeat",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.18)",
+              boxShadow: "0 12px 40px rgba(0,0,0,0.3)",
             }}
           >
             <h1
