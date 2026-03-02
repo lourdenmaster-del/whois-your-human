@@ -39,7 +39,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 |------|------|--------|
 | `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, full-viewport background `/stabiliora-background.svg` |
 | `app/beauty/page.jsx` | Server | Renders `BeautyLandingClient` only. Single Beauty landing. |
-| `app/beauty/BeautyLandingClient.jsx` | Client | **Pay-first flow:** `unlocked` = `isBeautyUnlocked()` or `dryRun`. When !unlocked: CTA block ($39.99) visible; CTA → TEST_MODE/FAKE_PAY bypass or Stripe pre-purchase; redirect to `/beauty/start` on bypass. When unlocked: "Unlocked" badge + link to `/beauty/start`. Dev section only when NODE_ENV=development AND `?dev=1`. |
+| `app/beauty/BeautyLandingClient.jsx` | Client | **Conversion-first MVP:** Hero; Ignis exemplar + 3 benefit bullets; Early Access waitlist (email + "Join Early Access"); Form + Buy CTA; 12-regime static grid; Unlock teaser; Footer. When `NEXT_PUBLIC_WAITLIST_ONLY=1`: waitlist-only, "Ignis unlocking soon", hides Buy CTA and Unlock teaser. Pay-first flow preserved. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/beauty` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
 | `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses ArchetypeArtifactCard (hero + info panel), PreviewCarousel, EmotionalSnippet, FullReportAccordion, ShareCard. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
@@ -60,7 +60,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `LightIdentityForm` | `components/LightIdentityForm.jsx` | Shared form: name, birth date/time, location, email; optional dev defaults; `initialFormData` prop for restored/saved values; `hideSubmitButton` to hide built-in button (parent controls CTA); `onFormDataChange` for form state sync |
 | `PayUnlockButton` | `components/PayUnlockButton.tsx` | POST `/api/stripe/create-checkout-session` with `{ reportId }`; on success redirects to Stripe Checkout (`session.url`); on 404/BEAUTY_PROFILE_NOT_FOUND shows friendly error. Disables button while pending; shows "Stripe test mode". Used when reportId exists (form submit or restored via landing-storage). |
 | `StaticButton` | `components/StaticButton.jsx` | Disabled placeholder button when `lastFormData` is missing (e.g. user arrived via URL). Label "Preview & Pay to Unlock"; tooltip "Generate a report first to unlock". |
-| `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples** first (always): 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` (manifest URLs) or fallback `/exemplars/{archetype}.png` or neutral placeholder; text from `manifest.marketingDescriptor` or `getMarketingDescriptor(archetype)`. Responsive grid: 1 col mobile, 2 col sm, 3 col md, 4 col lg. Then **Previous Light Identity Reports** when blob previews non-empty. Props: `maxCards`, `maxPreviews`, `useBlob`, `exemplarVersion`, `clearSelectionTrigger`, `initialCards`. |
+| `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (conversion MVP: non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `showPreviousReports` (hide blob previews when false), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. When `showPreviousReports`: blob preview cards below Examples. |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
 | `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
@@ -73,7 +73,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `TestModeLogger` | `components/TestModeLogger.tsx` | Client component; logs "TEST MODE" to console when `NEXT_PUBLIC_TEST_MODE=1` |
 | `LigsFooter` | `components/LigsFooter.jsx` | Footer for landing |
 | `VoiceProfileBuilder` | `components/VoiceProfileBuilder.jsx` | 5-step wizard: archetype, descriptors, banned words, claims policy, channel adapters; builds + validates VoiceProfile; stores in local state |
-| `LigsStudio` | `components/LigsStudio.tsx` | Internal studio: VoiceProfile JSON (default Fluxionis, purpose marketing_background), purpose, variationKey (exemplar-v1), size, background source; **Reset to Fluxionis** button; Generate Background, Compose, Full Pipeline, 6 Variations, Generate Marketing, **Save to Landing**; previews, spec/validation JSON, copy payload/response. Save to Landing persists composed image to Blob via POST /api/exemplars/save. **LIVE Results panel:** composed image (if compose ran), background image (if generate ran), overlaySpec JSON (collapsible), Open Viewer link; no DRY placeholders. **DRY mode:** placeholder labeled "Layout preview only"; short note instead of nag. **DRY_RUN** (`NEXT_PUBLIC_DRY_RUN=1` or `allowExternalWrites=false`): Dry Run Preview panel, banner "DRY RUN: No request was sent" — no network. Compare mode: ArtifactCompare with ArchetypeArtifactCard; **Live Test:** fullName, birthDate, birthTime, birthLocation, "Run LIVE ONCE" → POST `/api/dev/live-once` → Latest Run Output. Marketing: Generate Marketing → MarketingHeader; Show Marketing Layer toggle. |
+| `LigsStudio` | `components/LigsStudio.tsx` | Internal studio: VoiceProfile JSON (default Ignispectrum), **purpose dropdown** (marketing_background, share_card, archetype_background_from_glyph); Ignis defaults to marketing_background (FIELD-FIRST); variationKey (exemplar-v2), size, background source; **Reset to Fluxionis**; **Ignis: Glyph Anchor (Field-First)** panel (DALL·E 3 field + glyph in compose); Generate Background, Compose, **Full Pipeline**; 6 Variations, Generate Marketing; **Save as Exemplar Card (Landing)**, **Save as Share Card**, **Save as Marketing Background**; Manifest URLs JSON snippet; previews, spec/validation JSON. **Last Response Debug** (after Generate Background): providerUsed, purposeEchoed, cacheHit, glyphBranchUsed, requestId, buildSha, validation, error, imageUrl. **Dry Run Mode**: Simulate only; Save buttons disabled. LIVE: Generate/Compose/Full Pipeline/Save. Compare mode: ArtifactCompare; **Live Test** → POST /api/dev/live-once. |
 | `MarketingHeader` | `components/MarketingHeader.tsx` | Displays archetype label, tagline, hit points, CTA; optional logo mark + marketing background. Uses descriptor + assets from /api/marketing/generate. Graceful degradation when assets missing. |
 
 ### 1.3 Client utilities
@@ -86,12 +86,12 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
 | `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
-| `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `exemplarPath`, `exemplarManifestPath` — Blob storage at `ligs-exemplars/{archetype}/{version}/` |
+| `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
 | `lib/runtime-mode.ts` | `isProd`, `isDryRun`, `isTestMode`, `allowExternalWrites`, `allowBlobWrites`, `stripeTestModeRequired` — unified env guard; when `TEST_MODE=1`: dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1` |
 | `lib/dry-run-config.ts` | Client-side `DRY_RUN`, `FAKE_PAY`, `TEST_MODE` from `NEXT_PUBLIC_*` env vars |
 | `lib/preflight.ts` | `runPreflight()` — server-only checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used by `/api/dev/preflight` and `/api/dev/beauty-live-once`. |
-| `lib/ligs-studio-utils.ts` | `pickBackgroundSource(imageResult)` — extracts `{ url }` or `{ b64 }` from image/generate response (images[0], image.url, image.b64); `backgroundToInputString(bg)` — converts to URL or data URL string for Background input |
-| `lib/marketing/` | Marketing Descriptor (archetype→label, tagline, hitPoints, CTA), buildMarketingImagePrompts (logo mark), buildLogoMarkPrompt, buildTriangulatedMarketingPrompt (visuals.ts) — marketing_background/overlay/share_card use triangulation. Glyph field: buildGlyphFieldPrompt (glyphField.ts) for "(L)" glyph with archetype-driven field. POST /api/marketing/generate, POST /api/marketing/visuals. See docs/MARKETING-LAYER.md. |
+| `lib/ligs-studio-utils.ts` | `pickBackgroundSource(imageResult)` — prefers url over b64; `backgroundToInputString(bg)`; `getPngDimensionsFromBase64(b64)`; `isPlaceholderPng(b64, minSize)`; `TINY_PNG_B64` (1x1 placeholder) |
+| `lib/marketing/` | Marketing Descriptor (archetype→label, tagline, hitPoints, CTA), buildMarketingImagePrompts (logo mark), buildLogoMarkPrompt, buildTriangulatedMarketingPrompt (visuals.ts) — marketing_background/overlay/share_card use triangulation. **Ignis FIELD-FIRST:** marketing_background for Ignispectrum injects CENTER VOID block (radial origin, ~1/3 center void, field grows outward); compose-card places glyph (`public/glyphs/ignis.svg`) in void (33% width, slightly below midline, warm radial glow). Archetype mark: when markType="archetype" (Ignispectrum), exemplar compose uses glyph as center anchor; signature overlay + dev stamp (2% opacity) for verification. POST /api/marketing/generate, POST /api/marketing/visuals. See docs/MARKETING-LAYER.md. |
 | `lib/history/onThisDay.ts` | `getOnThisDayContext(month, day, lang)` — fetches "on this day" from Wikimedia/Wikipedia API; 24h in-memory cache; curation (events, births, holidays, max 6 items). Used by beauty/submit to enrich birthContext. |
 | `lib/astronomy/computeSunMoonContext.ts` | `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — Sun/Moon horizontal coords, twilight phase, sunrise/sunset, day length, moon phase/illumination. Uses astronomy-engine only (no external APIs). beauty/submit attaches sun + moon to birthContext; engine buildBirthContextBlock injects concise Sun/Moon section. |
 | `lib/engine/constraintGate.ts` | `scanForbidden(text)` — scans full_report for forbidden terms (chakra, kabbalah, sacred geometry, etc.); `redactForbidden(text, keys)` — replaces matches with [removed]. Engine/generate runs one repair OpenAI pass when hits > 0; re-scan; if hits remain, redacts in dev. |
@@ -117,10 +117,10 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `src/ligs/image/buildArchetypeVisualVoice.ts` | `buildArchetypeVisualVoiceSpec(archetype, { mode, entropy?, seed? })` — semi-living archetype visuals: fixed spine from voice contract + seeded variability from phrase banks; mode: exemplar \| variation \| signature |
 | `src/ligs/image/validateImagePromptSpec.ts` | Validates spec (required constraints true, negative contains exclusions, positive has no disallowed tokens); pass/score/issues; score 100 − 25×errors − 5×warnings |
 | `src/ligs/voice/api/generate-request-schema.ts` | Zod schema for POST /api/voice/generate body; `parseGenerateVoiceRequest()`, `GenerateVoiceRequest` |
-| `src/ligs/marketing/schema.ts` | `MarketingOverlaySpec` Zod schema: id, version, created_at, ligs, purpose, output, templateId, copy (headline/subhead/cta/disclaimer), placement (safeArea, logo, textBlock), styleTokens (incl. optional logoStyle: text, weight, tracking, opacity, blur, glow, radius, fill, stroke, circleFill, circleStroke), constraints. `getLogoStyleWithDefaults()`, `LogoStyle` type. |
+| `src/ligs/marketing/schema.ts` | `MarketingOverlaySpec` Zod schema: id, version, created_at, ligs, purpose, output, templateId, copy (headline/subhead/cta/disclaimer), placement (safeArea, logo, textBlock), styleTokens (incl. optional logoStyle: text, weight, tracking, opacity, blur, glow, radius, fill, stroke, circleFill, circleStroke), constraints, markType ("brand"|"archetype"), markArchetype. `getLogoStyleWithDefaults()`, `LogoStyle` type. |
 | `src/ligs/marketing/templates.ts` | ONE template `square_card_v1` for 1:1; `getTemplate(templateId, aspectRatio)` |
 | `src/ligs/marketing/buildOverlayPromptPack.ts` | `buildOverlayPromptPack()` — prompt pack for overlay copy generation in archetype voice |
-| `src/ligs/marketing/generateOverlaySpec.ts` | `generateOverlaySpec()` — LLM copy when allowed, else deterministic; static placements from templates; archetype→logoStyle mapping. `buildOverlaySpecWithCopy(profile, options, copy)` — sync spec builder with custom copy for LIGS Studio DRY compose; sets logoStyle from archetype. |
+| `src/ligs/marketing/generateOverlaySpec.ts` | `generateOverlaySpec()` — LLM copy when allowed, else deterministic; static placements from templates; archetype→logoStyle mapping. `buildOverlaySpecWithCopy(profile, options, copy)` — sync spec builder with custom copy for LIGS Studio DRY compose; sets logoStyle from archetype; Ignispectrum → markType "archetype", markArchetype "Ignispectrum". |
 | `src/ligs/marketing/validateOverlaySpec.ts` | `validateOverlaySpec()` — copy lengths, banned words, medical claims, guarantees, placement bounds; pass/score/issues |
 
 See **docs/LIGS-VOICE-ENGINE-SPEC.md** for the full spec.
@@ -129,7 +129,7 @@ See **docs/LIGS-VOICE-ENGINE-SPEC.md** for the full spec.
 
 - **Tailwind** (PostCSS) + `app/globals.css`
 - **Fonts:** system sans stack (root), system serif (beauty); no Google Fonts (build-safe offline/sandbox)
-- **Public:** `public/` (e.g. `signatures/beauty-background.png`, `signatures/beauty-hero.png`, `exemplars/*.png`, `favicon.ico`, `brand/ligs-mark-primary.png` global logo at `/brand/ligs-mark-primary.png`, etc.)
+- **Public:** `public/` (e.g. `signatures/beauty-background.png`, `signatures/beauty-hero.png`, `exemplars/*.png`, `glyphs/ignis.svg` Ignis archetype glyph, `favicon.ico`, `brand/ligs-mark-primary.png` global logo at `/brand/ligs-mark-primary.png`, etc.)
 
 ---
 
@@ -153,8 +153,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; enriches marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl from Blob; 404 if not found. |
 | GET | `/api/keepers/[reportId]` | Returns keeper manifest JSON from `ligs-keepers/{reportId}.json`. Query `?dry=1` loads from `ligs-keepers-dry/` for landing validation without spend. 404 when not found. Used by `/beauty?keeperReportId=X` for featured keeper hero. |
 | GET | `/api/exemplars` | Query `?version=v1`. Returns list of exemplar manifests for all 12 archetypes that exist in Blob. Used by landing Examples section. |
-| POST | `/api/exemplars/generate` | Body: `{ archetype, mode: "dry"|"live", version: "v1" }`. Generates exemplar pack: marketing_background + share_card (LIVE only), exemplar_card (compose, always). Saves to `ligs-exemplars/{archetype}/{version}/`. Stable idempotency keys: `exemplar-{archetype}-{version}-marketing_background`, `-share_card`. |
-| POST | `/api/exemplars/save` | Body: `{ archetype, version: "v1", exemplarCardB64, overlay? }`. Saves composed PNG to Blob, updates manifest. LigsStudio "Save to Landing" button. No extra generation. |
+| POST | `/api/exemplars/generate` | Body: `{ archetype, mode: "dry"|"live", version: "v1" }`. Exemplar pack: marketing_background (LIVE; Ignis: glyph-conditioned), share_card (non-Ignis: DALL·E; Ignis: composed from same background for coherence), exemplar_card (compose, always). Saves to `ligs-exemplars/{archetype}/{version}/`. Manifest.urls: marketingBackground, shareCard, exemplarCard. Stable idempotency for marketing_background, share_card (non-Ignis only). |
+| POST | `/api/exemplars/save` | Body: `{ archetype, version, target?: "exemplar_card" \| "share_card" \| "marketing_background", exemplarCardB64? }` (or `marketingBackgroundB64` when target=marketing_background). Saves to Blob; loads existing manifest, merges URLs, writes back. LigsStudio: "Save as Exemplar Card", "Save as Share Card", "Save as Marketing Background". Uses `getPreferredExemplarVersion` (Ignis→v2). No extra generation. |
 
 ### 2.3 Report storage API
 
@@ -163,6 +163,12 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/report/[reportId]` | Reads from same storage/key as engine: Blob `ligs-reports/{reportId}.json` or memory. `getReport(reportId)` → returns `full_report`, `emotional_snippet`, `image_prompts`, `vector_zero`. 404 logs `REPORT_NOT_FOUND` (monitor for persistence gaps); response includes `code: "REPORT_NOT_FOUND"`. |
 | GET | `/api/report/previews` | Fetches from Beauty Profiles in Blob (`ligs-beauty/`). Lists profiles (most recent first), extracts `subjectName` (subjectName/fullName), `emotionalSnippet`, image URLs from `ligs-images/{reportId}/{slug}`. Query: `useBlob`, `maxPreviews`/`maxCards` (default 3). Read-only. Mock cards when Blob empty (DRY_RUN). |
 | GET | `/api/report/debug` | `getStorageInfo()`, optional `listBlobReportPathnames` / `getMemoryReportIds`; test pattern description. |
+
+### 2.3a Waitlist
+
+| Method | Route | Handler summary |
+|--------|--------|------------------|
+| POST | `/api/waitlist` | Zero-dependency email capture. Body: `{ email: string, source?: string, ref?: string }`. Validates email (required, trimmed, lowercased, basic regex); rejects 400 if invalid. Writes to Vercel Blob at `ligs-waitlist/{ISO_TIMESTAMP}_{RANDOM}.json` with `{ email, createdAt, source, ref?, userAgent?, ipHint? }`. One file per signup. Returns `{ ok: true }`. Does NOT trigger image gen, Stripe, or engine. Requires `BLOB_READ_WRITE_TOKEN`. |
 
 ### 2.4 Stripe
 
@@ -189,8 +195,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/image/generate` | Body: `profile`, `purpose`, `image`, `variationKey?`, `archetype?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/image-generate/{key}.json` if exists (no provider call). Zod strict. buildImagePromptSpec → validateImagePromptSpec. LRU cache (max 200) + idempotency store. On success stores to idempotency when key present. ALLOW_EXTERNAL_WRITES server-only. Denylist pass. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit }`. |
-| POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?` (default square_card_v1), `output?` (size 1024|1536), `variationKey?`, `overlaySpec?`. If `overlaySpec` provided: validate and use directly (no regeneration). Else: generateOverlaySpec → validateOverlaySpec; 400 OVERLAY_SPEC_INVALID if fail. ALLOW_EXTERNAL_WRITES: when false, DRY_RUN (overlaySpec, overlayValidation, no image). When true: sharp compose (background + logo + text overlay + CTA chip) → PNG. Logo: always `GLOBAL_LOGO_PATH` (`/brand/ligs-mark-primary.png`) with bottom-left placement (6% padding, 13% width, opacity 0.9); else "(L)" SVG when ENABLE_PLACEHOLDER_LOGO=true and file missing; else 400 BRAND_LOGO_REQUIRED. LigsStudio LIVE sends overlaySpec (from DRY preview or buildOverlaySpecWithCopy) so output matches DRY. Returns `{ requestId, dryRun, logoUsed?, overlaySpec, overlayValidation, image? }`. |
+| POST | `/api/image/generate` | Body: `profile`, `purpose`, `image`, `variationKey?`, `archetype?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/image-generate/{key}.json` if exists (no provider call). Zod strict. buildImagePromptSpec → validateImagePromptSpec. LRU cache (max 200) + idempotency store. On success stores to idempotency when key present. ALLOW_EXTERNAL_WRITES server-only. Denylist pass. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit, purposeEchoed, glyphBranchUsed, buildSha }`; `X-Build-Sha` header from `VERCEL_GIT_COMMIT_SHA` or `"local"`. **archetype_background_from_glyph:** DALL·E 2 edits via `dalle2_edits`; loads `public/glyphs/ignis.svg`, rasterizes to 1024×1024 base + transparent mask; prompt from `buildGlyphConditionedBackgroundPrompt`. No fallback to DALL·E 3: on glyph load/rasterize or edits provider failure, returns 500 `GLYPH_CONDITIONED_FAILED` with clear reason. DRY returns `glyphDryPlan`. Cache hit for glyph purpose returns `providerUsed: "dalle2_edits"`. |
+| POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?`, `output?`, `variationKey?`, `overlaySpec?`. Rejects background <256x256 (400 BACKGROUND_TOO_SMALL); logs dimensions in dev. If `overlaySpec` missing: `buildOverlaySpecWithCopy` server-side. For `markType=archetype`: `composeExemplarCardToBuffer` (glyph + text); else `composeMarketingCardToBuffer`. Logo: GLOBAL_LOGO_PATH or "(L)". LigsStudio: prefers `imageResult.images[0].url` → `backgroundUrl`; client blocks placeholder b64. Returns `{ requestId, dryRun, buildOverlaySpec?, overlaySpec, overlayValidation, image? }`. |
 | POST | `/api/generate-image` | Body `prompt`, optional `reportId`, `slug`. If `reportId` + slug and existing Blob image URL → return it. Else DALL·E 3 → optional save to Blob (`saveImageToBlob`) → return URL. Uses `OPENAI_API_KEY`. |
 
 ### 2.8 LIGS Studio & status
@@ -210,6 +216,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | POST | `/api/dev/beauty-live-once` | Dev-only. 403 in production. **Golden Run:** exactly one live run per browser session (cookie `beauty-live-once-key`); retries with same `idempotencyKey` allowed (returns cached). Body may include `idempotencyKey` (else auto-generated). Runs preflight; POST `/api/beauty/submit` with `dryRun: false`, `idempotencyKey`. Logs: idempotencyHit, cacheHit/Miss, imageCount. Returns `{ reportId, subjectName, dominantArchetype, viewUrl, meta }`. |
 | GET | `/api/dev/verify-report` | Dev-only. 403 in production. Query `?reportId=X`. Verifies Beauty Profile in Blob, image URLs, schemaVersion, prompts, archetype. When DRY_RUN=1, also requires marketingCardUrl (profile or ligs-images/{reportId}/marketing_card). Returns `{ ok, checks, imageUrls, marketingCardUrl?, summary }`. |
 | GET | `/api/dev/verify-marketing-card` | Dev-only. 403 in production. Query `?reportId=X`. Verifies marketing_card blob exists. Returns `{ ok, marketingCardUrl?, summary }`. |
+| GET | `/api/dev/glyph-debug` | Dev-only. Query `?name=ignis_mark`. Audits glyph SVG: `{ name, exists, resolvedFsPath, fileSizeBytes, first200Chars, viewBox, hasRectBackground, hasPaths, hasCirclesPolygons }`. LigsStudio "GLYPH SOURCE OF TRUTH AUDIT". |
+| GET | `/api/dev/glyph-rasterize` | Dev-only. Query `?name=ignis_mark`. Rasterizes glyph SVG to 512×512 PNG (sharp contain-fit, transparent bg). Returns PNG. |
 
 ### 2.10 Marketing
 
@@ -238,7 +246,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `ALLOW_EXTERNAL_WRITES` | `/api/voice/generate`, `/api/image/generate`, `/api/image/compose` | `"true"` = real LLM/image calls; otherwise dry-run. Server-side only; never client-controlled. |
 | `ALLOW_FORCE_LIVE` | `/api/engine/generate` | `"true"` = honor header `X-Force-Live: 1` to bypass dry-run. Default false; Force-Live cannot accidentally bypass dry-run when unset. |
 | `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
-| `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | `BeautyLandingClient.jsx` | `"1"` = show LIVE TEST RUN section on `/beauty?dev=1` even when NODE_ENV=production (Vercel Preview). |
+| `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | (other pages) | `"1"` = show dev controls. Conversion-first Beauty landing no longer renders Dev Live pipeline section. |
+| `NEXT_PUBLIC_WAITLIST_ONLY` | `BeautyLandingClient.jsx` | `"1"` = waitlist-only mode: hides Buy CTA, Unlock teaser; shows only waitlist form + "Ignis unlocking soon". |
 | *(removed)* `BRAND_LOGO_PATH` | — | No longer used. Compose always uses `GLOBAL_LOGO_PATH` from `lib/brand.ts`. |
 | `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when global logo file missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
@@ -345,6 +354,22 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑02‑20 (Compose visibility + debug overlay)
+
+**Compose text/glyph visibility:** Headline/subhead use explicit fill #FFFFFF, opacity >= 0.9; `buildTextOverlaySvg` centralizes text overlay. Glyph load/rasterize failure: throws 500 in dev, logs in prod (no silent transparent). COMPOSE_DEBUG=1: outlines safeArea, textBlock, ctaChip; pure white text; scrim rgba(0,0,0,0.35); logs layer order. Response: composedUrl, logoUsed, glyphUsed, textRendered. LigsStudio "Last Response Debug (Compose)" shows composedUrl, logoUsed, glyphUsed, textRendered.
+
+## Verification Log – 2026‑02‑20 (1:1 background for square_card_v1 compose)
+
+**Aspect ratio coupling:** When purpose is marketing_background and compose uses square_card_v1 (1:1), Generate Background now produces 1:1. `buildImagePromptSpec`: respects `options.aspectRatio` when provided; callers (LigsStudio, image/generate) pass aspect from request. LigsStudio: `composeOutputAspectRatio` derived from template (square_card_v1 → 1:1); `backgroundGenParams.aspectRatio` = compose output. Glyph + text render in correct 1:1 frame.
+
+## Verification Log – 2026‑02‑20 (Compose placeholder background fix)
+
+**LIVE compose no longer uses 1x1 placeholder:** LigsStudio runCompose prefers `imageResult.images[0].url` → `backgroundUrl` → `backgroundSource`. Dedicated `backgroundUrl` state set after Generate Background and Full Pipeline success. Client guard: if background would be placeholder b64 (<512x512), block compose with "Compose blocked: background is placeholder (1x1). Generate Background first." `lib/ligs-studio-utils`: `getPngDimensionsFromBase64`, `isPlaceholderPng`, `TINY_PNG_B64` exported. Server `/api/image/compose`: reject backgrounds <256x256 with 400 BACKGROUND_TOO_SMALL; log dimensions in dev. getComposePayload reflects real source; copy payload shows `background.url` when available.
+
+## Verification Log – 2026‑02‑20 (Compose overlaySpec server-side build + glyph anchor)
+
+**Compose overlaySpec fix:** POST `/api/image/compose` when overlaySpec missing: builds server-side via `buildOverlaySpecWithCopy(profile, { templateId, output, purpose, variationKey }, undefined)` — deterministic, no LLM. Hard validation: 400 "overlaySpec required" if neither overlaySpec nor profile+purpose. For `markType=archetype` (Ignis): uses `composeExemplarCardToBuffer` (hero glyph anchor + headline/subhead/cta); else `composeMarketingCardToBuffer`. Response includes `buildOverlaySpec: true` when server built overlaySpec. LigsStudio run6Variations now sends overlaySpec (buildOverlaySpecWithCopy) in compose payload.
+
 ## Verification Log – 2026‑02‑20 (Imagery source of truth)
 
 **Imagery source of truth:** Engine output + style pipeline; no UI overrides. Added `FALLBACK_PRIMARY_ARCHETYPE` to contract.ts; replaced hardcoded "Stabiliora" in engine route, engine/generate, marketing/visuals, exemplars/generate, minimal-profile, LigsStudio, ShareCard. E.V.E. affects copy/voice only; visuals from contract + buildTriangulatedImagePrompt. Guardrail test `engineResultPromptGuardrail.test.ts`: primary=Fluxionis, secondary=Structoris; asserts both influences, twilight=day, no crisp drift.
@@ -397,13 +422,33 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 **POST /api/exemplars/save:** Saves composed image only. Input: archetype, version, exemplarCardB64, optional overlay (headline, subhead, cta). Saves to `ligs-exemplars/{archetype}/v1/exemplar_card.png` and manifest. LigsStudio "Save to Landing" button enabled when compose result exists. Refresh /beauty to see in Examples.
 
+## Verification Log – 2026‑02‑28 (Canonical Ignis glyph: ring+dot+3 triangles)
+
+**ignis_mark.svg replaced:** Canonical geometry (ring + center dot + 3 triangles). viewBox 0 0 100 100. Ring: circle r=40 stroke; dot: circle r=7 fill; 3 polygons pointing outward at 0°, 120°, 240°. Fill #FAF8F5, transparent bg. **Compose:** glyphPath logged at compose-time; uses public/glyphs/ignis_mark.svg. **Glyph checksum guard (dev):** When markType=archetype, assert SVG has ≥2 circles and ≥3 polygons; else throw "WRONG GLYPH FILE: expected canonical ignis geometry". Applied in static-overlay loadGlyphOverlay and glyph-rasterize route. fill="none" preserved (regex negative lookahead) so ring stays stroked.
+
+## Verification Log – 2026‑02‑28 (GLYPH SOURCE OF TRUTH AUDIT)
+
+**Glyph debug routes:** GET `/api/dev/glyph-debug?name=ignis_mark` — returns JSON: name, exists, resolvedFsPath, fileSizeBytes, first200Chars, viewBox, hasRectBackground, hasPaths, hasCirclesPolygons. GET `/api/dev/glyph-rasterize?name=ignis_mark` — returns 512×512 PNG (sharp contain-fit, transparent bg). **LigsStudio:** "GLYPH SOURCE OF TRUTH AUDIT" section when Dry Run or PROOF_ONLY: candidate files ignis.svg, ignis_mark.svg; "Debug ignis" / "Debug ignis_mark" buttons; "Print all to console"; Raw Glyph (img + object); Rasterized Glyph Debug (server). Compare Raw vs Rasterized to isolate blob cause (file wrong vs rasterization wrong).
+
+## Verification Log – 2026‑02‑28 (PROOF OVERLAY FREE – zero spend)
+
+**Render Proof Card (FREE):** Client-only renderer, zero external calls. LigsStudio: "PROOF OVERLAY (FREE)" section when Dry Run ON or `NEXT_PUBLIC_PROOF_ONLY=1`. Button "Render Proof Card (FREE)" uses placeholder gradient + square_card_v1 overlay + Ignis glyph (ignis_mark.svg). Hardcoded copy: "Ignispectrum", "Transform with intensity.", "Ignite change". **Hard fail on glyph:** If ignis_mark.svg cannot load, rejects with `GLYPH_LOAD_FAILED` — no silent skip. **Proof outputs:** glyphUsed, glyphPath, outputDims, proof image displayed. **PROOF_ONLY:** When `NEXT_PUBLIC_PROOF_ONLY=1`, all live imagery buttons (Generate Background, Compose, Full Pipeline, 6 Variations, Generate Marketing, Save) blocked. Dry Run defaults to ON when PROOF_ONLY. `lib/dry-run-config.ts`: PROOF_ONLY export.
+
+## Verification Log – 2026‑02‑28 (Ignis glyph overlay fix + layout)
+
+**A) Glyph rendering (no black blob):** `public/glyphs/ignis_mark.svg` — glyph-only, transparent bg, explicit fill #FAF8F5. Static overlay uses it for Ignis. Rasterization: viewBox respected, contain fit, centered, transparent background. `stripBackgroundRects()` removes any rect from glyph SVG. Fill forced to #FAF8F5 @ 0.9 opacity. Dev outline: `NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE=true` or NODE_ENV=development draws 1px magenta outline around glyph bounds (server + client). **B) Layout:** square_card_v1 textBlock: x:0.12, y:0.10, w:0.76, h:0.28; ctaChip: x:0.32, y:0.78, w:0.36, h:0.10; glyph anchor centerY ~0.56, sizePct ~0.32. Optional "Ignispectrum" label at top-left for Ignis. **C) Compose response:** added glyphPath, rasterDims, previewImageUrl alongside glyphUsed, logoUsed, textRendered, backgroundDims, outputDims.
+
 ## Verification Log – 2026‑02‑26 (Global logo + Studio "Logo: OK")
 
 **Global logo (canonical):** `GLOBAL_LOGO_PATH = "/brand/ligs-mark-primary.png"` in `lib/brand.ts` — single source of truth. Served from `public/brand/ligs-mark-primary.png`. GET `/api/ligs/status` checks that file exists; `logoConfigured=true` when reachable. LigsStudio displays "Logo: OK" or "Logo: missing". POST `/api/image/compose` always uses global logo (or "(L)" placeholder when `ENABLE_PLACEHOLDER_LOGO=true`). Compose overlay: always bottom-left (6% padding, 13% width, opacity 0.9, no shadow/glow). BRAND_LOGO_PATH env removed.
 
+## Verification Log – 2026‑02‑28 (Ignis archetype glyph + markType)
+
+**markType archetype for Ignis:** Added `markType: "brand"|"archetype"` and `markArchetype` to MarketingOverlaySpec. `buildOverlaySpecWithCopy` / `generateOverlaySpec` set `markType: "archetype"`, `markArchetype: "Ignispectrum"` for Ignispectrum. `lib/marketing/compose-card.ts`: `resolveMarkBuffer(spec, logoBuffer)` loads `public/glyphs/ignis.svg` when markType=archetype instead of (L) monogram; `createSignatureFieldOverlaySvg` adds subtle radial overlay; `maybeAddDevStamp` adds "IGNIS MARK" at 2% opacity in dev only. Exemplar manifest includes `markType`. `deriveIdempotencyKey` used for image/generate (UUID required). LandingPreviews: cache-bust `?v=` for Ignis exemplar card. BeautyView: exemplar shows `exemplarCard` first; exemplar reportIds use `manifest.urls.exemplarCard` as primary image.
+
 ## Verification Log – 2026‑02‑26 (Exemplar Pack v1)
 
-**Exemplar Pack v1:** POST `/api/exemplars/generate` (body: `{ archetype, mode: "dry"|"live", version: "v1" }`) generates marketing_background + share_card (LIVE only), exemplar_card (compose always). Saves to `ligs-exemplars/{archetype}/{version}/`. Stable idempotency: `exemplar-{archetype}-{version}-marketing_background`, `-share_card`. GET `/api/exemplars?version=v1` returns list of manifests. `lib/exemplar-store.ts` for Blob storage. `LandingPreviews` fetches exemplars when available, fallback to `EXEMPLAR_CARDS`. Global logo: `public/brand/ligs-mark-primary.png`; compose uses it when BRAND_LOGO_PATH unset.
+**Exemplar Pack v1:** POST `/api/exemplars/generate` (body: `{ archetype, mode: "dry"|"live", version: "v1" }`) generates marketing_background + share_card (LIVE only), exemplar_card (compose always). Saves to `ligs-exemplars/{archetype}/{version}/`. Stable idempotency: `deriveIdempotencyKey(base, suffix)` for UUID keys. GET `/api/exemplars?version=v1` returns list of manifests. `lib/exemplar-store.ts` for Blob storage. `LandingPreviews` fetches exemplars when available, fallback to `EXEMPLAR_CARDS`. Global logo: `public/brand/ligs-mark-primary.png`; compose uses resolveMarkBuffer (glyph for Ignis, else brand logo).
 
 ## Verification Log – 2026‑02‑20 (Keeper exact prompts + DRY prefix + live-run checklist)
 
@@ -448,6 +493,50 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑02‑20 (Previews route delegation)
 
 **Dynamic route guard:** When `[reportId]` catches reserved segment "previews" or "debug" (e.g. in deployments where static routes lose precedence), it delegates to the sibling route handler. Ensures `/api/report/previews` always returns `{ previewCards }` regardless of route matching order.
+
+## Verification Log – 2026‑02‑28 (Ignispectrum v2 + prefer v2 for Ignis)
+
+**Ignispectrum v2:** Generated via POST `/api/exemplars/generate` (archetype: Ignispectrum, mode: live, version: v2). Writes to `ligs-exemplars/Ignispectrum/v2/` (marketing_background.png, share_card.png, exemplar_card.png, manifest.json). Manifest includes markType, markArchetype, urls for all 3 images. v1 unchanged.
+
+**Prefer v2 for Ignis:** `PREFERRED_ARCHETYPE_VERSIONS` in exemplar-store maps Ignispectrum → v2. `loadExemplarManifestWithPreferred(archetype, requestedVersion)` tries preferred first, then requested. GET `/api/exemplars?version=v1` and beauty view exemplar-Ignispectrum now return v2 for Ignis. Landing shows new exemplar card.
+
+## Verification Log – 2026‑02‑20 (Remove double glyph in exemplar compose)
+
+**compose-card.ts:** When background was generated with purpose `archetype_background_from_glyph` (Ignis), `createHeroGlyphOverlay` returns null — glyph appears once, as seed in generated image. `composeExemplarCardToBuffer` accepts `backgroundPurpose`; exemplars/generate passes it when Ignis. Small marks (markType archetype, resolveMarkBuffer) unchanged.
+
+## Verification Log – 2026‑02‑20 (Save Marketing Background from Studio)
+
+**exemplars/save:** Accepts `target: "marketing_background"` with `marketingBackgroundB64`. Saves to `ligs-exemplars/{archetype}/{version}/marketing_background.png`, merges manifest.urls.marketingBackground without overwriting exemplarCard/shareCard.
+
+**LigsStudio:** "Save as Marketing Background" button; enabled when Step 1 (background) exists, disabled in Dry Run. Fetches URL to base64 when background is provider URL. JSON snippet shows saved marketingBackgroundUrl after save.
+
+## Verification Log – 2026‑02‑20 (Ignis share_card coherence, no blanks)
+
+**Ignis share_card:** For Ignis v2, share_card is no longer generated via DALL·E. Instead, composed from the SAME glyph-conditioned background + overlay spec (same as exemplar_card). Saves to share_card.png after compose. Ensures manifest.urls.shareCard always populated; no blanks in click-through.
+
+**Manifest:** After LIVE run, urls.marketingBackground, urls.exemplarCard, urls.shareCard all set. GET `/api/beauty/[reportId]` for exemplar-Ignispectrum returns imageUrls with all 3; PreviewCarousel and ShareCard show no blanks.
+
+## Verification Log – 2026‑02‑20 (LigsStudio Ignis seed → composed visibility)
+
+**Seed Glyph Preview (Ignis only):** Panel shown when purpose=archetype_background_from_glyph or archetype=Ignispectrum. Displays `public/glyphs/ignis.svg` before generation. Visible in DRY and LIVE.
+
+**Step labels:** "Step 1: Generated Background" and "Step 2: Composed Card (Marketing Overlay)". Both previews render after Full Pipeline.
+
+**Two Save buttons:** "Save as Exemplar Card (Landing)" → exemplar_card slot. "Save as Share Card" → share_card slot. POST `/api/exemplars/save` accepts `target: "exemplar_card" | "share_card"`; loads existing manifest, merges URLs, uses `getPreferredExemplarVersion` (Ignis→v2).
+
+**Manifest URLs snippet:** After Full Pipeline, JSON shows `{ marketingBackgroundUrl, exemplarCardUrl, shareCardUrl }`.
+
+**Dry Run:** Save buttons disabled when Dry Run checked; Seed Glyph still shown.
+
+## Verification Log – 2026‑02‑20 (LigsStudio purpose dropdown)
+
+**Purpose dropdown:** Replaced free-text purpose with select (marketing_background, share_card, archetype_background_from_glyph). When archetype is Ignispectrum, purpose defaults to archetype_background_from_glyph.
+
+**Safety:** Dry Run Mode checkbox unchanged; no LIVE calls unless user unchecks and clicks Generate/Compose/Full Pipeline.
+
+## Verification Log – 2026‑02‑20 (archetype_background_from_glyph DRY + dalle2_edits)
+
+**Glyph-conditioned DRY:** POST `/api/image/generate` with `purpose=archetype_background_from_glyph` and `archetype=Ignispectrum` returns rich DRY payload: `providerUsed: "dalle2_edits"`, `glyphDryPlan` with glyphLoaded (public/glyphs/ignis.svg, rasterized 1024×1024), maskCreated (1024×1024 transparent), finalPromptContainsSeedGrowth, finalPrompt, fileUrlPlan (LIVE: provider URL → exemplars/generate → saveExemplarToBlob marketing_background). Replaced "silhouette" with "shape" in glyph prompt to pass validation. Provider-edits: added `model: "dall-e-2"` for OpenAI API compliance.
 
 ## Verification Log – 2026‑02‑20 (Previews response shape)
 
@@ -771,3 +860,48 @@ SYSTEM_SNAPSHOT.md was checked against the repo. All sections match; one doc fix
 **Doc fix applied:** Snapshot listed `lib/unwrap-response.js`; actual file is `lib/unwrap-response.ts`. Section 1.3 updated accordingly.
 
 **2026-02-15 (route move):** E.V.E. handler lives at `app/api/engine/route.ts`. Report-only engine at `app/api/engine/generate/route.ts`. Frontend and beauty/create hit `/api/engine` for E.V.E.; `submitToEngine` hits `/api/engine/generate`. Single engine route at POST /api/engine only.
+
+---
+
+## Verification Log – 2026‑02‑20
+
+**Glyph branch visibility and no silent fallback:**
+
+| Change | Location | Notes |
+|--------|----------|------|
+| **Last Response Debug box** | `LigsStudio.tsx` | After Generate Background (live only): providerUsed, purposeEchoed, cacheHit, glyphBranchUsed, requestId, buildSha, validation, error, imageUrl |
+| **Glyph branch no fallback** | `app/api/image/generate/route.ts` | Try/catch around glyph load + edits; 500 `GLYPH_CONDITIONED_FAILED` on failure; dev logging `[GLYPH BRANCH]` |
+| **Cache hit provider fix** | `app/api/image/generate/route.ts` | Cache hit for `archetype_background_from_glyph` returns `providerUsed: "dalle2_edits"` |
+| **Version header** | `app/api/image/generate/route.ts` | `X-Build-Sha` + `buildSha` in JSON from `VERCEL_GIT_COMMIT_SHA` or `"local"` |
+
+---
+
+## Verification Log – 2026‑02‑20 (Waitlist capture)
+
+**Zero-dependency waitlist via Vercel Blob:**
+
+| Change | Location | Notes |
+|--------|----------|------|
+| **POST /api/waitlist** | `app/api/waitlist/route.ts` | Email capture; validates, writes to `ligs-waitlist/{iso}_{random}.json`; no Stripe/image/engine. |
+| **Early Access section** | `BeautyLandingClient.jsx` | Email input + "Join Early Access" button; success: "You're on the list." |
+| **NEXT_PUBLIC_WAITLIST_ONLY** | `.env.example`, BeautyLandingClient | `"1"` = waitlist-only; hides Buy CTA and Unlock teaser. |
+
+## Verification Log – 2026‑02‑20 (Conversion-first MVP)
+
+**Beauty landing refactored for conversion:**
+
+| Change | Location | Notes |
+|--------|----------|------|
+| **BeautyLandingClient** | `app/beauty/BeautyLandingClient.jsx` | Hero; Ignis exemplar + 3 bullets; Form; 12-regime static grid; Unlock teaser; Footer. Removed Featured Keeper, Previous Reports, Dev Live pipeline. Form sits above grid. |
+| **LandingPreviews** | `components/LandingPreviews.jsx` | Added `staticGrid`, `showPreviousReports`, `highlightArchetype`. Static mode: disabled clicks, no links, non-Ignis opacity 0.6, "Unlocking Soon" label. |
+
+## Verification Log – 2026‑02‑20 (FIELD-FIRST + glyph anchor)
+
+**Ignis: no DALL·E 2 edits; field-first + glyph in compose:**
+
+| Change | Location | Notes |
+|--------|----------|------|
+| **CENTER VOID directive** | `src/ligs/image/triangulatePrompt.ts` | For Ignispectrum + marketing_background: inject CENTER_VOID_IGNIS block (radial origin, ~1/3 center void, field grows outward) |
+| **Exemplars/generate** | `app/api/exemplars/generate/route.ts` | Ignis uses marketing_background (DALL·E 3), 1:1 aspect; backgroundPurpose always `marketing_background` |
+| **Hero glyph overlay** | `lib/marketing/compose-card.ts` | createHeroGlyphOverlay: Ignis glyph 33% width, slightly below midline, warm radial glow; FIELD-FIRST config |
+| **LigsStudio** | `components/LigsStudio.tsx` | Default purpose marketing_background; "Ignis: Glyph Anchor (Field-First)" panel; removed glyph preflight/IGNIS SEED MODE OFF |

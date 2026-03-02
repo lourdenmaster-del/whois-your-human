@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import LandingPreviews from "@/components/LandingPreviews";
 import LightIdentityForm from "@/components/LightIdentityForm";
+import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, setBeautyDraft, saveLastFormData } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
-import { fetchBlobPreviews } from "@/lib/api-client";
 import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
+
+const IGNIS_ARCHETYPE = "Ignispectrum";
+
+const WAITLIST_ONLY =
+  process.env.NEXT_PUBLIC_WAITLIST_ONLY === "1" ||
+  process.env.NEXT_PUBLIC_WAITLIST_ONLY === "true";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -16,12 +22,6 @@ function getDryRunFromUrl() {
   return params.get("dryRun") === "1" || params.get("dryRun") === "true";
 }
 
-const STATIC_SIGNATURE_BGS = [
-  "/signatures/beauty-hero.png",
-  "/signatures/beauty-hero1.png",
-  "/signatures/beauty-background.png",
-  "/signatures/vector-zero1.png",
-];
 const PAGE_BG_URL = "/signatures/beauty-background.png";
 
 function isFormValid(formData) {
@@ -34,31 +34,26 @@ function isFormValid(formData) {
 }
 
 export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
-  const [previewCards, setPreviewCards] = useState([]);
-  const [liveTestStatus, setLiveTestStatus] = useState(null);
-  const [liveTestError, setLiveTestError] = useState(null);
   const [ctaCheckoutLoading, setCtaCheckoutLoading] = useState(false);
   const [ctaCheckoutError, setCtaCheckoutError] = useState(null);
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
   const [formData, setFormData] = useState(null);
   const [generateLoading, setGenerateLoading] = useState(false);
+  const [ignisImageUrl, setIgnisImageUrl] = useState(null);
+  const [waitlistEmail, setWaitlistEmail] = useState("");
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistSuccess, setWaitlistSuccess] = useState(false);
+  const [waitlistError, setWaitlistError] = useState(null);
 
   const formValid = isFormValid(formData);
 
   const router = useRouter();
-  const searchParams = useSearchParams();
   const dryRun = dryRunProp || (typeof window !== "undefined" && getDryRunFromUrl());
-  const isDev = process.env.NODE_ENV !== "production";
-  const showDevOnPreview = process.env.NEXT_PUBLIC_SHOW_DEV_CONTROLS === "1" || process.env.NEXT_PUBLIC_SHOW_DEV_CONTROLS === "true";
-  const devParam = searchParams?.get?.("dev");
-  const showDevControls = devParam === "1" && (isDev || showDevOnPreview);
 
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
-  const [keeperManifest, setKeeperManifest] = useState(null);
 
   const { disabled: apiDisabled } = useApiStatus();
-  const keeperReportId = searchParams?.get?.("keeperReportId");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -76,11 +71,6 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
     setFormData(data);
   }, []);
 
-  const isPlaceholder = (u) => !u || (typeof u === "string" && u.startsWith("data:image/svg+xml"));
-  const firstRealPreviewImage =
-    previewCards?.flatMap((c) => c.imageUrls || []).find((u) => !isPlaceholder(u));
-  const finalBgUrl = firstRealPreviewImage || "/signatures/beauty-hero.png";
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const hash = window.location.hash;
@@ -94,80 +84,55 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchBlobPreviews({ maxCards: 6, useBlob: true })
-      .then(({ previewCards: cards }) => {
-        if (!cancelled && Array.isArray(cards)) setPreviewCards(cards);
+    fetch(`/api/exemplars?version=v1`)
+      .then((res) => (res.ok ? res.json() : { manifests: [] }))
+      .then((data) => {
+        if (cancelled) return;
+        const list = data.manifests ?? [];
+        const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
+        const urls = ignis?.urls ?? {};
+        const card = urls.exemplarCard ?? urls.exemplar_card;
+        setIgnisImageUrl(card ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setIgnisImageUrl(`/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`);
+      });
     return () => { cancelled = true; };
   }, []);
-
-  useEffect(() => {
-    if (!keeperReportId?.trim()) return;
-    let cancelled = false;
-    const dry = searchParams?.get?.("dry") === "1" || searchParams?.get?.("dry") === "true";
-    const qs = dry ? "?dry=1" : "";
-    fetch(`/api/keepers/${encodeURIComponent(keeperReportId.trim())}${qs}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((manifest) => {
-        if (!cancelled && manifest) setKeeperManifest(manifest);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [keeperReportId, searchParams]);
-
-  const handleLiveTestRun = useCallback(async () => {
-    if (!showDevControls) return;
-    setLiveTestError(null);
-    setLiveTestStatus("Preflight…");
-    try {
-      const preRes = await fetch("/api/dev/preflight");
-      const pre = await preRes.json();
-      if (!pre.ok) {
-        setLiveTestError(pre.checks?.summary ?? "Preflight failed");
-        return;
-      }
-      setLiveTestStatus("Generating…");
-      const res = await fetch("/api/dev/beauty-live-once", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setLiveTestError(data.error ?? "Live run failed");
-        return;
-      }
-      const reportId = data.reportId;
-      if (!reportId) {
-        setLiveTestError("No reportId returned");
-        return;
-      }
-      setLiveTestStatus("Verifying…");
-      try {
-        const verifyRes = await fetch(`/api/dev/verify-report?reportId=${encodeURIComponent(reportId)}`);
-        const verify = await verifyRes.json();
-        if (verify.ok) {
-          console.log("[LiveTest] Verification PASS:", verify.summary, verify.checks);
-        } else {
-          console.warn("[LiveTest] Verification FAIL:", verify.summary, verify.checks);
-        }
-      } catch (e) {
-        console.warn("[LiveTest] Verify request failed:", e);
-      }
-      setLiveTestStatus("Done. Navigating…");
-      router.push(`/beauty/view?reportId=${encodeURIComponent(reportId)}`);
-    } catch (err) {
-      setLiveTestError(err instanceof Error ? err.message : "Request failed");
-    } finally {
-      setLiveTestStatus(null);
-    }
-  }, [showDevControls, router]);
 
   const handleHeroCta = useCallback(() => {
     const el = document.getElementById("form");
     el?.scrollIntoView({ behavior: "smooth" });
   }, []);
+
+  const handleWaitlistSubmit = useCallback(
+    async (e) => {
+      e?.preventDefault?.();
+      const email = (waitlistEmail ?? "").trim().toLowerCase();
+      if (!email) return;
+      setWaitlistError(null);
+      setWaitlistLoading(true);
+      try {
+        const res = await fetch("/api/waitlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, source: "beauty" }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setWaitlistError(data?.error ?? "Something went wrong. Try again.");
+          return;
+        }
+        setWaitlistSuccess(true);
+        setWaitlistEmail("");
+      } catch {
+        setWaitlistError("Something went wrong. Try again.");
+      } finally {
+        setWaitlistLoading(false);
+      }
+    },
+    [waitlistEmail]
+  );
 
   const runGenerate = useCallback(
     async (data) => {
@@ -268,6 +233,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const headingClass = "text-2xl sm:text-3xl font-semibold tracking-wide beauty-heading";
   const mutedClass = "beauty-text-muted";
 
+  const ignisDescriptor = getMarketingDescriptor(IGNIS_ARCHETYPE);
+
   return (
     <div
       className="relative min-h-screen"
@@ -279,152 +246,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         backgroundAttachment: "fixed",
       }}
     >
-      {finalBgUrl && (
-        <div
-          className="absolute inset-x-0 top-0 h-[520px] pointer-events-none"
-          style={{
-            backgroundImage: `url(${finalBgUrl})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center top",
-          }}
-        />
-      )}
-      {finalBgUrl && (
-        <div
-          className="absolute inset-x-0 top-0 h-[520px] pointer-events-none"
-          style={{
-            backgroundImage:
-              "linear-gradient(180deg, rgba(255,255,255,0.0) 0%, rgba(255,255,255,0.0) 55%, rgba(255,255,255,1.0) 100%)",
-          }}
-        />
-      )}
       <div className="relative z-10">
-        {keeperManifest && (() => {
-          const keeperDry = searchParams?.get?.("dry") === "1" || searchParams?.get?.("dry") === "true";
-          const urls = keeperManifest.urls ?? {};
-          const hasBg = !!urls.marketingBackground;
-          const hasLogo = !!urls.logoMark;
-          const hasCard = !!urls.marketingCard;
-          const hasShare = !!urls.shareCard;
-          const archetypeLabel = keeperManifest.primaryArchetype || "Light Signature";
-          const logoAlt = `${archetypeLabel} logo mark`;
-          const PlaceholderBlock = ({ aspect = "video", label = "—" }) => (
-            <div
-              className={`rounded-xl shadow-md bg-[#0A0F1C]/10 flex items-center justify-center beauty-text-muted text-xs border border-[#0A0F1C]/10 ${aspect === "video" ? "aspect-video" : aspect === "tile" ? "w-32 h-32" : "w-16 h-16"}`}
-              aria-hidden
-            >
-              {label}
-            </div>
-          );
-          return (
-            <section
-              className="relative px-6 py-8 sm:px-16 sm:py-12 border-b border-[var(--beauty-line,#e8e4e8)] bg-white/95 backdrop-blur-sm"
-              aria-label={keeperDry ? "Preview (DRY)" : "Featured Keeper"}
-            >
-              <span
-                className="absolute top-6 right-6 sm:top-8 sm:right-16 px-2.5 py-1 text-xs font-medium rounded-md beauty-text-muted bg-[#0A0F1C]/5"
-              >
-                {keeperDry ? "Preview (DRY)" : "Featured Keeper"}
-              </span>
-              <div className="max-w-4xl mx-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                  <div className="space-y-4">
-                    {(hasBg || (keeperDry && !hasBg)) && (
-                      hasBg ? (
-                        <div
-                          className="aspect-video rounded-xl overflow-hidden bg-[#0A0F1C]/5 shadow-md"
-                          style={{
-                            backgroundImage: `url(${urls.marketingBackground})`,
-                            backgroundSize: "cover",
-                            backgroundPosition: "center",
-                          }}
-                        />
-                      ) : (
-                        <PlaceholderBlock aspect="video" label="Background" />
-                      )
-                    )}
-                    {(hasLogo || (keeperDry && !hasLogo)) && (
-                      hasLogo ? (
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={urls.logoMark}
-                            alt={logoAlt}
-                            className="w-16 h-16 object-contain rounded-md shadow-md"
-                          />
-                          <span className="text-sm beauty-text-muted">
-                            {keeperManifest.primaryArchetype}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-3">
-                          <PlaceholderBlock aspect="logo" label="Logo" />
-                          <span className="text-sm beauty-text-muted">
-                            {keeperManifest.primaryArchetype ?? "—"}
-                          </span>
-                        </div>
-                      )
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    {keeperManifest.marketingDescriptor?.tagline && (
-                      <p className="text-lg font-medium beauty-heading">
-                        {keeperManifest.marketingDescriptor.tagline}
-                      </p>
-                    )}
-                    {keeperManifest.marketingDescriptor?.hitPoints?.length > 0 && (
-                      <ul className="space-y-1 text-sm beauty-body">
-                        {keeperManifest.marketingDescriptor.hitPoints.slice(0, 3).map((hp, i) => (
-                          <li key={i} className="flex gap-2">
-                            <span className="text-[#7A4FFF]">•</span>
-                            <span>{hp}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <div className="flex flex-wrap gap-3 pt-2">
-                      {(hasCard || (keeperDry && !hasCard)) && (
-                        hasCard ? (
-                          <a
-                            href={urls.marketingCard}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block"
-                          >
-                            <img
-                              src={urls.marketingCard}
-                              alt="Marketing card"
-                              className="w-32 h-32 object-cover rounded-xl shadow-md"
-                            />
-                          </a>
-                        ) : (
-                          <PlaceholderBlock aspect="tile" label="Card" />
-                        )
-                      )}
-                      {(hasShare || (keeperDry && !hasShare)) && (
-                        hasShare ? (
-                          <a
-                            href={urls.shareCard}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block"
-                          >
-                            <img
-                              src={urls.shareCard}
-                              alt="Share card"
-                              className="w-32 h-32 object-cover rounded-xl shadow-md"
-                            />
-                          </a>
-                        ) : (
-                          <PlaceholderBlock aspect="tile" label="Share" />
-                        )
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </section>
-          );
-        })()}
         <main className="beauty-theme beauty-page min-h-screen relative">
       {/* Hero */}
       <section
@@ -496,167 +318,196 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         </div>
       </section>
 
-      {/* What is LIGS */}
+      {/* Ignis exemplar + 3 benefit bullets */}
       <section className={sectionClass}>
-        <div className="max-w-3xl mx-auto space-y-8 text-center">
-          <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
-            What is LIGS?
-          </h2>
-          <p className={textClass}>
-            LIGS is a scientific framework that studies how forces — light,
-            gravity, cosmic influences, tidal fields, and environmental
-            conditions — interact with biological systems to shape identity.
-          </p>
-          <p className={textClass}>
-            Every person is born with a unique Light Signature — a structural
-            pattern formed by cosmic, environmental, and biological forces at the
-            moment of initialization.
-          </p>
+        <div className="max-w-3xl mx-auto">
+          <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center">
+            <div className="flex-shrink-0 w-full md:max-w-sm">
+              <div className="aspect-[4/3] overflow-hidden rounded-lg border border-[var(--beauty-line,#e8e4e8)] bg-[#0A0F1C]/5">
+                {ignisImageUrl ? (
+                  <img
+                    src={ignisImageUrl}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center beauty-text-muted text-sm">—</div>
+                )}
+              </div>
+              <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF] font-medium">
+                {IGNIS_ARCHETYPE}
+              </p>
+              <p className={`text-sm ${mutedClass} font-light italic mt-1`}>
+                &ldquo;{ignisDescriptor.tagline}&rdquo;
+              </p>
+            </div>
+            <div className="flex-1 space-y-4">
+              <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
+                Your Light Signature in three ways
+              </h2>
+              <ul className={`${textClass} space-y-3`}>
+                <li className="flex gap-3">
+                  <span className="text-[#7A4FFF] font-medium">•</span>
+                  <span>Reveals the structural pattern behind your identity — not who you are after the fact, but the forces that shaped you.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-[#7A4FFF] font-medium">•</span>
+                  <span>Generated in real time from your birth data — light, gravity, tidal fields, celestial mechanics. No templates.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="text-[#7A4FFF] font-medium">•</span>
+                  <span>Shareable artifact card, 3 signature images, and full narrative report — yours to keep.</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Why it matters */}
-      <section className={sectionClass}>
-        <div className="max-w-3xl mx-auto space-y-8 text-center">
-          <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
-            Why it matters
-          </h2>
-          <p className={textClass}>
-            Most systems describe who you are after the fact. LIGS identifies
-            the structure beneath it.
-          </p>
-          <p className={textClass}>
-            Your Light Signature reveals the patterns that drive your
-            decisions, relationships, strengths, and blind spots.
-          </p>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className={sectionClass}>
-        <div className="max-w-3xl mx-auto space-y-8 text-center">
-          <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
-            How it works
-          </h2>
-          <p className={textClass}>
-            LIGS analyzes the full environment of forces present at the moment
-            your biology initializes — light, gravity, tidal fields, celestial
-            mechanics, and the broader cosmic environment.
-          </p>
-          <p className={textClass}>
-            Every report is generated in real time. No templates. No recycled
-            interpretations.
-          </p>
-        </div>
-      </section>
-
-      {/* Previous Light Identity Reports / Examples */}
-      <LandingPreviews
-        maxCards={6}
-        useBlob={true}
-        variant="beauty"
-        initialCards={previewCards}
-      />
-
-      {/* Get your Light Signature — form + CTA (always visible) */}
+      {/* Get your Light Signature — form + CTA (or waitlist-only when NEXT_PUBLIC_WAITLIST_ONLY=1) */}
       <section id="form" className={`${sectionClass} border-[var(--beauty-line,#e8e4e8)]/30`}>
         <div className="max-w-2xl mx-auto space-y-8 text-center">
           <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
-            Get your Light Signature
+            {WAITLIST_ONLY ? "Join Early Access" : "Get your Light Signature"}
           </h2>
-          <ul className={`${textClass} text-left max-w-md mx-auto space-y-3 list-disc list-inside`}>
-            <li>Shareable Light Signature card (downloadable)</li>
-            <li>3 signature images (Vector Zero / Light Signature / Final Field)</li>
-            <li>Full narrative report (Raw Signal / Custodian / Oracle)</li>
-          </ul>
-          {!unlocked && (
-            <p className="text-2xl font-semibold beauty-heading">
-              $39.99
-            </p>
-          )}
-          {unlocked && (
-            <p className="text-sm beauty-text-muted">
-              <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-medium">Unlocked</span>
-              {" "}— Generate your report.
-            </p>
-          )}
-          <div className="max-w-xl mx-auto text-left">
-            <LightIdentityForm
-              hideSubmitButton
-              showOptionalNotes
-              initialFormData={initialFormData}
-              onFormDataChange={handleFormDataChange}
-            />
-          </div>
-          {ctaCheckoutError && (
-            <p className="text-red-600 text-sm">{ctaCheckoutError}</p>
-          )}
-          {alreadyPurchasedMessage && (
-            <p className="text-amber-700 text-sm bg-amber-50 px-4 py-2 rounded-lg">{alreadyPurchasedMessage}</p>
-          )}
-          {apiDisabled && (
-            <p className="text-amber-700 text-sm bg-amber-50 px-4 py-2 rounded-lg">Temporarily unavailable for maintenance. Please try again later.</p>
-          )}
-          <div className="flex flex-col items-center justify-center gap-4">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button
-                type="button"
-                onClick={handleCtaPrimary}
-                disabled={apiDisabled || !formValid || ctaCheckoutLoading || generateLoading}
-                className="px-8 py-4 bg-[#7A4FFF] text-white text-base font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {apiDisabled
-                  ? "Unavailable"
-                  : ctaCheckoutLoading
-                    ? "Redirecting…"
-                    : generateLoading
-                      ? "Generating…"
-                      : formValid && (unlocked || TEST_MODE)
-                        ? "Generate my report"
-                        : formValid
-                          ? "Buy now ($39.99)"
-                          : "Continue"}
-              </button>
-              <a
-                href="#examples"
-                className="text-sm beauty-text-muted hover:text-[#7A4FFF] transition-colors"
-              >
-                See examples
-              </a>
-            </div>
-            {!formValid && (
-              <p className="text-sm beauty-text-muted">Complete the form to continue.</p>
+
+          {/* Early Access waitlist — always shown, prominent when WAITLIST_ONLY */}
+          <div className={`max-w-md mx-auto ${WAITLIST_ONLY ? "space-y-4" : "space-y-3"}`}>
+            {WAITLIST_ONLY && (
+              <p className={`${textClass} text-center`}>
+                Ignis unlocking soon. Join the waitlist to be first.
+              </p>
             )}
-            <button
-              type="button"
-              onClick={handleAlreadyPurchased}
-              disabled={apiDisabled}
-              className="text-sm beauty-text-muted hover:text-[#7A4FFF] transition-colors underline disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Already purchased? Enter your details →
-            </button>
+            <form onSubmit={handleWaitlistSubmit} className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
+              <input
+                type="email"
+                value={waitlistEmail}
+                onChange={(e) => setWaitlistEmail(e.target.value)}
+                placeholder="your@email.com"
+                disabled={waitlistSuccess || waitlistLoading}
+                required
+                className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-[var(--beauty-line,#e8e4e8)] bg-white/90 text-[var(--beauty-text,#0d0b10)] placeholder:text-[var(--beauty-text,#0d0b10)]/50 focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/40 disabled:opacity-70"
+                aria-label="Email for early access"
+              />
+              <button
+                type="submit"
+                disabled={waitlistLoading || waitlistSuccess || !waitlistEmail.trim()}
+                className="px-6 py-3 bg-[#7A4FFF] text-white text-base font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {waitlistLoading ? "Joining…" : waitlistSuccess ? "You're on the list" : "Join Early Access"}
+              </button>
+            </form>
+            {waitlistSuccess && (
+              <p className="text-sm text-green-700 font-medium">You're on the list.</p>
+            )}
+            {waitlistError && (
+              <p className="text-sm text-red-600">{waitlistError}</p>
+            )}
           </div>
+
+          {/* Form + Buy CTA — hidden when WAITLIST_ONLY */}
+          {!WAITLIST_ONLY && (
+            <>
+              <ul className={`${textClass} text-left max-w-md mx-auto space-y-3 list-disc list-inside`}>
+                <li>Shareable Light Signature card (downloadable)</li>
+                <li>3 signature images (Vector Zero / Light Signature / Final Field)</li>
+                <li>Full narrative report (Raw Signal / Custodian / Oracle)</li>
+              </ul>
+              {!unlocked && (
+                <p className="text-2xl font-semibold beauty-heading">
+                  $39.99
+                </p>
+              )}
+              {unlocked && (
+                <p className="text-sm beauty-text-muted">
+                  <span className="px-2 py-1 rounded bg-green-100 text-green-800 font-medium">Unlocked</span>
+                  {" "}— Generate your report.
+                </p>
+              )}
+              <div className="max-w-xl mx-auto text-left">
+                <LightIdentityForm
+                  hideSubmitButton
+                  showOptionalNotes
+                  initialFormData={initialFormData}
+                  onFormDataChange={handleFormDataChange}
+                />
+              </div>
+              {ctaCheckoutError && (
+                <p className="text-red-600 text-sm">{ctaCheckoutError}</p>
+              )}
+              {alreadyPurchasedMessage && (
+                <p className="text-amber-700 text-sm bg-amber-50 px-4 py-2 rounded-lg">{alreadyPurchasedMessage}</p>
+              )}
+              {apiDisabled && (
+                <p className="text-amber-700 text-sm bg-amber-50 px-4 py-2 rounded-lg">Temporarily unavailable for maintenance. Please try again later.</p>
+              )}
+              <div className="flex flex-col items-center justify-center gap-4">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                  <button
+                    type="button"
+                    onClick={handleCtaPrimary}
+                    disabled={apiDisabled || !formValid || ctaCheckoutLoading || generateLoading}
+                    className="px-8 py-4 bg-[#7A4FFF] text-white text-base font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {apiDisabled
+                      ? "Unavailable"
+                      : ctaCheckoutLoading
+                        ? "Redirecting…"
+                        : generateLoading
+                          ? "Generating…"
+                          : formValid && (unlocked || TEST_MODE)
+                            ? "Generate my report"
+                            : formValid
+                              ? "Buy now ($39.99)"
+                              : "Continue"}
+                  </button>
+                  <a
+                    href="#examples"
+                    className="text-sm beauty-text-muted hover:text-[#7A4FFF] transition-colors"
+                  >
+                    See all 12 archetypes
+                  </a>
+                </div>
+                {!formValid && (
+                  <p className="text-sm beauty-text-muted">Complete the form to continue.</p>
+                )}
+                <button
+                  type="button"
+                  onClick={handleAlreadyPurchased}
+                  disabled={apiDisabled}
+                  className="text-sm beauty-text-muted hover:text-[#7A4FFF] transition-colors underline disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Already purchased? Enter your details →
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
-      {/* Dev-only: Live test run (save to blob) — never in production */}
-      {showDevControls && (
-        <section className={`${sectionClass} border-t border-amber-200/50 bg-amber-50/30`}>
-          <div className="max-w-3xl mx-auto text-center space-y-3">
-            <p className="text-xs uppercase tracking-widest text-amber-800/80 font-medium">
-              Dev: Live pipeline test
+      {/* 12-regime static grid */}
+      <LandingPreviews
+        variant="beauty"
+        staticGrid
+        showPreviousReports={false}
+      />
+
+      {/* Unlock teaser — hidden when WAITLIST_ONLY */}
+      {!WAITLIST_ONLY && (
+        <section className={sectionClass}>
+          <div className="max-w-2xl mx-auto text-center space-y-4">
+            <p className={headingClass} style={{ letterSpacing: "0.02em" }}>
+              Unlock your Light Identity
             </p>
-            <button
-              type="button"
-              onClick={handleLiveTestRun}
-              disabled={!!liveTestStatus}
-              className="px-6 py-3 rounded-xl text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+            <p className={textClass}>
+              $39.99 — Shareable card, 3 signature images, full report. One-time.
+            </p>
+            <a
+              href="#form"
+              className="inline-block px-8 py-4 bg-[#7A4FFF] text-white text-base font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors"
             >
-              {liveTestStatus ?? "LIVE TEST RUN (save to blob)"}
-            </button>
-            {liveTestError && (
-              <p className="text-sm text-red-600">{liveTestError}</p>
-            )}
+              Get your report
+            </a>
           </div>
         </section>
       )}
