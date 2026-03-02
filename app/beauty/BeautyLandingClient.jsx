@@ -236,16 +236,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const ignisDescriptor = getMarketingDescriptor(IGNIS_ARCHETYPE);
 
   return (
-    <div
-      className="origin-landing origin-page-bg relative min-h-screen"
-      style={{
-        backgroundImage: "url(/ligs-landing-bg.png)",
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-        backgroundAttachment: "fixed",
-      }}
-    >
+    <div className="origin-landing relative min-h-screen">
+      {/* Dedicated page bg layer — reliable on iOS Safari (avoids background-attachment:fixed) */}
+      <div className="origin-page-bg" aria-hidden />
       <div className="relative z-10">
         <main className="origin-landing beauty-theme beauty-page min-h-screen relative">
       {/* Hero — texture is page bg; hero panel has logo watermark behind text only */}
@@ -254,17 +247,11 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       >
         <div className="relative z-10 max-w-3xl mx-auto text-center px-4 sm:px-6">
           <div className="hero-panel relative inline-block text-left w-full max-w-2xl" style={{ padding: "20px 16px", borderRadius: "20px", boxShadow: "0 12px 40px rgba(0,0,0,0.4)", background: "rgba(0,0,0,0.35)" }}>
-            {/* Logo watermark — behind hero text only, responsive */}
-            <div
-              className="hero-watermark absolute inset-0 pointer-events-none overflow-hidden"
-              style={{
-                backgroundImage: "url(/ligs-logo.jpeg)",
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "center",
-                backgroundSize: "85%",
-                opacity: 0.28,
-                zIndex: 0,
-              }}
+            {/* Logo watermark — <img> for iOS Safari visibility (background-image unreliable) */}
+            <img
+              src="/ligs-logo.jpeg"
+              alt=""
+              className="hero-watermark-img"
               aria-hidden
             />
             {/* Hero text — above watermark */}

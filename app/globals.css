@@ -143,6 +143,9 @@ body {
 }
 
 /* Hero panel — logo watermark behind text; text uses --text-on-dark */
+.hero-panel {
+  overflow: hidden;
+}
 .hero-panel,
 .hero-panel .beauty-heading,
 .hero-panel .beauty-body,
@@ -157,22 +160,43 @@ body {
 .hero-headline { font-size: clamp(28px, 7vw, 44px) !important; }
 .hero-subhead { font-size: clamp(14px, 4vw, 18px) !important; line-height: 1.6 !important; }
 
+/* Page background — dedicated fixed layer for iOS Safari reliability (no background-attachment:fixed) */
+.origin-page-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: url("/ligs-landing-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: translateZ(0);
+}
+
+/* Hero watermark — <img> for iOS visibility (background-image unreliable on Safari) */
+.hero-watermark-img {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 120%;
+  height: auto;
+  max-width: none;
+  opacity: 0.26;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* Origin hero mobile responsiveness */
 @media (max-width: 640px) {
-  .origin-page-bg {
-    background-position: center top !important;
-    background-attachment: scroll !important;
-  }
   .hero-panel {
     padding: 20px 16px !important;
     border-radius: 18px !important;
   }
-  .hero-watermark {
-    background-size: 100% !important;
-    background-position: center !important;
-    opacity: 0.25 !important;
+  .hero-watermark-img {
+    opacity: 0.28;
   }
 }
+
 
 @media (min-width: 641px) {
   .hero-panel {

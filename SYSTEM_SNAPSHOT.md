@@ -376,9 +376,13 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑02 (iPhone Safari: pageBg layer + img watermark)
+
+**iOS Safari fix:** `background-attachment: fixed` removed entirely. Page background uses dedicated fixed-position div (`.origin-page-bg`): `position: fixed; inset: 0; z-index: -1` with `background-size: cover`, `background-position: center`, `transform: translateZ(0)` for reliable repaint on iPhone. Hero watermark switched from `background-image` div to `<img>` (`.hero-watermark-img`): `position: absolute; left/top 50%; transform: translate(-50%,-50%); width: 120%; opacity: 0.26` (0.28 on mobile). Ensures background fills and watermark is visible on iPhone 14 Safari.
+
 ## Verification Log – 2026‑03‑02 (Origin hero mobile responsiveness)
 
-**Mobile hero:** Origin hero now responsive on small screens. `app/globals.css`: `.origin-page-bg` @media (max-width:640px) → `background-position: center top`, `background-attachment: scroll`; `.hero-panel` → `padding: 20px 16px`, `border-radius: 18px` on mobile, `32px 40px` / `28px` on desktop; `.hero-headline` / `.hero-subhead` use `clamp()` for font scaling (28–44px, 14–18px); `.hero-watermark` on mobile → `background-size: 100%`, `opacity: 0.25`. `components/LandingPreviews.jsx`: locked blur overlay uses `maxWidth/maxHeight: 95%` (removed fixed min/max pixels) for responsive scaling without overflow.
+**Mobile hero:** Origin hero now responsive on small screens. `app/globals.css`: `.hero-panel` → `padding: 20px 16px`, `border-radius: 18px` on mobile, `32px 40px` / `28px` on desktop; `.hero-headline` / `.hero-subhead` use `clamp()` for font scaling (28–44px, 14–18px). `components/LandingPreviews.jsx`: locked blur overlay uses `maxWidth/maxHeight: 95%` (removed fixed min/max pixels) for responsive scaling without overflow.
 
 ## Verification Log – 2026‑03‑02 (Hero layering + text contrast)
 
