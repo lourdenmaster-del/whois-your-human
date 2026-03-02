@@ -364,7 +364,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
           <div className={`max-w-md mx-auto ${WAITLIST_ONLY ? "space-y-4" : "space-y-3"}`}>
             {WAITLIST_ONLY && (
               <p className={`${textClass} text-center`}>
-                Ignis unlocking soon. Join the waitlist to be first.
+                IGNISPECTRUM unlocking soon. Join the waitlist to be first.
               </p>
             )}
             <form onSubmit={handleWaitlistSubmit} className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">

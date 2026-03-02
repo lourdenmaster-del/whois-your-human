@@ -40,9 +40,11 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
     });
   }, [archetype, lightboxImages, imageUrl, descriptor.tagline, onSelect, staticGrid]);
 
+  const showLockedBlur = staticGrid && !isHighlighted;
+
   const content = (
     <>
-      <div className="aspect-[4/3] overflow-hidden bg-[#0A0F1C] min-h-[120px]">
+      <div className="aspect-[4/3] overflow-hidden bg-[#0A0F1C] min-h-[120px] relative">
         {showPlaceholder ? (
           <NeutralPlaceholder className="w-full h-full" />
         ) : (
@@ -52,6 +54,36 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
             className="w-full h-full object-cover"
             onError={handleError}
           />
+        )}
+        {showLockedBlur && !showPlaceholder && (
+          <div
+            className="absolute left-1/2 top-1/2 flex items-center justify-center"
+            style={{
+              transform: "translate(-50%, -50%)",
+              width: "45%",
+              height: "22%",
+              minWidth: "120px",
+              minHeight: "48px",
+              maxWidth: "180px",
+              maxHeight: "72px",
+              borderRadius: "9999px",
+              backdropFilter: "blur(10px)",
+              WebkitBackdropFilter: "blur(10px)",
+              background: "rgba(0,0,0,0.18)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            }}
+          >
+            <span
+              className="text-[10px] sm:text-xs font-medium tracking-widest uppercase"
+              style={{
+                color: "rgba(255,255,255,0.9)",
+                letterSpacing: "0.2em",
+              }}
+            >
+              Unlocking
+            </span>
+          </div>
         )}
       </div>
       <div className="p-5">
@@ -70,7 +102,7 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
         )}
         {staticGrid ? (
           <p className="mt-3 text-xs text-[#7A4FFF]/70 font-medium">
-            Unlocking Soon
+            {isHighlighted ? "IGNISPECTRUM unlocking soon" : "Unlocking soon"}
           </p>
         ) : (
           <p className="mt-3 text-xs text-[#7A4FFF]/80 font-medium">
