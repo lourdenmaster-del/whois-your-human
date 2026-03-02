@@ -73,7 +73,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `LightIdentityForm` | `components/LightIdentityForm.jsx` | Shared form: name, birth date/time, location, email; optional dev defaults; `initialFormData` prop for restored/saved values; `hideSubmitButton` to hide built-in button (parent controls CTA); `onFormDataChange` for form state sync |
 | `PayUnlockButton` | `components/PayUnlockButton.tsx` | POST `/api/stripe/create-checkout-session` with `{ reportId }`; on success redirects to Stripe Checkout (`session.url`); on 404/BEAUTY_PROFILE_NOT_FOUND shows friendly error. Disables button while pending; shows "Stripe test mode". Used when reportId exists (form submit or restored via landing-storage). |
 | `StaticButton` | `components/StaticButton.jsx` | Disabled placeholder button when `lastFormData` is missing (e.g. user arrived via URL). Label "Preview & Pay to Unlock"; tooltip "Generate a report first to unlock". |
-| `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (conversion MVP: non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `showPreviousReports` (hide blob previews when false), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. When `showPreviousReports`: blob preview cards below Examples. |
+| `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. Previous Light Identity Reports section removed (verify via Vercel Blob dashboard only). |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
 | `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
@@ -546,6 +546,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 **Purpose dropdown:** Replaced free-text purpose with select (marketing_background, share_card, archetype_background_from_glyph). When archetype is Ignispectrum, purpose defaults to archetype_background_from_glyph.
 
 **Safety:** Dry Run Mode checkbox unchanged; no LIVE calls unless user unchecks and clicks Generate/Compose/Full Pipeline.
+
+## Verification Log – 2026‑02‑20 (Beauty waitlist-only: remove Previous Light Identity Reports)
+
+**LandingPreviews:** Removed "Previous Light Identity Reports" section entirely. Removed blob preview fetch, renderCardGrid, fetchBlobPreviews usage, useRouter, previewCards/selectedViewId state. Dropped props: maxCards, maxPreviews, useBlob, initialCards, showPreviousReports. Public /beauty now: Hero → Ignis exemplar + 3 bullets → Waitlist → static 12-regime grid (no links, no modal, no View report/Open Artifact) → Unlock teaser (when !WAITLIST_ONLY) → Footer.
 
 ## Verification Log – 2026‑02‑20 (archetype_background_from_glyph DRY + dalle2_edits)
 

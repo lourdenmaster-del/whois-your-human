@@ -489,7 +489,6 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       <LandingPreviews
         variant="beauty"
         staticGrid={true}
-        showPreviousReports={false}
         highlightArchetype="Ignispectrum"
       />
 
