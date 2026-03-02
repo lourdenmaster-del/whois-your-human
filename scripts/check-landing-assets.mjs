@@ -31,7 +31,10 @@ for (const p of FILES_TO_SCAN) {
   const content = readFileSync(path, "utf8");
   for (const { re, dir } of PATTERNS) {
     for (const m of content.matchAll(re)) {
-      refs.add(`${dir}/${m[1]}`);
+      const captured = m[1];
+      // Skip dynamic paths (template literals with ${...})
+      if (captured.includes("${")) continue;
+      refs.add(`${dir}/${captured}`);
     }
   }
 }
