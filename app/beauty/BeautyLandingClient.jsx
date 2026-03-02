@@ -22,8 +22,7 @@ function getDryRunFromUrl() {
   return params.get("dryRun") === "1" || params.get("dryRun") === "true";
 }
 
-/** Single source: dark geometric background. No beauty-background, beauty-hero, or blob-driven hero. */
-const HERO_BG_URL = "/ligs-landing-bg.png";
+/* ligs-logo.jpeg used for page, hero section, and hero text panel — NOT ligs-landing-bg */
 
 function isFormValid(formData) {
   if (!formData || typeof formData !== "object") return false;
@@ -238,9 +237,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
   return (
     <div
-      className="relative min-h-screen"
+      className="origin-landing relative min-h-screen"
       style={{
-        backgroundImage: `url(${HERO_BG_URL})`,
+        backgroundImage: "url(/ligs-landing-bg.png)",
         backgroundRepeat: "no-repeat",
         backgroundSize: "cover",
         backgroundPosition: "center top",
@@ -248,40 +247,28 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       }}
     >
       <div className="relative z-10">
-        <main className="beauty-theme beauty-page min-h-screen relative">
-      {/* Hero */}
+        <main className="origin-landing beauty-theme beauty-page min-h-screen relative">
+      {/* Hero — texture is page bg; hero panel has logo watermark behind text only */}
       <section
         className={`${sectionClass} min-h-[80vh] flex flex-col justify-center relative overflow-hidden`}
       >
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            backgroundImage: `url(${HERO_BG_URL})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            backgroundRepeat: "no-repeat",
-          }}
-        />
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: "linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.08) 50%, rgba(0,0,0,0.3) 100%)",
-          }}
-        />
-        <div className="relative z-10 max-w-3xl mx-auto text-center">
-          <div
-            className="relative overflow-hidden text-white [&_a]:text-white [&_a:hover]:opacity-90"
-            style={{
-              display: "inline-block",
-              padding: "24px 32px",
-              borderRadius: "28px",
-              backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.15) 100%), url(${HERO_BG_URL})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              backgroundRepeat: "no-repeat",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.3)",
-            }}
-          >
+        <div className="relative z-10 max-w-3xl mx-auto text-center px-4">
+          <div className="hero-panel relative inline-block text-left" style={{ padding: "32px 40px", borderRadius: "28px", boxShadow: "0 12px 40px rgba(0,0,0,0.4)", background: "rgba(0,0,0,0.35)" }}>
+            {/* Logo watermark — behind hero text only */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: "url(/ligs-logo.jpeg)",
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "center",
+                backgroundSize: "75%",
+                opacity: 0.18,
+                zIndex: 0,
+              }}
+              aria-hidden
+            />
+            {/* Hero text — above watermark */}
+            <div className="relative" style={{ zIndex: 1 }}>
             <h1
               className={`${headingClass} text-4xl sm:text-5xl lg:text-6xl mb-6`}
               style={{ letterSpacing: "0.02em" }}
@@ -315,6 +302,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
             >
               Begin your Light Identity Report →
             </button>
+            </div>
           </div>
         </div>
       </section>

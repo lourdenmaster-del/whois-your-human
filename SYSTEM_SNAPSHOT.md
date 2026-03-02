@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑02 (Hero layering + text contrast)
+
+**Hero:** Page background = ligs-landing-bg.png (dark geometric texture). Hero panel has logo watermark (ligs-logo.jpeg, 75% size, opacity 0.18, z-index 0) behind hero text. Hero text in relative wrapper (z-index 1). Panel bg rgba(0,0,0,0.35) for legibility. **Text:** Added `--text-on-dark`, `--text-on-dark-muted` to :root. Origin landing uses these for all body text; form inputs keep dark text on light bg. No black text on dark background. `.hero-panel` replaces `.hero-logo-panel`.
+
 ## Verification Log – 2026‑03‑02 (Middleware redirects, production fix)
 
 **Production redirect fix:** `/origin` 404 and `/beauty` not redirecting on Vercel. Switched from `next.config` redirects to `middleware.ts`. `middleware.ts` at repo root: redirects `/` → `/origin`, `/beauty` and `/beauty/` → `/origin` (308 permanent). Matcher `['/', '/beauty', '/beauty/']` so `/beauty/start`, `/beauty/view`, etc. are NOT redirected. Removed redirects from `next.config.ts`.

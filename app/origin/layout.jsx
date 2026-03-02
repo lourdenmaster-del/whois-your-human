@@ -11,7 +11,7 @@ export default function OriginLayout({ children }) {
     <div
       className="beauty-theme relative min-h-screen"
       style={{
-        color: "var(--beauty-text, #0d0b10)",
+        color: "var(--text-on-dark)",
         fontFamily: ORIGIN_SERIF,
         "--font-beauty-serif": ORIGIN_SERIF,
         background: "transparent",

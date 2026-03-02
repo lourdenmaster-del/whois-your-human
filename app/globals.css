@@ -3,6 +3,8 @@
 :root {
   --bg: #050814;
   --text: #F5F5F5;
+  --text-on-dark: #F5F5F5;
+  --text-on-dark-muted: rgba(245, 245, 245, 0.85);
   --accent-red: #FF3B3B;
   --accent-violet: #7A4FFF;
   --divider: #0A0F1C;
@@ -83,6 +85,72 @@ body {
   --beauty-text-muted: #2a252e;
   --beauty-orb-glow: rgba(255, 220, 230, 0.5);
   --beauty-line: rgba(255, 255, 255, 0.4);
+}
+
+/* Origin landing — dark texture bg; use --text-on-dark for all text (Option 1) */
+.origin-landing {
+  color: var(--text-on-dark) !important;
+}
+.origin-landing .beauty-heading,
+.origin-landing .beauty-body,
+.origin-landing .beauty-text-muted,
+.origin-landing h1,
+.origin-landing h2,
+.origin-landing h3,
+.origin-landing p,
+.origin-landing li,
+.origin-landing label,
+.origin-landing span {
+  color: var(--text-on-dark) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7), 0 0 4px rgba(0, 0, 0, 0.5);
+  -webkit-font-smoothing: antialiased;
+}
+.origin-landing .beauty-text-muted {
+  color: var(--text-on-dark-muted) !important;
+}
+/* Accent purple */
+.origin-landing .text-\[\#7A4FFF\],
+.origin-landing a[href*="ligs"] {
+  color: #c4b5ff !important;
+}
+/* Form inputs — light bg, dark text */
+.origin-landing input,
+.origin-landing textarea,
+.origin-landing select {
+  color: #0d0b10 !important;
+  text-shadow: none;
+}
+.origin-landing input::placeholder,
+.origin-landing textarea::placeholder {
+  color: rgba(13, 11, 16, 0.5) !important;
+}
+/* Form labels — light on dark */
+.origin-landing label {
+  color: var(--text-on-dark) !important;
+}
+/* Status messages */
+.origin-landing .text-green-700 {
+  color: #4ade80 !important;
+}
+.origin-landing .text-red-600 {
+  color: #f87171 !important;
+}
+/* Exemplar cards — light bg, dark text */
+.origin-landing #examples [class*="bg-white"] p:not([class*="7A4FFF"]),
+.origin-landing #examples [class*="bg-white"] li {
+  color: #0d0b10 !important;
+  text-shadow: none;
+}
+
+/* Hero panel — logo watermark behind text; text uses --text-on-dark */
+.hero-panel,
+.hero-panel .beauty-heading,
+.hero-panel .beauty-body,
+.hero-panel p,
+.hero-panel a,
+.hero-panel button {
+  color: var(--text-on-dark) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7), 0 0 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Main transparent so fixed background img shows through (same pattern as LIGS landing) */
@@ -351,4 +419,38 @@ body {
 .beauty-theme.beauty-page button[type="submit"] {
   border-radius: 14px;
   box-shadow: 0 4px 14px rgba(255, 59, 59, 0.25);
+}
+
+/* ========== ORIGIN LANDING OVERRIDES — MUST COME LAST ==========
+ * Page: ligs-landing-bg.png (texture). Hero: logo watermark behind text.
+ * All body text: var(--text-on-dark). No black text on dark.
+ */
+.origin-landing.beauty-theme.beauty-page,
+.origin-landing.beauty-theme.beauty-page .beauty-heading,
+.origin-landing.beauty-theme.beauty-page .beauty-body,
+.origin-landing.beauty-theme.beauty-page .beauty-text-muted,
+.origin-landing.beauty-theme.beauty-page h1,
+.origin-landing.beauty-theme.beauty-page h2,
+.origin-landing.beauty-theme.beauty-page h3,
+.origin-landing.beauty-theme.beauty-page p,
+.origin-landing.beauty-theme.beauty-page li,
+.origin-landing.beauty-theme.beauty-page label,
+.origin-landing.beauty-theme.beauty-page span {
+  color: var(--text-on-dark) !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 6px rgba(0, 0, 0, 0.5) !important;
+}
+.origin-landing.beauty-theme.beauty-page input,
+.origin-landing.beauty-theme.beauty-page textarea,
+.origin-landing.beauty-theme.beauty-page select {
+  color: #0d0b10 !important;
+  text-shadow: none !important;
+}
+.origin-landing.beauty-theme.beauty-page .text-\[\#7A4FFF\],
+.origin-landing.beauty-theme.beauty-page a[href*="ligs"] {
+  color: #c4b5ff !important;
+}
+.origin-landing.beauty-theme.beauty-page #examples [class*="bg-white"] p:not([class*="7A4FFF"]),
+.origin-landing.beauty-theme.beauty-page #examples [class*="bg-white"] li {
+  color: #0d0b10 !important;
+  text-shadow: none !important;
 }
