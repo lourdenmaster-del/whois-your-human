@@ -12,9 +12,9 @@ import { useApiStatus } from "@/hooks/useApiStatus";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 
+// True waitlist-only: no purchase CTA, no maintenance blocker. Set NEXT_PUBLIC_WAITLIST_ONLY=0 to re-enable purchase flow.
 const WAITLIST_ONLY =
-  process.env.NEXT_PUBLIC_WAITLIST_ONLY === "1" ||
-  process.env.NEXT_PUBLIC_WAITLIST_ONLY === "true";
+  process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -485,11 +485,12 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         </div>
       </section>
 
-      {/* 12-regime static grid */}
+      {/* 12-regime static grid — no links, no click handlers */}
       <LandingPreviews
         variant="beauty"
-        staticGrid
+        staticGrid={true}
         showPreviousReports={false}
+        highlightArchetype="Ignispectrum"
       />
 
       {/* Unlock teaser — hidden when WAITLIST_ONLY */}

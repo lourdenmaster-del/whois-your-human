@@ -39,7 +39,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 |------|------|--------|
 | `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, full-viewport background `/stabiliora-background.svg` |
 | `app/beauty/page.jsx` | Server | Renders `BeautyLandingClient` only. Single Beauty landing. |
-| `app/beauty/BeautyLandingClient.jsx` | Client | **Conversion-first MVP:** Hero; Ignis exemplar + 3 benefit bullets; Early Access waitlist (email + "Join Early Access"); Form + Buy CTA; 12-regime static grid; Unlock teaser; Footer. When `NEXT_PUBLIC_WAITLIST_ONLY=1`: waitlist-only, "Ignis unlocking soon", hides Buy CTA and Unlock teaser. Pay-first flow preserved. |
+| `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. No "View report", no "Previous Light Identity Reports", no maintenance blocker. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/beauty` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
 | `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses ArchetypeArtifactCard (hero + info panel), PreviewCarousel, EmotionalSnippet, FullReportAccordion, ShareCard. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
@@ -247,7 +247,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `ALLOW_FORCE_LIVE` | `/api/engine/generate` | `"true"` = honor header `X-Force-Live: 1` to bypass dry-run. Default false; Force-Live cannot accidentally bypass dry-run when unset. |
 | `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
 | `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | (other pages) | `"1"` = show dev controls. Conversion-first Beauty landing no longer renders Dev Live pipeline section. |
-| `NEXT_PUBLIC_WAITLIST_ONLY` | `BeautyLandingClient.jsx` | `"1"` = waitlist-only mode: hides Buy CTA, Unlock teaser; shows only waitlist form + "Ignis unlocking soon". |
+| `NEXT_PUBLIC_WAITLIST_ONLY` | `BeautyLandingClient.jsx` | `"0"` = re-enable purchase flow. Default (unset) = waitlist-only. |
 | *(removed)* `BRAND_LOGO_PATH` | — | No longer used. Compose always uses `GLOBAL_LOGO_PATH` from `lib/brand.ts`. |
 | `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when global logo file missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
