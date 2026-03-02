@@ -22,6 +22,19 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
+## 0.5 Public surface area (MVP waitlist-only)
+
+**Production entry points:**
+- `/` → redirects to `/beauty`
+- `/beauty` — Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
+- `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
+- `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
+- `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
+
+**Not linked from /beauty:** `/beauty/start`, `/beauty/view`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
+
+---
+
 ## 1. Front-end architecture
 
 ### 1.1 App structure (App Router)
@@ -168,7 +181,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/waitlist` | Zero-dependency email capture. Body: `{ email: string, source?: string, ref?: string }`. Validates email (required, trimmed, lowercased, basic regex); rejects 400 if invalid. Writes to Vercel Blob at `ligs-waitlist/{ISO_TIMESTAMP}_{RANDOM}.json` with `{ email, createdAt, source, ref?, userAgent?, ipHint? }`. One file per signup. Returns `{ ok: true }`. Does NOT trigger image gen, Stripe, or engine. Requires `BLOB_READ_WRITE_TOKEN`. |
+| POST | `/api/waitlist` | Zero-dependency email capture. Body: `{ email: string, source?: string, ref?: string }`. Validates email (required, trimmed, lowercased, basic regex); rejects 400 if invalid. Rate limit: 5 req/60s per IP+UA (in-memory; resets on cold start). Writes to Vercel Blob at `ligs-waitlist/{ISO_TIMESTAMP}_{RANDOM}.json`. Returns `{ ok: true }` or 429 when rate limited. Does NOT trigger image gen, Stripe, or engine. Does NOT use LIGS_API_OFF kill switch. Requires `BLOB_READ_WRITE_TOKEN`. Emails masked in production logs. |
 
 ### 2.4 Stripe
 
@@ -234,8 +247,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 |----------|------------|--------|
 | `LIGS_API_OFF` | `lib/api-kill-switch.ts`, all sensitive POST routes, GET `/api/status` | `"1"` or `"true"` = production kill-switch; blocks image gen, Blob writes, Stripe checkout, marketing/exemplar/engine/beauty/voice/email. Returns 503 `{ disabled: true, reason: "maintenance" }`. Frontend uses GET `/api/status` to hide/disable CTAs. |
 | `NEXT_PUBLIC_DRY_RUN` | `lib/dry-run-config.ts`, LigsStudio | `"1"` or `"true"` = client never sends generate/verify requests; shows Dry Run Preview and banner |
-| `NEXT_PUBLIC_FAKE_PAY` | `lib/dry-run-config.ts`, BeautyLandingClient, PayUnlockButton, PreviewCardModal | `"1"` or `"true"` = CTA bypasses Stripe; sets unlock, redirects to /beauty/start (marketing testing) |
-| `NEXT_PUBLIC_TEST_MODE` | `lib/runtime-mode.ts`, `lib/dry-run-config.ts`, compose, generate-image, TestModeLogger | `"1"` or `"true"` = dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1`; logs "TEST MODE" in console |
+| `NEXT_PUBLIC_FAKE_PAY` | `lib/dry-run-config.ts`, BeautyLandingClient, PayUnlockButton, PreviewCardModal | `"1"` or `"true"` = CTA bypasses Stripe; sets unlock, redirects to /beauty/start (marketing testing). **Production: leave unset.** |
+| `NEXT_PUBLIC_TEST_MODE` | `lib/runtime-mode.ts`, `lib/dry-run-config.ts`, compose, generate-image, TestModeLogger | `"1"` or `"true"` = dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1`; logs "TEST MODE" in console. **Production: leave unset.** |
 | `DISABLE_BLOB_WRITES` | `lib/runtime-mode.ts` | `"1"` or `"true"` = disable Blob writes (optional hard off; even in TEST_MODE) |
 | `NEXT_PUBLIC_SITE_URL` | `app/layout.tsx`, beauty view | Canonical/OG base URL (default `https://ligs.io`) |
 | `NEXT_PUBLIC_VERCEL_URL` | `app/beauty/view/page.jsx`, `BeautyViewClient.jsx` | Base URL when deployed on Vercel |
@@ -876,6 +889,17 @@ SYSTEM_SNAPSHOT.md was checked against the repo. All sections match; one doc fix
 
 ---
 
+## Verification Log – 2026‑02‑20 (MVP Hardening)
+
+**Full system sweep — reduce surface area:**
+
+| Change | Location | Notes |
+|--------|----------|------|
+| **Waitlist rate limit** | `lib/waitlist-rate-limit.ts`, `/api/waitlist` | 5 req/60s per IP+UA; in-memory; 429 + Retry-After when exceeded |
+| **Dev routes** | `/api/dev/*` | All return 403 in production (NODE_ENV check); preflight/beauty-live-once/verify-report allow ALLOW_PREVIEW_LIVE_TEST on Vercel Preview |
+| **Public surface** | `/beauty` | Waitlist-only by default; no links to View report, Open Artifact, modals, keepers, studio; Stripe/generate hidden |
+| **Env flags** | SYSTEM_SNAPSHOT | TEST_MODE, FAKE_PAY, DRY_RUN: Production leave unset |
+
 ## Verification Log – 2026‑02‑20 (Waitlist capture)
 
 **Zero-dependency waitlist via Vercel Blob:**
@@ -884,7 +908,7 @@ SYSTEM_SNAPSHOT.md was checked against the repo. All sections match; one doc fix
 |--------|----------|------|
 | **POST /api/waitlist** | `app/api/waitlist/route.ts` | Email capture; validates, writes to `ligs-waitlist/{iso}_{random}.json`; no Stripe/image/engine. |
 | **Early Access section** | `BeautyLandingClient.jsx` | Email input + "Join Early Access" button; success: "You're on the list." |
-| **NEXT_PUBLIC_WAITLIST_ONLY** | `.env.example`, BeautyLandingClient | `"1"` = waitlist-only; hides Buy CTA and Unlock teaser. |
+| **NEXT_PUBLIC_WAITLIST_ONLY** | `.env.example`, BeautyLandingClient | Default waitlist-only; `"0"` re-enables purchase flow. |
 
 ## Verification Log – 2026‑02‑20 (Conversion-first MVP)
 

@@ -15,6 +15,7 @@
 import { put } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { checkRateLimit, getRateLimitKey } from "@/lib/waitlist-rate-limit";
 
 const BLOB_PREFIX = "ligs-waitlist/";
 
@@ -37,6 +38,19 @@ function maskEmail(email: string): string {
 export async function POST(req: NextRequest) {
   if (req.method !== "POST") {
     return NextResponse.json({ error: "Method not allowed" }, { status: 405 });
+  }
+
+  const rateKey = getRateLimitKey(req);
+  const { allowed, retryAfter } = checkRateLimit(rateKey);
+  if (!allowed) {
+    const res = NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429 }
+    );
+    if (typeof retryAfter === "number" && retryAfter > 0) {
+      res.headers.set("Retry-After", String(retryAfter));
+    }
+    return res;
   }
 
   const hasBlobToken =
