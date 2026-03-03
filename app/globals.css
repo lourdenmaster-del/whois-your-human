@@ -25,13 +25,14 @@ html {
   scroll-behavior: smooth;
   min-height: 100%;
   overflow-y: scroll;
+  background: transparent;
 }
 
 body {
   margin: 0;
   padding: 0;
   min-height: 100%;
-  background-color: var(--bg);
+  background: transparent;
   color: var(--text);
   font-family: var(--font-sans);
   font-weight: 400;
@@ -160,16 +161,25 @@ body {
 .hero-headline { font-size: clamp(28px, 7vw, 44px) !important; }
 .hero-subhead { font-size: clamp(14px, 4vw, 18px) !important; line-height: 1.6 !important; }
 
-/* Page background — dedicated fixed layer for iOS Safari reliability (no background-attachment:fixed) */
+/* Page background — fixed layer */
 .origin-page-bg {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  z-index: 0;
   background-image: url("/ligs-landing-bg.png");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  transform: translateZ(0);
+}
+
+@media (max-width: 768px) {
+  .origin-page-bg {
+    background-position: 50% 20% !important;
+  }
 }
 
 /* Hero watermark — <img> for iOS visibility (background-image unreliable on Safari) */
@@ -191,9 +201,10 @@ body {
   .hero-panel {
     padding: 20px 16px !important;
     border-radius: 18px !important;
+    min-height: 360px;
   }
   .hero-watermark-img {
-    opacity: 0.28;
+    opacity: 0.5;
   }
 }
 

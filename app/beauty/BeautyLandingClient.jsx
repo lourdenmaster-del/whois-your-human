@@ -237,14 +237,6 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, showDe
 
   return (
     <div className="origin-landing relative min-h-screen">
-      {showDeployStamp && (
-        <div
-          className="fixed left-0 top-0 z-[99999] px-2 py-1 text-[10px] font-mono font-bold text-white bg-black/90"
-          aria-hidden
-        >
-          DEPLOY f6b7b2d
-        </div>
-      )}
       {/* Dedicated page bg layer — reliable on iOS Safari (avoids background-attachment:fixed) */}
       <div className="origin-page-bg" aria-hidden />
       <div className="relative z-[1]">
@@ -257,13 +249,29 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, showDe
           <div className="hero-panel relative inline-block text-left w-full max-w-2xl" style={{ padding: "20px 16px", borderRadius: "20px", boxShadow: "0 12px 40px rgba(0,0,0,0.4)", background: "rgba(0,0,0,0.35)" }}>
             {/* Logo watermark — <img> for iOS Safari visibility (background-image unreliable) */}
             <img
-              src="/ligs-logo.jpeg"
+              src="/ligs-logo.jpeg?v=ios-debug-1"
               alt=""
               className="hero-watermark-img"
+              loading="eager"
+              decoding="async"
               aria-hidden
             />
             {/* Hero text — above watermark (z-2 so above watermark + scrim) */}
             <div className="relative" style={{ zIndex: 2 }}>
+            <p className="text-sm font-mono text-white bg-black px-2 py-1 mb-4 w-fit" style={{ whiteSpace: "nowrap" }}>
+              BUILD_ID: ios-check-2026-03-02__{process.env.NEXT_PUBLIC_BUILD_SHA ?? "?"}
+            </p>
+            {/* DEBUG: logo load test for iPhone — remove after confirm */}
+            <img
+              src="/ligs-logo.jpeg?v=ios-debug-1"
+              alt="LOGO DEBUG"
+              style={{ width: 160, height: 160, border: "4px solid red", background: "yellow", display: "block", marginBottom: 12 }}
+              onLoad={() => console.log("LOGO DEBUG loaded")}
+              onError={(e) => console.log("LOGO DEBUG failed", e)}
+            />
+            {showDeployStamp && (
+              <p className="text-xs font-mono text-white bg-black px-2 py-1 mb-4 inline-block" aria-hidden>DEPLOY f6b7b2d</p>
+            )}
             <h1
               className={`${headingClass} mb-6 hero-headline`}
               style={{ letterSpacing: "0.02em" }}
