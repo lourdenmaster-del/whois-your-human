@@ -3,13 +3,20 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { safeParseVoiceProfile } from "@/src/ligs/voice/schema";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
-import { pickBackgroundSource, backgroundToInputString } from "@/lib/ligs-studio-utils";
+import {
+  pickBackgroundSource,
+  backgroundToInputString,
+  TINY_PNG_B64,
+  isPlaceholderPng,
+} from "@/lib/ligs-studio-utils";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { buildOverlaySpecWithCopy, getLogoStyleWithDefaults, type MarketingOverlaySpec } from "@/src/ligs/marketing";
 import MarketingHeader from "./MarketingHeader";
 import ArtifactCompare from "./ArtifactCompare";
 import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "./ArchetypeArtifactCard";
 import { useApiStatus } from "@/hooks/useApiStatus";
+import { PROOF_ONLY } from "@/lib/dry-run-config";
+import { buildImagePromptSpec } from "@/src/ligs/image/buildImagePromptSpec";
 
 /** Client-side placeholder generators (zero network, canvas-based). */
 function createDryBackgroundPlaceholder(archetypeName: string, size = 1024): string {
@@ -52,12 +59,109 @@ function wrapText(text: string, maxCharsPerLine: number, maxLines: number): stri
   return lines.slice(0, maxLines);
 }
 
+const GLYPH_PATHS: Record<string, string> = { Ignispectrum: "/glyphs/ignis.svg" };
+
+/** Canonical Ignis proof copy for "Render Proof Card (FREE)". */
+const PROOF_COPY = {
+  headline: "Ignispectrum",
+  subhead: "Transform with intensity.",
+  cta: "Ignite change",
+} as const;
+
+export interface ProofCardResult {
+  imageDataUrl: string;
+  glyphUsed: boolean;
+  glyphPath: string;
+  outputDims: { width: number; height: number };
+}
+
+/**
+ * Render Proof Card (FREE) — ZERO external calls.
+ * Uses placeholder gradient, square_card_v1 overlay, Ignis glyph.
+ * HARD FAIL if markType=archetype and glyph cannot load (no silent skip).
+ */
+function renderProofCardFree(size: number): Promise<ProofCardResult> {
+  return new Promise((resolve, reject) => {
+    if (typeof document === "undefined") {
+      reject(new Error("renderProofCardFree requires browser"));
+      return;
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      reject(new Error("Canvas 2d context unavailable"));
+      return;
+    }
+
+    const gradient = ctx.createLinearGradient(0, 0, size, size);
+    gradient.addColorStop(0, "#2d1b4e");
+    gradient.addColorStop(0.5, "#1a0f2e");
+    gradient.addColorStop(1, "#0d0618");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+
+    const profile = {
+      id: "proof_vp",
+      version: "1.0.0",
+      ligs: { primary_archetype: "Ignispectrum", secondary_archetype: null, blend_weights: {} },
+      formatting: { emoji_policy: "none" as const, exclamation_policy: "rare" as const },
+      claims_policy: { medical_claims: "prohibited" as const, before_after_promises: "prohibited" as const },
+      lexicon: { banned_words: [] as string[] },
+    };
+    const spec = buildOverlaySpecWithCopy(
+      profile as import("@/src/ligs/voice/schema").VoiceProfile,
+      { purpose: "marketing_background", templateId: "square_card_v1", size: size === 1536 ? "1536" : "1024", variationKey: "proof" },
+      PROOF_COPY,
+      "Ignispectrum"
+    );
+
+    const glyphPath = GLYPH_PATHS.Ignispectrum;
+    if (!glyphPath) {
+      reject(new Error("GLYPH_LOAD_FAILED: No glyph path for Ignispectrum"));
+      return;
+    }
+
+    const glyphImg = new Image();
+    glyphImg.crossOrigin = "anonymous";
+    glyphImg.onload = () => {
+      const glyphPct = 0.32;
+      const centerX = 0.5;
+      const centerY = 0.56;
+      const glyphW = size * glyphPct;
+      const tx = size * centerX - glyphW / 2;
+      const ty = size * centerY - glyphW / 2;
+      ctx.globalAlpha = 0.9;
+      ctx.drawImage(glyphImg, tx, ty, glyphW, glyphW);
+      ctx.globalAlpha = 1;
+      if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true") {
+        ctx.strokeStyle = "magenta";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx, ty, glyphW, glyphW);
+      }
+      drawTextAndRest(ctx, spec, size, canvas, (url) => {
+        resolve({
+          imageDataUrl: url,
+          glyphUsed: true,
+          glyphPath,
+          outputDims: { width: size, height: size },
+        });
+      });
+    };
+    glyphImg.onerror = () => {
+      reject(new Error(`GLYPH_LOAD_FAILED: ${glyphPath} could not be loaded or rasterized. No silent fallback.`));
+    };
+    glyphImg.src = glyphPath;
+  });
+}
+
 function renderDryComposeFromSpec(
   backgroundDataUrl: string,
   spec: MarketingOverlaySpec,
   size: number
 ): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
@@ -71,88 +175,142 @@ function renderDryComposeFromSpec(
       }
       ctx.drawImage(img, 0, 0, size, size);
 
-      const tb = spec.placement.textBlock.box;
-      const tbPx = {
-        x: Math.round(tb.x * size),
-        y: Math.round(tb.y * size),
-        w: Math.round(tb.w * size),
-        h: Math.round(tb.h * size),
-      };
-      const headlineLines = wrapText(spec.copy.headline, 25, 2);
-      const subheadLines = spec.copy.subhead ? wrapText(spec.copy.subhead, 35, 3) : [];
-      const lineHeight = 48;
-      const headlineSize = spec.styleTokens.typography.headlineSize === "xl" ? 56 : 44;
-      const subheadSize = spec.styleTokens.typography.subheadSize === "md" ? 32 : 28;
-      const centerX = tbPx.x + tbPx.w / 2;
-      let yOffset = tbPx.y + 36;
-
-      ctx.fillStyle = "rgba(0,0,0,0.4)";
-      ctx.fillRect(tbPx.x, tbPx.y, tbPx.w, tbPx.h);
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "alphabetic";
-      ctx.font = `${spec.styleTokens.typography.weight === "semibold" ? "600" : "400"} ${headlineSize}px system-ui, sans-serif`;
-      for (const line of headlineLines) {
-        ctx.fillText(line, centerX, yOffset);
-        yOffset += lineHeight;
-      }
-      ctx.font = `${subheadSize}px system-ui, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.95)";
-      for (const line of subheadLines) {
-        ctx.fillText(line, centerX, yOffset);
-        yOffset += lineHeight - 8;
-      }
-
-      if (spec.copy.cta && spec.placement.ctaChip) {
-        const cc = spec.placement.ctaChip.box;
-        const ccPx = {
-          x: Math.round(cc.x * size),
-          y: Math.round(cc.y * size),
-          w: Math.round(cc.w * size),
-          h: Math.round(cc.h * size),
+      const markType = (spec as { markType?: string }).markType ?? "brand";
+      const markArchetype = (spec as { markArchetype?: string }).markArchetype;
+      if (markType === "archetype" && markArchetype && GLYPH_PATHS[markArchetype]) {
+        const glyphImg = new Image();
+        glyphImg.crossOrigin = "anonymous";
+        glyphImg.onload = () => {
+          const glyphPct = 0.32;
+          const centerX = 0.5;
+          const centerY = 0.56;
+          const glyphW = size * glyphPct;
+          const tx = size * centerX - glyphW / 2;
+          const ty = size * centerY - glyphW / 2;
+          ctx.globalAlpha = 0.9;
+          ctx.drawImage(glyphImg, tx, ty, glyphW, glyphW);
+          ctx.globalAlpha = 1;
+          if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true") {
+            ctx.strokeStyle = "magenta";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(tx, ty, glyphW, glyphW);
+          }
+          drawTextAndRest(ctx, spec, size, canvas, resolve);
         };
-        ctx.fillStyle = "rgba(255,255,255,0.9)";
-        roundRect(ctx, ccPx.x, ccPx.y, ccPx.w, ccPx.h, 8);
-        ctx.fill();
-        ctx.fillStyle = "#111";
-        ctx.font = "600 24px system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(spec.copy.cta, ccPx.x + ccPx.w / 2, ccPx.y + ccPx.h / 2);
+        glyphImg.onerror = () => {
+          drawTextAndRest(ctx, spec, size, canvas, resolve);
+        };
+        glyphImg.src = GLYPH_PATHS[markArchetype];
+      } else {
+        drawTextAndRest(ctx, spec, size, canvas, resolve);
       }
-
-      const ls = getLogoStyleWithDefaults(spec.styleTokens.logoStyle);
-      const paddingPx = Math.round(size * 0.06);
-      const logoSize = Math.round(size * 0.13);
-      const logoLeft = paddingPx;
-      const logoTop = size - paddingPx - logoSize;
-      const radiusPx = Math.round(logoSize / 2 * ls.radius);
-      ctx.fillStyle = ls.circleFill;
-      ctx.beginPath();
-      ctx.arc(logoLeft + logoSize / 2, logoTop + logoSize / 2, radiusPx - 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = ls.circleStroke;
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = ls.fill;
-      const fontSize = Math.round(logoSize * 0.42);
-      ctx.font = `${ls.weight} ${fontSize}px system-ui, sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      if (ls.stroke && ls.strokeWidth > 0) {
-        ctx.strokeStyle = ls.stroke;
-        ctx.lineWidth = ls.strokeWidth;
-        ctx.strokeText(ls.text, logoLeft + logoSize / 2, logoTop + logoSize / 2);
-      }
-      ctx.fillText(ls.text, logoLeft + logoSize / 2, logoTop + logoSize / 2);
-      ctx.globalAlpha = 1;
-
-      resolve(canvas.toDataURL("image/png"));
     };
-    img.onerror = () => resolve(backgroundDataUrl);
+    img.onerror = () => {
+      const fallback = document.createElement("canvas");
+      fallback.width = size;
+      fallback.height = size;
+      const ctx2 = fallback.getContext("2d");
+      if (ctx2) {
+        const g = ctx2.createLinearGradient(0, 0, size, size);
+        g.addColorStop(0, "#4a5568");
+        g.addColorStop(1, "#2d3748");
+        ctx2.fillStyle = g;
+        ctx2.fillRect(0, 0, size, size);
+        drawTextAndRest(ctx2, spec, size, fallback, resolve);
+      } else {
+        resolve(backgroundDataUrl);
+      }
+    };
     img.src = backgroundDataUrl;
   });
+}
+
+function drawTextAndRest(
+  ctx: CanvasRenderingContext2D,
+  spec: MarketingOverlaySpec,
+  size: number,
+  canvas: HTMLCanvasElement,
+  resolve: (url: string) => void
+) {
+  const tb = spec.placement.textBlock.box;
+  const tbPx = {
+    x: Math.round(tb.x * size),
+    y: Math.round(tb.y * size),
+    w: Math.round(tb.w * size),
+    h: Math.round(tb.h * size),
+  };
+  const headlineLines = wrapText(spec.copy.headline ?? "", 25, 2);
+  const subheadLines = spec.copy.subhead ? wrapText(spec.copy.subhead, 35, 3) : [];
+  const lineHeight = 48;
+  const headlineSize = spec.styleTokens.typography.headlineSize === "xl" ? 56 : 44;
+  const subheadSize = spec.styleTokens.typography.subheadSize === "md" ? 32 : 28;
+  const centerX = tbPx.x + tbPx.w / 2;
+  let yOffset = tbPx.y + 36;
+
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(tbPx.x, tbPx.y, tbPx.w, tbPx.h);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.font = `${spec.styleTokens.typography.weight === "semibold" ? "600" : "400"} ${headlineSize}px system-ui, sans-serif`;
+  for (const line of headlineLines) {
+    ctx.fillText(line, centerX, yOffset);
+    yOffset += lineHeight;
+  }
+  ctx.font = `${subheadSize}px system-ui, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  for (const line of subheadLines) {
+    ctx.fillText(line, centerX, yOffset);
+    yOffset += lineHeight - 8;
+  }
+
+  if (spec.copy.cta && spec.placement.ctaChip) {
+    const cc = spec.placement.ctaChip.box;
+    const ccPx = {
+      x: Math.round(cc.x * size),
+      y: Math.round(cc.y * size),
+      w: Math.round(cc.w * size),
+      h: Math.round(cc.h * size),
+    };
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    roundRect(ctx, ccPx.x, ccPx.y, ccPx.w, ccPx.h, 8);
+    ctx.fill();
+    ctx.fillStyle = "#111";
+    ctx.font = "600 24px system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(spec.copy.cta, ccPx.x + ccPx.w / 2, ccPx.y + ccPx.h / 2);
+  }
+
+  const ls = getLogoStyleWithDefaults(spec.styleTokens.logoStyle);
+  const paddingPx = Math.round(size * 0.06);
+  const logoSize = Math.round(size * 0.13);
+  const logoLeft = paddingPx;
+  const logoTop = size - paddingPx - logoSize;
+  const radiusPx = Math.round(logoSize / 2 * ls.radius);
+  ctx.fillStyle = ls.circleFill;
+  ctx.beginPath();
+  ctx.arc(logoLeft + logoSize / 2, logoTop + logoSize / 2, radiusPx - 2, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = ls.circleStroke;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = ls.fill;
+  const fontSize = Math.round(logoSize * 0.42);
+  ctx.font = `${ls.weight} ${fontSize}px system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if (ls.stroke && ls.strokeWidth > 0) {
+    ctx.strokeStyle = ls.stroke;
+    ctx.lineWidth = ls.strokeWidth;
+    ctx.strokeText(ls.text, logoLeft + logoSize / 2, logoTop + logoSize / 2);
+  }
+  ctx.fillText(ls.text, logoLeft + logoSize / 2, logoTop + logoSize / 2);
+  ctx.globalAlpha = 1;
+
+  resolve(canvas.toDataURL("image/png"));
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -177,8 +335,8 @@ const DEFAULT_PROFILE = JSON.stringify(
     created_at: "2025-02-20T12:00:00.000Z",
     owner_user_id: "u1",
     brand: { name: "LIGS Studio", products: [], audience: "" },
-    ligs: { primary_archetype: "Fluxionis", secondary_archetype: null, blend_weights: {} },
-    descriptors: ["flow", "adapt", "evolve", "fluent"],
+    ligs: { primary_archetype: "Ignispectrum", secondary_archetype: null, blend_weights: {} },
+    descriptors: ["energy", "transform", "ignite", "vivid", "intensity"],
     cadence: {
       sentence_length: { target_words: 14, range: [8, 22] },
       paragraph_length: { target_sentences: 2, range: [1, 4] },
@@ -222,9 +380,6 @@ function saveStored(data: Record<string, unknown>) {
     // ignore
   }
 }
-
-const TINY_PNG_B64 =
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQHwAEBgIApD5fRAAAAABJRU5ErkJggg==";
 
 type VariationRun = { variationImages: string[]; primary_archetype: string; variationKey: string };
 
@@ -435,17 +590,28 @@ function LatestRunOutputPanel({
 export default function LigsStudio() {
   const { disabled: apiDisabled } = useApiStatus();
   const [profileJson, setProfileJson] = useState(DEFAULT_PROFILE);
-  const [purpose, setPurpose] = useState("marketing_background");
-  const [variationKey, setVariationKey] = useState("exemplar-v1");
+  const [purpose, setPurpose] = useState<"marketing_background" | "share_card" | "archetype_background_from_glyph">("marketing_background");
+  const [variationKey, setVariationKey] = useState("exemplar-v2");
   const [size, setSize] = useState<"1024" | "1536">("1024");
-  const imageAspectRatio =
-    purpose === "marketing_background" || purpose === "share_card" ? "16:9" : "1:1";
+  const templateId = "square_card_v1";
+  /** Compose output aspectRatio from template (square_card_v1 → 1:1). Background must match compose. */
+  const composeOutputAspectRatio = templateId === "square_card_v1" ? "1:1" : "16:9";
+  const backgroundGenParams = {
+    aspectRatio: composeOutputAspectRatio as "1:1" | "16:9",
+    size: "1024" as const,
+    count: 1,
+  };
   const [backgroundSource, setBackgroundSource] = useState("");
+  const [backgroundUrl, setBackgroundUrl] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   const [imageResult, setImageResult] = useState<Record<string, unknown> | null>(null);
   const [composeResult, setComposeResult] = useState<Record<string, unknown> | null>(null);
-  const [savedExemplarUrls, setSavedExemplarUrls] = useState<{ exemplarCard?: string } | null>(null);
+  const [savedExemplarUrls, setSavedExemplarUrls] = useState<{
+    exemplarCard?: string;
+    shareCard?: string;
+    marketingBackground?: string;
+  } | null>(null);
   const [variationHistory, setVariationHistory] = useState<VariationRun[]>([]);
   const [marketingResult, setMarketingResult] = useState<{
     descriptor: import("@/lib/marketing/types").MarketingDescriptor;
@@ -460,6 +626,19 @@ export default function LigsStudio() {
     logoFallbackAvailable?: boolean;
   } | null>(null);
   const [lastRequestId, setLastRequestId] = useState<string>("");
+  const [lastGenerateDebug, setLastGenerateDebug] = useState<{
+    purpose?: string;
+    purposeEchoed?: string;
+    providerUsed?: string;
+    dryRun?: boolean;
+    cacheHit?: boolean;
+    glyphBranchUsed?: boolean;
+    buildSha?: string;
+    requestId?: string;
+    validation?: { pass?: boolean; score?: number; issues?: unknown[] };
+    error?: string;
+    imageUrl?: string;
+  } | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
 
   const [liveFullName, setLiveFullName] = useState("Dev User");
@@ -485,7 +664,7 @@ export default function LigsStudio() {
     payload: string;
   } | null>(null);
   const [dryRunPreviewOpen, setDryRunPreviewOpen] = useState(false);
-  const [forceDryRun, setForceDryRun] = useState(false);
+  const [forceDryRun, setForceDryRun] = useState(PROOF_ONLY);
   const dryRunPreviewRef = useRef<HTMLDivElement>(null);
   const [dryRunResults, setDryRunResults] = useState<{
     lastAction: string;
@@ -499,6 +678,13 @@ export default function LigsStudio() {
   const [overlayDraftSubhead, setOverlayDraftSubhead] = useState("");
   const [overlayDraftCta, setOverlayDraftCta] = useState("");
 
+  const [proofResult, setProofResult] = useState<ProofCardResult | { error: string } | null>(null);
+  const [proofLoading, setProofLoading] = useState(false);
+
+  const [glyphDebugData, setGlyphDebugData] = useState<Record<string, unknown> | null>(null);
+  const [glyphDebugName, setGlyphDebugName] = useState("ignis");
+  const [glyphDebugLoading, setGlyphDebugLoading] = useState(false);
+
   useEffect(() => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     fetch(`${base}/api/ligs/status`)
@@ -508,6 +694,7 @@ export default function LigsStudio() {
   }, []);
 
   const effectiveDryRun = forceDryRun;
+  const liveBlocked = effectiveDryRun || PROOF_ONLY;
 
   const performDryRunExit = useCallback(
     (action: string, endpoint: string, method: string, payload: string) => {
@@ -541,11 +728,15 @@ export default function LigsStudio() {
         jsonToUse = DEFAULT_PROFILE;
       }
       setProfileJson(jsonToUse);
-      if (stored.purpose) setPurpose(stored.purpose);
+      if (["marketing_background", "share_card", "archetype_background_from_glyph"].includes(String(stored.purpose ?? ""))) {
+        setPurpose(stored.purpose as "marketing_background" | "share_card" | "archetype_background_from_glyph");
+      }
       if (stored.variationKey) setVariationKey(stored.variationKey);
       if (stored.size) setSize(stored.size);
     } else {
       setProfileJson(DEFAULT_PROFILE);
+      setPurpose("marketing_background");
+      setVariationKey("exemplar-v2");
     }
   }, []);
 
@@ -573,6 +764,11 @@ export default function LigsStudio() {
     }
   }, [profileJson]);
 
+  useEffect(() => {
+    const arch = (profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype;
+    if (arch === "Ignispectrum") setPurpose("marketing_background");
+  }, [profile]);
+
   const getBaseUrl = () => {
     if (typeof window === "undefined") return "";
     return window.location.origin;
@@ -585,13 +781,13 @@ export default function LigsStudio() {
       "Simulate Background",
       `${getBaseUrl()}/api/image/generate`,
       "POST",
-      JSON.stringify({ profile, purpose, image: { aspectRatio: "1:1", size, count: 1 }, variationKey }, null, 2)
+      JSON.stringify({ profile, purpose, image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count }, variationKey }, null, 2)
     );
     const sz = size === "1536" ? 1536 : 1024;
     const dataUrl = createDryBackgroundPlaceholder(archetype, sz);
     setDryBackgroundDataUrl(dataUrl);
     setDryRunResults({ lastAction: "Simulate Background", imageDataUrl: dataUrl, marketingCopy: undefined });
-  }, [profile, purpose, size, variationKey, performDryRunExit]);
+  }, [profile, purpose, size, variationKey, backgroundGenParams, performDryRunExit]);
 
   const drySimulateCompose = useCallback(async () => {
     if (!profile) return;
@@ -638,9 +834,9 @@ export default function LigsStudio() {
       "Simulate Full Pipeline",
       `${getBaseUrl()}/api/image/generate`,
       "POST",
-      JSON.stringify({ profile, purpose, image: { aspectRatio: "1:1", size, count: 1 }, variationKey }, null, 2)
+      JSON.stringify({ profile, purpose, image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count }, variationKey }, null, 2)
     );
-  }, [profile, purpose, size, variationKey, performDryRunExit]);
+  }, [profile, purpose, size, variationKey, backgroundGenParams, performDryRunExit]);
 
   const drySimulate6Variations = useCallback(() => {
     if (!profile) return;
@@ -648,9 +844,9 @@ export default function LigsStudio() {
       "Simulate 6 Variations",
       `${getBaseUrl()}/api/image/generate`,
       "POST",
-      JSON.stringify({ profile, purpose, image: { aspectRatio: "1:1", size, count: 1 }, variationKey: "demo-1" }, null, 2)
+      JSON.stringify({ profile, purpose, image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count }, variationKey: "demo-1" }, null, 2)
     );
-  }, [profile, purpose, size, performDryRunExit]);
+  }, [profile, purpose, size, backgroundGenParams, performDryRunExit]);
 
   const drySimulateMarketing = useCallback(() => {
     if (!profile) return;
@@ -678,12 +874,47 @@ export default function LigsStudio() {
     });
   }, [profile, variationKey, performDryRunExit, dryRunResults?.imageDataUrl]);
 
+  const runPreviewOverlayFree = useCallback(async () => {
+    if (!profile) return;
+    const archetype = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
+    const sz = size === "1536" ? 1536 : 1024;
+    const fromImageResult = imageResult ? backgroundToInputString(pickBackgroundSource(imageResult as Record<string, unknown>)) : "";
+    const bgDataUrl =
+      fromImageResult && (fromImageResult.startsWith("data:") || fromImageResult.startsWith("http"))
+        ? fromImageResult
+        : dryBackgroundDataUrl && dryBackgroundDataUrl.startsWith("data:")
+          ? dryBackgroundDataUrl
+          : (() => {
+              const u = createDryBackgroundPlaceholder(archetype, sz);
+              setDryBackgroundDataUrl(u);
+              return u;
+            })();
+    const copy = {
+      headline: overlayDraftHeadline.trim() || undefined,
+      subhead: overlayDraftSubhead.trim() || undefined,
+      cta: overlayDraftCta.trim() || undefined,
+    };
+    const spec = buildOverlaySpecWithCopy(
+      profile as import("@/src/ligs/voice/schema").VoiceProfile,
+      { purpose, templateId: "square_card_v1", size, variationKey },
+      copy,
+      archetype
+    );
+    setDryOverlaySpec(spec);
+    const composedUrl = await renderDryComposeFromSpec(bgDataUrl, spec, sz);
+    setDryRunResults({ lastAction: "Preview Overlay (FREE)", imageDataUrl: composedUrl, marketingCopy: undefined });
+    setComposeResult({ composedDisplayUrl: composedUrl, requestId: "preview-free", dryRun: true });
+  }, [profile, purpose, size, variationKey, imageResult, dryBackgroundDataUrl, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
+
   const dryRerenderCompose = useCallback(async () => {
     if (!profile) return;
     const archetype = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
     const sz = size === "1536" ? 1536 : 1024;
+    const fromImage = imageResult ? backgroundToInputString(pickBackgroundSource(imageResult as Record<string, unknown>)) : "";
     const bgDataUrl =
-      dryBackgroundDataUrl && dryBackgroundDataUrl.startsWith("data:")
+      fromImage && (fromImage.startsWith("data:") || fromImage.startsWith("http"))
+        ? fromImage
+        : dryBackgroundDataUrl && dryBackgroundDataUrl.startsWith("data:")
         ? dryBackgroundDataUrl
         : (() => {
             const u = createDryBackgroundPlaceholder(archetype, sz);
@@ -705,7 +936,7 @@ export default function LigsStudio() {
     setDryOverlaySpec(spec);
     const composedUrl = await renderDryComposeFromSpec(bgDataUrl, spec, sz);
     setDryRunResults({ lastAction: "Re-render Compose (Dry)", imageDataUrl: composedUrl, marketingCopy: undefined });
-  }, [profile, purpose, size, variationKey, dryBackgroundDataUrl, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
+  }, [profile, purpose, size, variationKey, imageResult, dryBackgroundDataUrl, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
 
   const drySimulateFullReport = useCallback(() => {
     performDryRunExit(
@@ -720,10 +951,48 @@ export default function LigsStudio() {
     );
   }, [liveFullName, liveBirthDate, liveBirthTime, liveBirthLocation, performDryRunExit]);
 
+  const runRenderProofCardFree = useCallback(async () => {
+    setProofLoading(true);
+    setProofResult(null);
+    try {
+      const sz = size === "1536" ? 1536 : 1024;
+      const result = await renderProofCardFree(sz);
+      setProofResult(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setProofResult({ error: msg });
+    } finally {
+      setProofLoading(false);
+    }
+  }, [size]);
+
+  const fetchGlyphDebug = useCallback(async (name: string) => {
+    setGlyphDebugName(name);
+    setGlyphDebugLoading(true);
+    setGlyphDebugData(null);
+    try {
+      const base = typeof window !== "undefined" ? window.location.origin : "";
+      const res = await fetch(`${base}/api/dev/glyph-debug?name=${encodeURIComponent(name)}`);
+      const data = await res.json();
+      setGlyphDebugData(data);
+    } catch (err) {
+      setGlyphDebugData({ error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setGlyphDebugLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if ((effectiveDryRun || PROOF_ONLY) && !glyphDebugData && !glyphDebugLoading) {
+      fetchGlyphDebug("ignis");
+    }
+  }, [effectiveDryRun, PROOF_ONLY, glyphDebugData, glyphDebugLoading, fetchGlyphDebug]);
+
   const runGenerateBackground = useCallback(async () => {
     if (!profile || apiDisabled) return;
     setLoading(true);
     setImageResult(null);
+    setBackgroundUrl("");
     try {
       const res = await fetch(`${getBaseUrl()}/api/image/generate`, {
         method: "POST",
@@ -731,7 +1000,7 @@ export default function LigsStudio() {
         body: JSON.stringify({
           profile,
           purpose,
-          image: { aspectRatio: imageAspectRatio, size, count: 1 },
+          image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count },
           variationKey,
           idempotencyKey: crypto.randomUUID(),
         }),
@@ -739,30 +1008,58 @@ export default function LigsStudio() {
       const data = await res.json();
       setImageResult(data);
       setLastRequestId((data.requestId as string) ?? "");
+      const img0 = (data.images as { url?: string; b64?: string }[])?.[0];
+      setLastGenerateDebug({
+        purpose,
+        purposeEchoed: data.purposeEchoed as string | undefined,
+        providerUsed: (data.providerUsed as string) ?? "—",
+        dryRun: !!data.dryRun,
+        cacheHit: !!data.cacheHit,
+        glyphBranchUsed: data.glyphBranchUsed as boolean | undefined,
+        buildSha: data.buildSha as string | undefined,
+        requestId: data.requestId as string | undefined,
+        validation: data.validation as { pass?: boolean; score?: number; issues?: unknown[] } | undefined,
+        error: (data.message ?? data.error) as string | undefined,
+        imageUrl: img0?.url ?? (img0?.b64 ? "data:image/png;base64,..." : undefined),
+      });
       if (!res.ok) {
         setLastError((data.message as string) ?? (data.error as string) ?? "Request failed");
         return;
       }
       setLastError(null);
       const bg = pickBackgroundSource(data as Record<string, unknown>);
-      if (bg) setBackgroundSource(backgroundToInputString(bg));
+      if (bg) {
+        setBackgroundSource(backgroundToInputString(bg));
+        setBackgroundUrl(bg.url ?? "");
+      }
     } catch (e) {
       setLastError(e instanceof Error ? e.message : "Request failed");
     } finally {
       setLoading(false);
     }
-  }, [apiDisabled, profile, purpose, size, variationKey, imageAspectRatio]);
+  }, [apiDisabled, profile, purpose, size, variationKey, backgroundGenParams]);
 
   const runCompose = useCallback(async () => {
     if (!profile || apiDisabled) return;
     let bg: { url?: string; b64?: string } = {};
-    if (backgroundSource.trim().startsWith("http")) {
+
+    const fromImageResult = pickBackgroundSource(imageResult as Record<string, unknown>);
+    if (fromImageResult?.url) {
+      bg = { url: fromImageResult.url };
+    } else if (backgroundUrl.trim()) {
+      bg = { url: backgroundUrl.trim() };
+    } else if (backgroundSource.trim().startsWith("http")) {
       bg = { url: backgroundSource.trim() };
     } else if (backgroundSource.trim().length > 50) {
       const b64 = backgroundSource.replace(/^data:image\/\w+;base64,/, "").trim();
+      if (isPlaceholderPng(b64)) {
+        setLastError("Compose blocked: background is placeholder (1x1). Generate Background first.");
+        return;
+      }
       bg = { b64 };
     } else {
-      bg = { b64: TINY_PNG_B64 };
+      setLastError("Compose blocked: background is placeholder (1x1). Generate Background first.");
+      return;
     }
     const arch = (profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
     const overlaySpecToSend =
@@ -796,20 +1093,30 @@ export default function LigsStudio() {
       const data = await res.json();
       setComposeResult(data);
       setLastRequestId((data.requestId as string) ?? "");
-      if (!res.ok) setLastError((data.message as string) ?? (data.error as string) ?? "Request failed");
-      else setLastError(null);
+      if (!res.ok) {
+        setLastError((data.message as string) ?? (data.error as string) ?? "Request failed");
+      } else {
+        const composedUrl = (data.composedDisplayUrl as string) ?? ((data.image as { b64?: string })?.b64 ? `data:image/png;base64,${(data.image as { b64: string }).b64}` : "");
+        const bgStr = backgroundToInputString(bg);
+        if (composedUrl && bgStr && composedUrl === bgStr) {
+          setLastError("Compose did not run — response same as background");
+        } else {
+          setLastError(null);
+        }
+      }
     } catch (e) {
       setLastError(e instanceof Error ? e.message : "Request failed");
     } finally {
       setLoading(false);
     }
-  }, [apiDisabled, profile, purpose, size, variationKey, backgroundSource, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
+  }, [apiDisabled, profile, purpose, size, variationKey, imageResult, backgroundUrl, backgroundSource, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
 
   const runFullPipeline = useCallback(async () => {
     if (!profile || apiDisabled) return;
     setLoading(true);
     setImageResult(null);
     setComposeResult(null);
+    setBackgroundUrl("");
     try {
       const genRes = await fetch(`${getBaseUrl()}/api/image/generate`, {
         method: "POST",
@@ -817,7 +1124,7 @@ export default function LigsStudio() {
         body: JSON.stringify({
           profile,
           purpose,
-          image: { aspectRatio: imageAspectRatio, size, count: 1 },
+          image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count },
           variationKey,
           idempotencyKey: crypto.randomUUID(),
         }),
@@ -825,6 +1132,20 @@ export default function LigsStudio() {
       const genData = await genRes.json();
       setImageResult(genData);
       setLastRequestId((genData.requestId as string) ?? "");
+      const gImg0 = (genData.images as { url?: string; b64?: string }[])?.[0];
+      setLastGenerateDebug({
+        purpose,
+        purposeEchoed: genData.purposeEchoed as string | undefined,
+        providerUsed: (genData.providerUsed as string) ?? "—",
+        dryRun: !!genData.dryRun,
+        cacheHit: !!genData.cacheHit,
+        glyphBranchUsed: genData.glyphBranchUsed as boolean | undefined,
+        buildSha: genData.buildSha as string | undefined,
+        requestId: genData.requestId as string | undefined,
+        validation: genData.validation as { pass?: boolean; score?: number; issues?: unknown[] } | undefined,
+        error: (genData.message ?? genData.error) as string | undefined,
+        imageUrl: gImg0?.url ?? (gImg0?.b64 ? "data:image/png;base64,..." : undefined),
+      });
       if (!genRes.ok) {
         setLastError((genData.message as string) ?? (genData.error as string) ?? "Generate failed");
         return;
@@ -864,14 +1185,25 @@ export default function LigsStudio() {
       const compData = await compRes.json();
       setComposeResult(compData);
       setLastRequestId((compData.requestId as string) ?? "");
-      if (!compRes.ok) setLastError((compData.message as string) ?? (compData.error as string) ?? "Compose failed");
+      if (!compRes.ok) {
+        setLastError((compData.message as string) ?? (compData.error as string) ?? "Compose failed");
+      } else {
+        const composedUrl = (compData.composedDisplayUrl as string) ?? ((compData.image as { b64?: string })?.b64 ? `data:image/png;base64,${(compData.image as { b64: string }).b64}` : "");
+        const bgStr = backgroundToInputString(bg);
+        if (composedUrl && bgStr && composedUrl === bgStr) {
+          setLastError("Compose did not run — response same as background");
+        } else {
+          setLastError(null);
+        }
+      }
       setBackgroundSource(backgroundToInputString(bg));
+      setBackgroundUrl(bg.url ?? "");
     } catch (e) {
       setLastError(e instanceof Error ? e.message : "Pipeline failed");
     } finally {
       setLoading(false);
     }
-  }, [apiDisabled, profile, purpose, size, variationKey, imageAspectRatio, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
+  }, [apiDisabled, profile, purpose, size, variationKey, backgroundGenParams, dryOverlaySpec, overlayDraftHeadline, overlayDraftSubhead, overlayDraftCta]);
 
   const run6Variations = useCallback(async () => {
     if (!profile || apiDisabled) return;
@@ -887,16 +1219,37 @@ export default function LigsStudio() {
           body: JSON.stringify({
             profile,
             purpose,
-            image: { aspectRatio: imageAspectRatio, size, count: 1 },
+            image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count },
             variationKey: kv,
             idempotencyKey: crypto.randomUUID(),
           }),
         });
         const genData = (await genRes.json()) as Record<string, unknown>;
         setLastRequestId(String(genData.requestId ?? ""));
+        const vImg0 = (genData.images as { url?: string; b64?: string }[])?.[0];
+        setLastGenerateDebug({
+          purpose,
+          purposeEchoed: genData.purposeEchoed as string | undefined,
+          providerUsed: (genData.providerUsed as string) ?? "—",
+          dryRun: !!genData.dryRun,
+          cacheHit: !!genData.cacheHit,
+          glyphBranchUsed: genData.glyphBranchUsed as boolean | undefined,
+          buildSha: genData.buildSha as string | undefined,
+          requestId: genData.requestId as string | undefined,
+          validation: genData.validation as { pass?: boolean; score?: number; issues?: unknown[] } | undefined,
+          error: (genData.message ?? genData.error) as string | undefined,
+          imageUrl: vImg0?.url ?? (vImg0?.b64 ? "data:image/png;base64,..." : undefined),
+        });
         if (!genRes.ok) setLastError(String(genData.message ?? genData.error ?? "Generate failed"));
         else setLastError(null);
         const bg = pickBackgroundSource(genData) ?? { b64: TINY_PNG_B64 };
+        const arch = (profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
+        const overlaySpecToSend = buildOverlaySpecWithCopy(
+          profile as import("@/src/ligs/voice/schema").VoiceProfile,
+          { purpose, templateId: "square_card_v1", size, variationKey: kv },
+          undefined,
+          arch
+        );
         const compRes = await fetch(`${getBaseUrl()}/api/image/compose`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -907,6 +1260,7 @@ export default function LigsStudio() {
             output: { size },
             variationKey: kv,
             background: bg,
+            overlaySpec: overlaySpecToSend,
           }),
         });
         const compData = (await compRes.json()) as { requestId?: string; image?: { b64?: string }; error?: string; message?: string };
@@ -928,7 +1282,7 @@ export default function LigsStudio() {
     } finally {
       setLoading(false);
     }
-  }, [apiDisabled, profile, purpose, size, imageAspectRatio]);
+  }, [apiDisabled, profile, purpose, size, backgroundGenParams]);
 
   const runGenerateMarketing = useCallback(async () => {
     if (!profile || apiDisabled) return;
@@ -968,41 +1322,99 @@ export default function LigsStudio() {
     typeof (composeResult.image as { b64?: string }).b64 === "string" &&
     (composeResult.image as { b64: string }).b64.length > 0;
 
-  const runSaveToLanding = useCallback(async () => {
-    if (!profile || !canSaveToLanding || apiDisabled) return;
-    const arch = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
-    const exemplarCardB64 = (composeResult!.image as { b64: string }).b64.replace(/^data:image\/\w+;base64,/, "").trim();
-    const spec = composeResult!.overlaySpec as { copy?: { headline?: string; subhead?: string; cta?: string } } | undefined;
+  const runSaveMarketingBackground = useCallback(async () => {
+    if (!profile || apiDisabled || effectiveDryRun || !imageResult) return;
+    const bg = pickBackgroundSource(imageResult as Record<string, unknown>);
+    if (!bg) return;
     setLoading(true);
-    setSavedExemplarUrls(null);
     setLastError(null);
     try {
-      const res = await fetch(`${getBaseUrl()}/api/exemplars/save`, {
+      let marketingBackgroundB64: string;
+      if (bg.b64) {
+        marketingBackgroundB64 = bg.b64.replace(/^data:image\/\w+;base64,/, "").trim();
+      } else if (bg.url) {
+        const res = await fetch(bg.url);
+        if (!res.ok) throw new Error("Fetch failed");
+        const blob = await res.blob();
+        marketingBackgroundB64 = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => {
+            const s = r.result as string;
+            resolve(s.replace(/^data:[^;]+;base64,/, ""));
+          };
+          r.onerror = reject;
+          r.readAsDataURL(blob);
+        });
+      } else {
+        setLoading(false);
+        return;
+      }
+      const arch = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
+      const version = arch === "Ignispectrum" ? "v2" : "v1";
+      const saveRes = await fetch(`${getBaseUrl()}/api/exemplars/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           archetype: arch,
-          version: "v1",
-          exemplarCardB64,
-          overlay: {
-            headline: spec?.copy?.headline,
-            subhead: spec?.copy?.subhead,
-            cta: spec?.copy?.cta,
-          },
+          version,
+          target: "marketing_background",
+          marketingBackgroundB64,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) {
+      const data = await saveRes.json();
+      if (!saveRes.ok) {
         setLastError((data.message as string) ?? (data.error as string) ?? "Save failed");
         return;
       }
-      setSavedExemplarUrls((data.urls as { exemplarCard?: string }) ?? null);
+      const urls = (data.urls as { exemplarCard?: string; shareCard?: string; marketingBackground?: string }) ?? {};
+      setSavedExemplarUrls((prev) => ({ ...prev, ...urls }));
     } catch (e) {
       setLastError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setLoading(false);
     }
-  }, [apiDisabled, profile, composeResult, canSaveToLanding]);
+  }, [apiDisabled, profile, imageResult, effectiveDryRun]);
+
+  const runSaveExemplar = useCallback(
+    async (target: "exemplar_card" | "share_card") => {
+      if (!profile || !canSaveToLanding || apiDisabled || effectiveDryRun) return;
+      const arch = (profile as { ligs?: { primary_archetype?: string } }).ligs?.primary_archetype ?? FALLBACK_PRIMARY_ARCHETYPE;
+      const exemplarCardB64 = (composeResult!.image as { b64: string }).b64.replace(/^data:image\/\w+;base64,/, "").trim();
+      const spec = composeResult!.overlaySpec as { copy?: { headline?: string; subhead?: string; cta?: string } } | undefined;
+      const version = arch === "Ignispectrum" ? "v2" : "v1";
+      setLoading(true);
+      setLastError(null);
+      try {
+        const res = await fetch(`${getBaseUrl()}/api/exemplars/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            archetype: arch,
+            version,
+            target,
+            exemplarCardB64,
+            overlay: {
+              headline: spec?.copy?.headline,
+              subhead: spec?.copy?.subhead,
+              cta: spec?.copy?.cta,
+            },
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setLastError((data.message as string) ?? (data.error as string) ?? "Save failed");
+          return;
+        }
+        const urls = (data.urls as { exemplarCard?: string; shareCard?: string; marketingBackground?: string }) ?? {};
+        setSavedExemplarUrls((prev) => ({ ...prev, ...urls }));
+      } catch (e) {
+        setLastError(e instanceof Error ? e.message : "Save failed");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [apiDisabled, profile, composeResult, canSaveToLanding, effectiveDryRun]
+  );
 
   const runLiveOnce = useCallback(async () => {
     const confirmed = window.confirm(
@@ -1024,6 +1436,7 @@ export default function LigsStudio() {
           birthTime: liveBirthTime,
           birthLocation: liveBirthLocation,
           email: "dev@example.com",
+          idempotencyKey: crypto.randomUUID(),
         }),
       });
       const data = (await res.json()) as Record<string, unknown>;
@@ -1117,8 +1530,9 @@ export default function LigsStudio() {
           {
             profile: p,
             purpose,
-            image: { aspectRatio: imageAspectRatio, size, count: 1 },
+            image: { aspectRatio: backgroundGenParams.aspectRatio, size: backgroundGenParams.size, count: backgroundGenParams.count },
             variationKey,
+            idempotencyKey: crypto.randomUUID(),
           },
           null,
           2
@@ -1129,13 +1543,19 @@ export default function LigsStudio() {
   const getComposePayload = () => {
     const p = profile;
     let bg: { url?: string; b64?: string } = {};
-    if (backgroundSource.trim().startsWith("http")) {
+    const fromImageResult = pickBackgroundSource(imageResult as Record<string, unknown>);
+    if (fromImageResult?.url) {
+      bg = { url: fromImageResult.url };
+    } else if (backgroundUrl.trim()) {
+      bg = { url: backgroundUrl.trim() };
+    } else if (backgroundSource.trim().startsWith("http")) {
       bg = { url: backgroundSource.trim() };
     } else if (backgroundSource.trim().length > 50) {
       const b64 = backgroundSource.replace(/^data:image\/\w+;base64,/, "").trim();
-      bg = { b64 };
+      if (!isPlaceholderPng(b64)) bg = { b64 };
+      else bg = { url: "(placeholder — Generate Background first)" };
     } else {
-      bg = { b64: TINY_PNG_B64 };
+      bg = { url: "(placeholder — Generate Background first)" };
     }
     return p
       ? JSON.stringify(
@@ -1161,9 +1581,22 @@ export default function LigsStudio() {
     [imageResult]
   );
 
+  const canSaveMarketingBackground = !!backgroundDisplayUrl;
+
   return (
     <div className="min-h-screen bg-white text-black p-4 md:p-6 text-sm">
-      <h1 className="text-xl font-semibold mb-4 text-black">LIGS Studio</h1>
+      <h1 className="text-xl font-semibold mb-2 text-black">LIGS Studio</h1>
+      <div className="mb-4 p-4 rounded border-2 border-indigo-200 bg-indigo-50">
+        <p className="text-xs font-semibold text-indigo-900 uppercase tracking-wide mb-2">How to drive</p>
+        <ol className="text-sm text-indigo-900 space-y-1 list-decimal list-inside">
+          <li><strong>Generate Background</strong> — DALL·E 3 creates the field (for Ignis: center void + radiating energy)</li>
+          <li><strong>Compose Marketing Card</strong> — Adds glyph anchor + headline/subhead/CTA over the background</li>
+          <li><strong>Save</strong> — Exemplar Card (landing), Share Card, or Marketing Background</li>
+        </ol>
+        <p className="text-xs text-indigo-800 mt-2">
+          <strong>Where do I add glyph?</strong> For Ignispectrum, the glyph is added automatically in Compose. Set <code className="bg-indigo-100 px-1 rounded">primary_archetype: "Ignispectrum"</code> in VoiceProfile; the compose step uses <code className="bg-indigo-100 px-1 rounded">public/glyphs/ignis.svg</code> and places it in the center void. No manual glyph step.
+        </p>
+      </div>
       <div className="mb-4 p-3 rounded border border-gray-300 bg-gray-50 space-y-2">
         <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Warning Lights</p>
         <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-800">
@@ -1186,6 +1619,11 @@ export default function LigsStudio() {
           >
             Mode: {effectiveDryRun ? "DRY RUN (safe — no requests)" : status?.allowExternalWrites ? "LIVE (requests enabled)" : "LIVE disabled by server config"}
           </span>
+          {!effectiveDryRun && !status?.allowExternalWrites && (
+            <span className="block w-full mt-1 text-amber-800">
+              → Set <code className="bg-amber-100 px-1 rounded">ALLOW_EXTERNAL_WRITES=true</code> in .env.local and restart.
+            </span>
+          )}
           <span className="text-gray-600">
             Provider: {status?.provider ? `DALL·E ${status.provider.replace("dall-e-", "")}` : "—"}
           </span>
@@ -1204,6 +1642,11 @@ export default function LigsStudio() {
             Cache: {lastCacheHit === true ? "hit" : lastCacheHit === false ? "miss" : "—"}
           </span>
           <span className="text-gray-600 font-mono">Request: {lastRequestId || "—"}</span>
+          {lastGenerateDebug && (
+            <span className="text-xs font-mono text-gray-700 block sm:inline" title="Last Generate Background response">
+              Last: purpose={String(lastGenerateDebug.purpose ?? "—")} provider={String(lastGenerateDebug.providerUsed ?? "—")} glyphBranch={String(lastGenerateDebug.glyphBranchUsed ?? "—")} mode={lastGenerateDebug.dryRun ? "dry" : "live"}
+            </span>
+          )}
           {lastError && (
             <span className="px-2 py-1 rounded bg-red-50 text-red-700 truncate max-w-xs" title={lastError}>
               Error: {lastError}
@@ -1211,6 +1654,165 @@ export default function LigsStudio() {
           )}
         </div>
       </div>
+      {lastGenerateDebug && !effectiveDryRun && (
+        <div className="mb-4 p-4 rounded border-2 border-slate-300 bg-slate-50">
+          <p className="text-xs font-semibold text-slate-800 uppercase tracking-wide mb-3">Last Response Debug (Generate)</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs font-mono">
+            <div><span className="text-slate-500">providerUsed</span> {lastGenerateDebug.providerUsed ?? "—"}</div>
+            <div><span className="text-slate-500">purpose (echoed)</span> {lastGenerateDebug.purposeEchoed ?? lastGenerateDebug.purpose ?? "—"}</div>
+            <div><span className="text-slate-500">cacheHit</span> {String(lastGenerateDebug.cacheHit ?? "—")}</div>
+            <div><span className="text-slate-500">glyphBranchUsed</span> {String(lastGenerateDebug.glyphBranchUsed ?? "—")}</div>
+            <div><span className="text-slate-500">requestId</span> {lastGenerateDebug.requestId ?? "—"}</div>
+            <div><span className="text-slate-500">buildSha</span> {lastGenerateDebug.buildSha ?? "—"}</div>
+            {lastGenerateDebug.validation && (
+              <div><span className="text-slate-500">validation</span> pass={String(lastGenerateDebug.validation.pass ?? "—")} score={lastGenerateDebug.validation.score ?? "—"}</div>
+            )}
+            {lastGenerateDebug.error && <div className="col-span-full text-red-600">error: {lastGenerateDebug.error}</div>}
+            {lastGenerateDebug.imageUrl && (
+              <div className="col-span-full">
+                <span className="text-slate-500">image URL</span>{" "}
+                {lastGenerateDebug.imageUrl.startsWith("data:") ? (
+                  <span className="text-slate-700">{lastGenerateDebug.imageUrl}</span>
+                ) : (
+                  <a href={lastGenerateDebug.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-full inline-block">
+                    {lastGenerateDebug.imageUrl}
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {composeResult && !effectiveDryRun && (
+        <div className="mb-4 p-4 rounded border-2 border-emerald-200 bg-emerald-50/50">
+          <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide mb-3">Last Response Debug (Compose)</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs font-mono">
+            <div><span className="text-emerald-700">requestId</span> {String(composeResult.requestId ?? "—")}</div>
+            <div><span className="text-emerald-700">composedUrl</span> {(composeResult.composedUrl as string)?.startsWith("data:") ? "data:image/png;base64,..." : String(composeResult.composedUrl ?? "—")}</div>
+            <div><span className="text-emerald-700">logoUsed</span> {String(composeResult.logoUsed ?? "—")}</div>
+            <div><span className="text-emerald-700">glyphUsed</span> {String(composeResult.glyphUsed ?? "—")}</div>
+            <div><span className="text-emerald-700">textRendered</span> {String(composeResult.textRendered ?? "—")}</div>
+            <div><span className="text-emerald-700">dryRun</span> {String(composeResult.dryRun ?? "—")}</div>
+          </div>
+        </div>
+      )}
+      {((profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype === "Ignispectrum") && (
+        <div className="mb-4 p-4 rounded border-2 border-violet-300 bg-violet-50">
+          <p className="text-xs font-semibold text-violet-800 uppercase tracking-wide mb-1">Ignis: Glyph Anchor (Field-First)</p>
+          <p className="text-[11px] text-violet-700 mb-2">Compose automatically adds this glyph when archetype = Ignispectrum. Source: <code className="bg-violet-100 px-0.5 rounded">public/glyphs/ignis.svg</code>. Generate Background creates the field; Compose places the glyph in the center void.</p>
+          <div className="inline-block p-2 rounded border border-violet-200 bg-white">
+            <img
+              src="/glyphs/ignis.svg"
+              alt="Ignis glyph (anchored in compose)"
+              className="max-w-[200px] max-h-[200px] object-contain"
+            />
+          </div>
+        </div>
+      )}
+      {PROOF_ONLY && (
+        <div className="mb-4 p-3 rounded border-2 border-red-400 bg-red-50 text-red-900">
+          <p className="text-sm font-semibold">PROOF ONLY: All live calls blocked. No DALL·E, no background generation, no compose API. Use &quot;Render Proof Card (FREE)&quot; to verify glyph + overlay locally.</p>
+        </div>
+      )}
+      {(effectiveDryRun || PROOF_ONLY) && (
+        <div className="mb-4 p-4 rounded border-2 border-slate-400 bg-slate-50 space-y-3">
+          <p className="text-xs font-semibold text-slate-800 uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>
+          <p className="text-xs text-slate-700">Candidate files: <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code>, <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code></p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="px-2 py-1 text-xs rounded bg-slate-300 hover:bg-slate-400"
+              onClick={async () => {
+                const base = typeof window !== "undefined" ? window.location.origin : "";
+                for (const n of ["ignis", "ignis_mark"]) {
+                  const r = await fetch(`${base}/api/dev/glyph-debug?name=${n}`);
+                  const d = await r.json();
+                  console.log(`[GLYPH-DEBUG] ${n}:`, d);
+                }
+              }}
+            >
+              Print all to console
+            </button>
+            {["ignis", "ignis_mark"].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className="px-2 py-1 text-xs rounded bg-slate-200 hover:bg-slate-300 disabled:opacity-50"
+                disabled={glyphDebugLoading}
+                onClick={() => fetchGlyphDebug(n)}
+              >
+                Debug {n}
+              </button>
+            ))}
+          </div>
+          {glyphDebugData && (
+            <div className="space-y-3">
+              <pre className="text-[10px] font-mono overflow-auto max-h-40 p-2 rounded bg-slate-100 border border-slate-200">
+                {JSON.stringify(glyphDebugData, null, 2)}
+              </pre>
+              {(glyphDebugData as { exists?: boolean }).exists && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-2 rounded border border-slate-300 bg-white">
+                      <p className="text-[10px] font-semibold text-slate-700 mb-1">Raw Glyph (img) — direct from /glyphs/</p>
+                      <img src={`/glyphs/${glyphDebugName}.svg`} alt={`Raw ${glyphDebugName}`} className="max-w-[200px] max-h-[200px] object-contain bg-slate-100" />
+                    </div>
+                    <div className="p-2 rounded border border-slate-300 bg-white">
+                      <p className="text-[10px] font-semibold text-slate-700 mb-1">Raw Glyph (object) — SVG rendered directly</p>
+                      <object data={`/glyphs/${glyphDebugName}.svg`} type="image/svg+xml" className="max-w-[200px] max-h-[200px] bg-slate-100" aria-label={`SVG ${glyphDebugName}`} />
+                    </div>
+                  </div>
+                  <div className="p-2 rounded border border-slate-300 bg-white">
+                    <p className="text-[10px] font-semibold text-slate-700 mb-1">Rasterized Glyph Debug (server) — sharp 512×512 contain-fit</p>
+                    <img
+                      src={typeof window !== "undefined" ? `${window.location.origin}/api/dev/glyph-rasterize?name=${encodeURIComponent(glyphDebugName)}` : ""}
+                      alt={`Rasterized ${glyphDebugName}`}
+                      className="max-w-[256px] max-h-[256px] object-contain bg-slate-100"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {(effectiveDryRun || PROOF_ONLY) && (
+        <div className="mb-4 p-4 rounded border-2 border-emerald-600 bg-emerald-50 space-y-3">
+          <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">PROOF OVERLAY (FREE)</p>
+          <p className="text-xs text-emerald-900">Zero external calls. Placeholder background + Ignis glyph + headline/subhead/CTA.</p>
+          <button
+            type="button"
+            className="px-4 py-2 rounded bg-emerald-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700"
+            disabled={proofLoading}
+            onClick={runRenderProofCardFree}
+            title="No API calls. Renders square card with glyph + Ignispectrum copy locally."
+          >
+            {proofLoading ? "…" : "Render Proof Card (FREE)"}
+          </button>
+          {proofResult && (
+            <div className="mt-3 pt-3 border-t border-emerald-200 space-y-2">
+              {"error" in proofResult ? (
+                <div className="p-3 rounded bg-red-100 text-red-900 text-sm font-medium">
+                  {proofResult.error}
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap gap-3 text-xs font-mono text-emerald-900">
+                    <span>glyphUsed: {String(proofResult.glyphUsed)}</span>
+                    <span>glyphPath: {proofResult.glyphPath}</span>
+                    <span>outputDims: {proofResult.outputDims.width}×{proofResult.outputDims.height}</span>
+                  </div>
+                  <img
+                    src={proofResult.imageDataUrl}
+                    alt="Proof card"
+                    className="max-w-full max-h-96 rounded border border-emerald-300 object-contain"
+                  />
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {effectiveDryRun ? (
         <>
           <div className="mb-4 p-3 rounded border-2 border-amber-400 bg-amber-100 text-amber-900">
@@ -1423,11 +2025,11 @@ export default function LigsStudio() {
                     onClick={() => {
                       setProfileJson(DEFAULT_PROFILE);
                       setPurpose("marketing_background");
-                      setVariationKey("exemplar-v1");
+                      setVariationKey("exemplar-v2");
                     }}
-                    title="Reset to Fluxionis defaults for exemplar run"
+                    title="Reset to Ignis defaults for glyph-conditioned run"
                   >
-                    Reset to Fluxionis
+                    Reset to Ignis
                   </button>
                 </div>
                 <textarea
@@ -1442,12 +2044,15 @@ export default function LigsStudio() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-gray-600 mb-1">Purpose</label>
-                  <input
-                    type="text"
-                    className="w-full p-2 rounded bg-white border border-gray-300 text-black placeholder-gray-400 focus:border-violet-500 outline-none"
+                  <select
+                    className="w-full p-2 rounded bg-white border border-gray-300 text-black focus:border-violet-500 outline-none"
                     value={purpose}
-                    onChange={(e) => setPurpose(e.target.value)}
-                  />
+                    onChange={(e) => setPurpose(e.target.value as "marketing_background" | "share_card" | "archetype_background_from_glyph")}
+                  >
+                    <option value="marketing_background">marketing_background</option>
+                    <option value="share_card">share_card</option>
+                    <option value="archetype_background_from_glyph">archetype_background_from_glyph</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-gray-600 mb-1">VariationKey</label>
@@ -1641,9 +2246,21 @@ export default function LigsStudio() {
                     )}
                   </>
                 )}
+                {backgroundDisplayUrl && (
+                  <div>
+                    <p className="text-gray-600 mb-1 text-xs font-medium">Step 1: Generated Background</p>
+                    <ArchetypeArtifactCard
+                      imageUrl={backgroundDisplayUrl}
+                      archetype={(profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype}
+                      artifacts={profile ? buildArtifactsFromProfile({ ...profile, variationKey } as Record<string, unknown>) : {}}
+                      imageAlt="Background"
+                      showDevFields
+                    />
+                  </div>
+                )}
                 {((composeResult?.image as { b64?: string } | undefined)?.b64) && (
                   <div>
-                    <p className="text-gray-600 mb-1 text-xs font-medium">Composed image</p>
+                    <p className="text-gray-600 mb-1 text-xs font-medium">Step 2: Composed Card (Marketing Overlay)</p>
                     <ArchetypeArtifactCard
                       imageUrl={`data:image/png;base64,${(composeResult!.image as { b64: string }).b64}`}
                       archetype={(profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype}
@@ -1654,16 +2271,20 @@ export default function LigsStudio() {
                     />
                   </div>
                 )}
-                {backgroundDisplayUrl && !(composeResult?.image as { b64?: string } | undefined)?.b64 && (
-                  <div>
-                    <p className="text-gray-600 mb-1 text-xs font-medium">Background image</p>
-                    <ArchetypeArtifactCard
-                      imageUrl={backgroundDisplayUrl}
-                      archetype={(profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype}
-                      artifacts={profile ? buildArtifactsFromProfile({ ...profile, variationKey } as Record<string, unknown>) : {}}
-                      imageAlt="Background"
-                      showDevFields
-                    />
+                {(backgroundDisplayUrl || composeResult) && (
+                  <div className="p-3 rounded border border-gray-200 bg-gray-50">
+                    <p className="text-xs font-semibold text-gray-700 mb-1">Manifest URLs (after save)</p>
+                    <pre className="text-[11px] font-mono text-gray-800 overflow-auto">
+                      {JSON.stringify(
+                        {
+                          marketingBackgroundUrl: savedExemplarUrls?.marketingBackground ?? backgroundDisplayUrl ?? "—",
+                          exemplarCardUrl: savedExemplarUrls?.exemplarCard ?? "—",
+                          shareCardUrl: savedExemplarUrls?.shareCard ?? "—",
+                        },
+                        null,
+                        2
+                      )}
+                    </pre>
                   </div>
                 )}
                 {composeResult?.overlaySpec ? (
@@ -1716,11 +2337,11 @@ export default function LigsStudio() {
                 onClick={() => {
                   setProfileJson(DEFAULT_PROFILE);
                   setPurpose("marketing_background");
-                  setVariationKey("exemplar-v1");
+                  setVariationKey("exemplar-v2");
                 }}
-                title="Reset to Fluxionis defaults for exemplar run"
+                title="Reset to Ignis defaults for glyph-conditioned run"
               >
-                Reset to Fluxionis
+                Reset to Ignis
               </button>
             </div>
             <textarea
@@ -1735,12 +2356,15 @@ export default function LigsStudio() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-gray-600 mb-1">Purpose</label>
-              <input
-                type="text"
-                className="w-full p-2 rounded bg-white border border-gray-300 text-black placeholder-gray-400 focus:border-violet-500 outline-none"
+              <select
+                className="w-full p-2 rounded bg-white border border-gray-300 text-black focus:border-violet-500 outline-none"
                 value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-              />
+                onChange={(e) => setPurpose(e.target.value as "marketing_background" | "share_card" | "archetype_background_from_glyph")}
+              >
+                <option value="marketing_background">marketing_background</option>
+                <option value="share_card">share_card</option>
+                <option value="archetype_background_from_glyph">archetype_background_from_glyph</option>
+              </select>
             </div>
             <div>
               <label className="block text-gray-600 mb-1">VariationKey</label>
@@ -1787,10 +2411,10 @@ export default function LigsStudio() {
             <button
               type="button"
               className="px-3 py-2 rounded bg-accent-violet text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={apiDisabled || !canRun || loading}
+              disabled={apiDisabled || !canRun || loading || liveBlocked}
               onClick={runGenerateBackground}
             >
-              {apiDisabled ? "Unavailable" : loading ? "…" : "Generate Background"}
+              {liveBlocked ? "Blocked" : apiDisabled ? "Unavailable" : loading ? "…" : "Generate Background"}
             </button>
             <button
               type="button"
@@ -1802,11 +2426,20 @@ export default function LigsStudio() {
             </button>
             <button
               type="button"
+              className="px-3 py-2 rounded bg-emerald-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700"
+              disabled={!canRun || loading}
+              onClick={runPreviewOverlayFree}
+              title="No API calls. Renders overlay (glyph + text + CTA) on background. Use before Live compose."
+            >
+              {loading ? "…" : "Preview Overlay (FREE)"}
+            </button>
+            <button
+              type="button"
               className="px-3 py-2 rounded bg-accent-violet text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={apiDisabled || !canRun || loading}
+              disabled={apiDisabled || !canRun || loading || liveBlocked}
               onClick={runCompose}
             >
-              {apiDisabled ? "Unavailable" : loading ? "…" : "Compose Marketing Card"}
+              {liveBlocked ? "Blocked" : apiDisabled ? "Unavailable" : loading ? "…" : "Compose Marketing Card"}
             </button>
             <button
               type="button"
@@ -1819,43 +2452,73 @@ export default function LigsStudio() {
             <button
               type="button"
               className="px-3 py-2 rounded bg-accent-violet text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={apiDisabled || !canRun || loading}
+              disabled={apiDisabled || !canRun || loading || liveBlocked}
               onClick={runFullPipeline}
             >
-              {apiDisabled ? "Unavailable" : loading ? "…" : "Run Full Pipeline"}
+              {liveBlocked ? "Blocked" : apiDisabled ? "Unavailable" : loading ? "…" : "Run Full Pipeline"}
             </button>
             <button
               type="button"
               className="px-3 py-2 rounded border border-gray-300 text-gray-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={apiDisabled || !canRun || loading}
+              disabled={apiDisabled || !canRun || loading || liveBlocked}
               onClick={run6Variations}
             >
-              {apiDisabled ? "Unavailable" : loading ? "…" : "Generate 6 Variations"}
+              {liveBlocked ? "Blocked" : apiDisabled ? "Unavailable" : loading ? "…" : "Generate 6 Variations"}
             </button>
             <button
               type="button"
               className="px-3 py-2 rounded bg-violet-100 text-violet-800 border border-violet-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={apiDisabled || !canRun || loading}
+              disabled={apiDisabled || !canRun || loading || liveBlocked}
               onClick={runGenerateMarketing}
             >
-              {apiDisabled ? "Unavailable" : loading ? "…" : "Generate Marketing"}
+              {liveBlocked ? "Blocked" : apiDisabled ? "Unavailable" : loading ? "…" : "Generate Marketing"}
             </button>
             <button
               type="button"
               className="px-3 py-2 rounded bg-emerald-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700"
-              disabled={apiDisabled || !canSaveToLanding || loading}
-              onClick={runSaveToLanding}
-              title={canSaveToLanding ? "Save composed image to Blob and wire to landing Examples" : "Compose an image first"}
+              disabled={apiDisabled || liveBlocked || !canSaveToLanding || loading}
+              onClick={() => runSaveExemplar("exemplar_card")}
+              title={canSaveToLanding ? "Save composed image as exemplar card (Landing Examples)" : "Compose an image first"}
             >
-              {apiDisabled ? "Unavailable" : loading ? "…" : "Save to Landing"}
+              {apiDisabled || liveBlocked ? "Unavailable" : loading ? "…" : "Save as Exemplar Card (Landing)"}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 rounded bg-teal-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700"
+              disabled={apiDisabled || liveBlocked || !canSaveToLanding || loading}
+              onClick={() => runSaveExemplar("share_card")}
+              title={canSaveToLanding ? "Save composed image as share card (manifest.urls.shareCard)" : "Compose an image first"}
+            >
+              {apiDisabled || liveBlocked ? "Unavailable" : loading ? "…" : "Save as Share Card"}
+            </button>
+            <button
+              type="button"
+              className="px-3 py-2 rounded bg-amber-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-700"
+              disabled={apiDisabled || liveBlocked || !canSaveMarketingBackground || loading}
+              onClick={runSaveMarketingBackground}
+              title={canSaveMarketingBackground ? "Save Step 1 background to manifest.urls.marketingBackground" : "Generate background first"}
+            >
+              {apiDisabled || liveBlocked ? "Unavailable" : loading ? "…" : "Save as Marketing Background"}
             </button>
           </div>
-          {savedExemplarUrls?.exemplarCard && (
-            <div className="p-3 rounded border border-emerald-200 bg-emerald-50 text-sm">
-              <p className="font-semibold text-emerald-800 mb-2">Saved. Refresh /beauty to see it in Examples.</p>
-              <a href={savedExemplarUrls.exemplarCard} target="_blank" rel="noopener noreferrer" className="text-emerald-700 text-xs underline">
-                View saved image
-              </a>
+          {(savedExemplarUrls?.exemplarCard || savedExemplarUrls?.shareCard || savedExemplarUrls?.marketingBackground) && (
+            <div className="p-3 rounded border border-emerald-200 bg-emerald-50 text-sm space-y-2">
+              <p className="font-semibold text-emerald-800">Saved. Refresh /beauty to see in Examples.</p>
+              {savedExemplarUrls.exemplarCard && (
+                <a href={savedExemplarUrls.exemplarCard} target="_blank" rel="noopener noreferrer" className="text-emerald-700 text-xs underline block">
+                  Exemplar card
+                </a>
+              )}
+              {savedExemplarUrls.shareCard && (
+                <a href={savedExemplarUrls.shareCard} target="_blank" rel="noopener noreferrer" className="text-teal-700 text-xs underline block">
+                  Share card
+                </a>
+              )}
+              {savedExemplarUrls.marketingBackground && (
+                <a href={savedExemplarUrls.marketingBackground} target="_blank" rel="noopener noreferrer" className="text-amber-700 text-xs underline block">
+                  Marketing background
+                </a>
+              )}
             </div>
           )}
           {marketingResult && (
@@ -1882,7 +2545,7 @@ export default function LigsStudio() {
           {imageResult && (
             <>
               <div className="p-3 rounded border-2 border-violet-200 bg-violet-50">
-                <p className="text-sm font-semibold text-violet-900 mb-2">Generated Image</p>
+                <p className="text-sm font-semibold text-violet-900 mb-2">Step 1: Generated Background (1:1, 1024×1024)</p>
                 {backgroundDisplayUrl ? (
                   <div className="space-y-2">
                     <img
@@ -1916,10 +2579,15 @@ export default function LigsStudio() {
           )}
           {composeResult && ((composeResult.image as { b64?: string })?.b64) && (
             <div className="p-3 rounded border-2 border-emerald-200 bg-emerald-50">
-              <p className="text-sm font-semibold text-emerald-900 mb-2">Composed Marketing Card</p>
+              <p className="text-sm font-semibold text-emerald-900 mb-2">Step 2: Composed Marketing Card</p>
+              {(composeResult.composedDisplayUrl as string) && (
+                <p className="text-xs text-emerald-800 mb-2">
+                  Composed image URL: {(composeResult.composedDisplayUrl as string).startsWith("data:") ? "data:image/png;base64,..." : (composeResult.composedDisplayUrl as string)}
+                </p>
+              )}
               <div className="aspect-square max-w-[400px]">
                 <img
-                  src={`data:image/png;base64,${(composeResult.image as { b64: string }).b64}`}
+                  src={(composeResult.composedDisplayUrl as string) ?? `data:image/png;base64,${(composeResult.image as { b64: string }).b64}`}
                   alt="Composed marketing card"
                   className="w-full h-full object-contain rounded border border-gray-200 bg-white"
                 />
@@ -1975,6 +2643,12 @@ function StatusBox({
       {composeResult && (
         <>
           <p>Compose: requestId={String(composeResult.requestId)} dryRun={String(composeResult.dryRun)}</p>
+          {(composeResult.composedUrl as string) && (
+            <p>composedUrl: {(composeResult.composedUrl as string).startsWith("data:") ? "data:image/png;base64,..." : String(composeResult.composedUrl)}</p>
+          )}
+          {composeResult.logoUsed != null && <p>logoUsed={String(composeResult.logoUsed)}</p>}
+          {composeResult.glyphUsed != null && <p>glyphUsed={String(composeResult.glyphUsed)}</p>}
+          {composeResult.textRendered != null && <p>textRendered={String(composeResult.textRendered)}</p>}
           <p>Overlay validation: score={(composeResult.overlayValidation as { score?: number })?.score} pass={String((composeResult.overlayValidation as { pass?: boolean })?.pass)}</p>
         </>
       )}

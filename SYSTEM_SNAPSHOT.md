@@ -468,6 +468,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 **Landing Examples:** Now shows all 12 archetypes in `LIGS_ARCHETYPES` order. Responsive grid: 1 col mobile, 2 col sm, 3 col md, 4 col lg. Data: GET `/api/exemplars?version=v1` → manifest per archetype; image from `manifest.urls.exemplarCard` else `/exemplars/{archetype}.png` else neutral placeholder (no broken img). Text from `manifest.marketingDescriptor` else `getMarketingDescriptor(archetype)`. `ExemplarSlot` uses `onError` fallback for images.
 
+## Verification Log – 2026‑03‑04 (Canonical glyph law — LIGS archetype glyph)
+
+**Law glyph specification locked.** `public/glyphs/ignis.svg` is the canonical archetype glyph. ViewBox 0 0 1000 1000; center 500,500; ring r=205 stroke-width=56; center dot r=85; triangle points 400,269 600,269 500,95.795 rotated 0°/120°/240°. Layer order: ring → archetype geometry → center dot. All compose/static-overlay scale = glyphW/1000. **Unified:** compose-card, static-overlay, buildGlyphConditionedAssets, LigsStudio, glyph-debug, glyph-rasterize use `ignis.svg`. Rule: `.cursor/rules/glyph-law.mdc`.
+
 ## Verification Log – 2026‑02‑26 (Exemplars save from Studio)
 
 **POST /api/exemplars/save:** Saves composed image only. Input: archetype, version, exemplarCardB64, optional overlay (headline, subhead, cta). Saves to `ligs-exemplars/{archetype}/v1/exemplar_card.png` and manifest. LigsStudio "Save to Landing" button enabled when compose result exists. Refresh /beauty to see in Examples.
