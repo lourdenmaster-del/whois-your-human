@@ -1,12 +1,25 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { TestModeLogger } from "@/components/TestModeLogger";
+import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
 
 // System font stack (no network fetch) — build-safe in sandbox; Space Grotesk was removed for offline builds
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://ligs.io";
+function getMetadataBase() {
+  try {
+    const u = (process.env.NEXT_PUBLIC_SITE_URL || "https://ligs.io").trim() || "https://ligs.io";
+    return new URL(u);
+  } catch {
+    return new URL("https://ligs.io");
+  }
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: getMetadataBase(),
   title: "(L)igs | Light Identity Grid System",
   description: "A scientific identity framework. Your Light Signature, Grid, and Archetype—mapped from the physical forces present at birth.",
   alternates: {
@@ -17,6 +30,7 @@ export const metadata: Metadata = {
     siteName: "LIGS",
     title: "(L)igs | Light Identity Grid System",
     description: "A scientific identity framework. Your Light Signature, Grid, and Archetype—mapped from the physical forces present at birth.",
+    images: [{ url: IGNIS_LANDING_URL }],
   },
   twitter: {
     card: "summary_large_image",

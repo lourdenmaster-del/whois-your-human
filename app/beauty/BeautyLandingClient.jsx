@@ -49,7 +49,11 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
   const formValid = isFormValid(formData);
 
   const router = useRouter();
-  const dryRun = dryRunProp || (typeof window !== "undefined" && getDryRunFromUrl());
+  const [dryRunFromUrl, setDryRunFromUrl] = useState(false);
+  useEffect(() => {
+    setDryRunFromUrl(typeof window !== "undefined" && getDryRunFromUrl());
+  }, []);
+  const dryRun = dryRunProp || dryRunFromUrl;
 
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [initialFormData, setInitialFormData] = useState(null);
@@ -269,8 +273,11 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
                 (L)igs
               </a>
             </h1>
-            <p className="text-xl sm:text-2xl font-medium tracking-wide beauty-heading text-[var(--beauty-text,#0d0b10)] mb-6 max-w-xl mx-auto">
+            <p className="text-xl sm:text-2xl font-medium tracking-wide beauty-heading text-[var(--beauty-text,#0d0b10)] mb-2 max-w-xl mx-auto">
               (L)igs — The physics of you.
+            </p>
+            <p className={`text-sm ${mutedClass} mb-6 max-w-xl mx-auto`}>
+              (L)igs: Helping Humans Integrate Since 2026
             </p>
             <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
               A new scientific framework exploring how physical forces present at
@@ -294,6 +301,13 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
             <p className={`${textClass} mt-3 text-sm opacity-90 max-w-xl mx-auto`}>
               Discover the pattern written into your birth moment.
             </p>
+            <a
+              href="#form"
+              onClick={(e) => { e.preventDefault(); handleHeroCta(); }}
+              className={`block mt-2 text-sm ${mutedClass} hover:text-[#7A4FFF] transition-colors`}
+            >
+              Join Early Access
+            </a>
             </div>
           </div>
         </div>
@@ -363,7 +377,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
           <div className={`max-w-md mx-auto ${WAITLIST_ONLY ? "space-y-4" : "space-y-3"}`}>
             {WAITLIST_ONLY && (
               <p className={`${textClass} text-center`}>
-                IGNISPECTRUM unlocking soon. Join the waitlist to be first.
+                <span className="inline-block px-2 py-0.5 rounded text-xs uppercase tracking-widest font-medium text-[#7A4FFF]/90 border border-[#7A4FFF]/40 mb-2">UNLOCKING SOON</span>
+                <br />
+                Join the waitlist to be first.
               </p>
             )}
             <form onSubmit={handleWaitlistSubmit} className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center">
@@ -385,6 +401,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
                 {waitlistLoading ? "Joining…" : waitlistSuccess ? "You're on the list" : "Join Early Access"}
               </button>
             </form>
+            <p className="text-xs beauty-text-muted mt-2">No spam. Early access only.</p>
             {waitlistSuccess && (
               <p className="text-sm text-green-700 font-medium">You're on the list.</p>
             )}

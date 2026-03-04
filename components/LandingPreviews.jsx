@@ -118,8 +118,8 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
           </ul>
         )}
         {staticGrid ? (
-          <p className="mt-3 text-xs text-[#7A4FFF]/70 font-medium">
-            {isHighlighted ? "IGNISPECTRUM unlocking soon" : "Unlocking soon"}
+          <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF]/70 font-medium">
+            UNLOCKING SOON
           </p>
         ) : (
           <p className="mt-3 text-xs text-[#7A4FFF]/80 font-medium">

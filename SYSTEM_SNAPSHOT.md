@@ -376,9 +376,13 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑04 (Landing polish: hero tagline, CTA, labels, form trust, OG meta)
+
+**Hero:** Added muted line "(L)igs: Helping Humans Integrate Since 2026" under "(L)igs — The physics of you." Footer unchanged. **CTA:** Primary "Begin your Light Identity Report →" + secondary text link "Join Early Access" (scrolls to #form). **Labels:** Ignispectrum (Title Case) for headings; generic "UNLOCKING SOON" chip in waitlist + grid (no "IGNISPECTRUM unlocking soon"). **Form:** "No spam. Early access only." under waitlist submit; placeholder `your@email.com`. **OG meta:** origin/layout.tsx: title/description/OG/Twitter match hero; og:image = IGNIS_LANDING_URL. Root layout: added og:image (was missing).
+
 ## Verification Log – 2026‑03‑04 (Ignis glyph overlay)
 
-**Glyph overlay:** `.ignis-glyph-overlay` in globals.css — position: absolute; inset: 0; margin: auto; width: 40%; opacity: 0.20; z-index: 20. Hero tile + Examples grid Ignis tile both layer `/glyphs/ignis.svg` above base image. No filter; SVG stays transparent.
+**Glyph overlay:** `.ignis-glyph-overlay` in globals.css — position: absolute; inset: 0; margin: auto; width: 40%; opacity: 0.38; faint drop-shadow glow; z-index: 20. Hero tile + Examples grid Ignis tile both layer `/glyphs/ignis.svg` above base image. No filter; SVG stays transparent.
 
 ## Verification Log – 2026‑03‑04 (Hydration mismatch fixes)
 
