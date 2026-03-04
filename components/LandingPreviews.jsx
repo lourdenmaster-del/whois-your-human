@@ -19,11 +19,12 @@ function NeutralPlaceholder({ className = "" }) {
 }
 
 /** Single exemplar slot with image error fallback (no broken images). */
-function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBorder, cardBg, snippetClass, onSelect, staticGrid, highlightArchetype }) {
+function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBorder, cardBg, snippetClass, onSelect, staticGrid, highlightArchetype, ignisNoRealImage }) {
   const [imgError, setImgError] = useState(false);
   const showPlaceholder = !imageUrl || imgError;
   const isHighlighted = highlightArchetype && archetype === highlightArchetype;
   const reduceOpacity = staticGrid && !isHighlighted;
+  const isIgnis = archetype === "Ignispectrum";
 
   const handleError = useCallback(() => setImgError(true), []);
 
@@ -46,7 +47,23 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
     <>
       <div className="aspect-[4/3] overflow-hidden bg-[#0A0F1C] min-h-[120px] relative">
         {showPlaceholder ? (
-          <NeutralPlaceholder className="w-full h-full" />
+          ignisNoRealImage ? (
+            <>
+              <img
+                src="/glyphs/ignis.svg"
+                alt=""
+                aria-hidden
+                className="ignis-glyph-overlay"
+              />
+              {typeof process !== "undefined" && process.env.NODE_ENV === "development" && (
+                <span className="absolute bottom-2 left-2 right-2 text-center text-[10px] text-amber-600/90 font-medium px-2 py-1 bg-black/30 rounded">
+                  IGNIS NO REAL IMAGE
+                </span>
+              )}
+            </>
+          ) : (
+            <NeutralPlaceholder className="w-full h-full" />
+          )
         ) : (
           <>
             <img
@@ -55,7 +72,7 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
               className="relative z-[1] w-full h-full object-cover"
               onError={handleError}
             />
-            {archetype === "Ignispectrum" && (
+            {isIgnis && (
               <img
                 src="/glyphs/ignis.svg"
                 alt=""
@@ -232,18 +249,28 @@ export default function LandingPreviews({
               const shareCard = urls.shareCard ?? urls.share_card;
               const lightboxImages = [exemplarCard, marketingBackground, shareCard].filter(Boolean);
               let imageUrl = exemplarCard ?? `/exemplars/${archetype.toLowerCase()}.png`;
+              let ignisNoRealImage = false;
               if (archetype === "Ignispectrum") {
-                const envOverride = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-                const isBlob = imageUrl && imageUrl.startsWith("https://") && imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-                const isPlaceholder = !imageUrl || imageUrl.includes("/exemplars/ignispectrum.png");
-                if (isPlaceholder && envOverride) imageUrl = envOverride;
-                else if (isPlaceholder) imageUrl = imageUrl || "/exemplars/ignispectrum.png";
+                const envOverride =
+                  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL) || null;
+                const isPlaceholder =
+                  !imageUrl ||
+                  imageUrl === "" ||
+                  imageUrl.includes("/exemplars/ignispectrum.png");
+                const isBlob =
+                  imageUrl &&
+                  imageUrl.startsWith("https://") &&
+                  imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+                if (isPlaceholder && envOverride) {
+                  imageUrl = envOverride;
+                } else if (isPlaceholder) {
+                  imageUrl = null;
+                  ignisNoRealImage = true;
+                }
                 if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-                  if (isBlob) {
-                    console.log("[IGNIS] Using BLOB exemplar v2:", imageUrl);
-                  } else if (isPlaceholder || !imageUrl) {
-                    console.warn("[IGNIS] PLACEHOLDER ACTIVE - missing blob manifest or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
-                  }
+                  if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", imageUrl);
+                  else if (ignisNoRealImage)
+                    console.warn("[IGNIS] NO REAL IMAGE - missing blob manifest and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
                 }
                 if (imageUrl && !imageUrl.includes("data:")) {
                   imageUrl = `${imageUrl}?${ignisCacheBust.current}`;
@@ -263,6 +290,7 @@ export default function LandingPreviews({
                   onSelect={staticGrid ? undefined : setSelectedCard}
                   staticGrid={staticGrid}
                   highlightArchetype={staticGrid ? highlightArchetype : undefined}
+                  ignisNoRealImage={ignisNoRealImage}
                 />
               );
             })}

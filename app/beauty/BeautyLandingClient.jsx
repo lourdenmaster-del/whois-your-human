@@ -39,8 +39,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
   const [formData, setFormData] = useState(null);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const envFallback = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-  const [ignisImageUrl, setIgnisImageUrl] = useState(envFallback || "/exemplars/ignispectrum.png");
+  const envFallbackUrl =
+    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL) || null;
+  const [ignisImageUrl, setIgnisImageUrl] = useState(envFallbackUrl);
   const [exemplarManifests, setExemplarManifests] = useState([]);
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistLoading, setWaitlistLoading] = useState(false);
@@ -94,28 +95,32 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         setExemplarManifests(list);
         const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
         const urls = ignis?.urls ?? {};
-        let card = urls.exemplarCard ?? urls.exemplar_card ?? envFallback ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
-        const isBlob = card && card.startsWith("https://") && card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-        const isPlaceholder = !card || card.includes("/exemplars/ignispectrum.png");
+        let card = urls.exemplarCard ?? urls.exemplar_card ?? null;
+        const isPlaceholder =
+          !card || card === "" || card.includes("/exemplars/ignispectrum.png");
+        const isBlob =
+          card &&
+          card.startsWith("https://") &&
+          card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
         if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-          if (isBlob) {
-            console.log("[IGNIS] Using BLOB exemplar v2:", card);
-          } else if (isPlaceholder) {
-            console.warn("[IGNIS] PLACEHOLDER ACTIVE - missing blob manifest or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
-          }
+          if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", card);
+          else if (isPlaceholder && !envFallbackUrl)
+            console.warn("[IGNIS] NO REAL IMAGE - missing blob manifest and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
         }
-        if (isPlaceholder && envFallback) card = envFallback;
-        setIgnisImageUrl(card || envFallback || "/exemplars/ignispectrum.png");
+        if (isPlaceholder) {
+          if (envFallbackUrl) setIgnisImageUrl(envFallbackUrl);
+        } else {
+          setIgnisImageUrl(card);
+        }
       })
       .catch(() => {
-        const fallback = envFallback || "/exemplars/ignispectrum.png";
-        if (!cancelled) setIgnisImageUrl(fallback);
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !envFallback) {
-          console.warn("[IGNIS] PLACEHOLDER ACTIVE - missing blob manifest or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
+        if (!cancelled) setIgnisImageUrl(envFallbackUrl);
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !envFallbackUrl) {
+          console.warn("[IGNIS] NO REAL IMAGE - fetch failed and no NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
         }
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [envFallbackUrl]);
 
   const handleHeroCta = useCallback(() => {
     const el = document.getElementById("form");
@@ -341,7 +346,19 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
                     />
                   </>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center beauty-text-muted text-sm">—</div>
+                  <>
+                    <img
+                      src="/glyphs/ignis.svg"
+                      alt=""
+                      aria-hidden
+                      className="ignis-glyph-overlay"
+                    />
+                    {typeof process !== "undefined" && process.env.NODE_ENV === "development" && (
+                      <span className="absolute bottom-2 left-2 right-2 text-center text-[10px] text-amber-600/90 font-medium px-2 py-1 bg-black/30 rounded">
+                        IGNIS NO REAL IMAGE
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
               <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF] font-medium">

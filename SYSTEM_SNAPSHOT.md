@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑02 (Ignis placeholder fix)
+
+**Ignis never uses static placeholder:** (1) `lib/exemplar-store.ts`: `IGNIS_CANONICAL_FALLBACK` returns env URL or `null` (never `/exemplars/ignispectrum.png`). (2) `GET /api/exemplars`: When Blob manifest is unavailable, injects Ignis manifest with `exemplarCard` = env or `undefined` (never static path). (3) `BeautyLandingClient.jsx` hero tile: if resolved Ignis URL is missing or equals placeholder path, use `NEXT_PUBLIC_IGNIS_EXEMPLAR_URL` or keep empty-state (glyph overlay + dev-only badge "IGNIS NO REAL IMAGE"); never show dash when real URL available. (4) `LandingPreviews.jsx` ExemplarSlot: same anti-placeholder guard for Ignis tiles; `ignisNoRealImage` prop for glyph + dev badge when no real URL. Production must never show `/exemplars/ignispectrum.png` for Ignis.
+
 ## Verification Log – 2026‑03‑04 (Final people-proof polish)
 
 **Root 200:** Deleted `app/page.tsx`; middleware rewrite serves /origin for `/` (200, no redirect). **Health marker:** Simplified to `<!-- ORIGIN_LANDING: v1 53ec531 -->` in origin source (template element). **Background:** Compressed `ligs-landing-bg.png` 2.1MB → 434KB (sharp, same 1024×1024 dimensions).
