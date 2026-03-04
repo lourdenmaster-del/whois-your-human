@@ -9,7 +9,6 @@ import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, setBeautyDraft, sa
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
-import { getIgnisLandingUrl } from "@/lib/ignis-landing";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 
@@ -40,9 +39,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
   const [formData, setFormData] = useState(null);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const envFallbackUrl =
-    (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL) || null;
-  const [ignisImageUrl, setIgnisImageUrl] = useState(envFallbackUrl);
+  const envFallback = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
+  const [ignisImageUrl, setIgnisImageUrl] = useState(envFallback || "/exemplars/ignispectrum.png");
   const [exemplarManifests, setExemplarManifests] = useState([]);
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistLoading, setWaitlistLoading] = useState(false);
@@ -96,22 +94,22 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         setExemplarManifests(list);
         const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
         const urls = ignis?.urls ?? {};
-        const card = getIgnisLandingUrl(urls, envFallbackUrl);
+        let card = urls.exemplarCard ?? urls.exemplar_card ?? envFallback ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
+        const isBlob = card && card.startsWith("https://") && card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+        const isPlaceholder = !card || card.includes("/exemplars/ignispectrum.png");
         if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-          if (card) console.log("[IGNIS] Using landing image (marketingBackground):", card);
-          else
-            console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
+          if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", card);
+          else if (isPlaceholder) console.warn("[IGNIS] PLACEHOLDER - missing blob or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
         }
-        setIgnisImageUrl(card);
+        if (isPlaceholder && envFallback) card = envFallback;
+        setIgnisImageUrl(card || envFallback || "/exemplars/ignispectrum.png");
       })
       .catch(() => {
-        if (!cancelled) setIgnisImageUrl(envFallbackUrl);
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !envFallbackUrl) {
-          console.warn("[IGNIS] NO REAL IMAGE - fetch failed and no NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
-        }
+        const fallback = envFallback || "/exemplars/ignispectrum.png";
+        if (!cancelled) setIgnisImageUrl(fallback);
       });
     return () => { cancelled = true; };
-  }, [envFallbackUrl]);
+  }, []);
 
   const handleHeroCta = useCallback(() => {
     const el = document.getElementById("form");
@@ -337,19 +335,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
                     />
                   </>
                 ) : (
-                  <>
-                    <img
-                      src="/glyphs/ignis.svg"
-                      alt=""
-                      aria-hidden
-                      className="ignis-glyph-overlay"
-                    />
-                    {typeof process !== "undefined" && process.env.NODE_ENV === "development" && (
-                      <span className="absolute bottom-2 left-2 right-2 text-center text-[10px] text-amber-600/90 font-medium px-2 py-1 bg-black/30 rounded">
-                        IGNIS NO REAL IMAGE
-                      </span>
-                    )}
-                  </>
+                  <div className="w-full h-full flex items-center justify-center beauty-text-muted text-sm">—</div>
                 )}
               </div>
               <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF] font-medium">

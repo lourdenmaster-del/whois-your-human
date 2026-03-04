@@ -376,9 +376,9 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
-## Verification Log – 2026‑03‑02 (Ignis: marketingBackground only + glyph overlay)
+## Verification Log – 2026‑03‑02 (Restore prior Ignis background source)
 
-**Ignis landing: raw field + live glyph:** (1) `lib/ignis-landing.ts`: `getIgnisLandingUrl` uses **only** `marketingBackground` (v2, then v1). Never `exemplarCard` or `shareCard` (both identical composed card). Guard: reject `/exemplars/ignispectrum.png`, `/exemplar_card.png`, `/share_card.png`. (2) Hero + Examples: same `marketingBackground` URL; glyph overlay via `<img src="/glyphs/ignis.svg" className="ignis-glyph-overlay" />` (transparent SVG, `currentColor`, CSS `filter: brightness(0) invert(1)` for white on dark). (3) View-source: Ignis `img src` = `.../marketing_background.png`; no flicker; no exemplar_card/share_card.
+**Regression fix:** Glyph-overlay work switched Ignis from `exemplarCard` to `marketingBackground`, causing wrong imagery after load. Restored prior logic (585b944): (1) Hero + Examples use `urls.exemplarCard ?? urls.exemplar_card` from manifest; env/static fallbacks unchanged. (2) API fallback manifest injects `exemplarCard`/`exemplar_card` = IGNIS_CANONICAL_FALLBACK (env or /exemplars/ignispectrum.png). (3) Glyph overlay kept on both tiles. (4) `lib/ignis-landing.ts` no longer used for landing.
 
 ## Verification Log – 2026‑03‑02 (Ignis placeholder fix)
 
