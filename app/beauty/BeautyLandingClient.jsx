@@ -33,15 +33,17 @@ function isFormValid(formData) {
   return Boolean(n && d && l && e);
 }
 
-export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
+export default function BeautyLandingClient({ dryRun: dryRunProp = false, initialIgnisImageUrl = null, initialManifests = null }) {
   const [ctaCheckoutLoading, setCtaCheckoutLoading] = useState(false);
   const [ctaCheckoutError, setCtaCheckoutError] = useState(null);
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
   const [formData, setFormData] = useState(null);
   const [generateLoading, setGenerateLoading] = useState(false);
   const envFallback = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-  const [ignisImageUrl, setIgnisImageUrl] = useState(envFallback || "/exemplars/ignispectrum.png");
-  const [exemplarManifests, setExemplarManifests] = useState([]);
+  const [ignisImageUrl, setIgnisImageUrl] = useState(
+    initialIgnisImageUrl ?? envFallback ?? "/exemplars/ignispectrum.png"
+  );
+  const [exemplarManifests, setExemplarManifests] = useState(initialManifests ?? []);
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
@@ -85,6 +87,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   }, []);
 
   useEffect(() => {
+    if (initialManifests != null && initialManifests.length > 0 && initialIgnisImageUrl) {
+      return;
+    }
     let cancelled = false;
     fetch(`/api/exemplars?version=v1`)
       .then((res) => (res.ok ? res.json() : { manifests: [] }))
@@ -109,7 +114,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         if (!cancelled) setIgnisImageUrl(fallback);
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [initialManifests, initialIgnisImageUrl]);
 
   const handleHeroCta = useCallback(() => {
     const el = document.getElementById("form");

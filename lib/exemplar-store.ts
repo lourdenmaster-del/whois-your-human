@@ -127,3 +127,49 @@ export async function loadExemplarManifestWithPreferred(
   }
   return null;
 }
+
+const IGNIS_ARCHETYPE = "Ignispectrum";
+const IGNIS_VERSION = "v2";
+
+/** Server-side: load exemplar manifests (same logic as GET /api/exemplars). For landing page SSR to avoid client flicker. */
+export async function getExemplarManifestsServer(version: string): Promise<{
+  manifests: unknown[];
+  ignisImageUrl: string;
+}> {
+  const { LIGS_ARCHETYPES } = await import("@/src/ligs/archetypes/contract");
+  const manifests: unknown[] = [];
+  let ignisManifest: unknown = null;
+
+  for (const archetype of LIGS_ARCHETYPES) {
+    if (archetype === IGNIS_ARCHETYPE) {
+      const ignis = await loadExemplarManifest(exemplarManifestPath(IGNIS_ARCHETYPE, IGNIS_VERSION));
+      if (ignis != null) {
+        manifests.push(ignis);
+        ignisManifest = ignis;
+      }
+    } else {
+      const manifest = await loadExemplarManifestWithPreferred(archetype, version);
+      if (manifest != null) manifests.push(manifest);
+    }
+  }
+
+  if (ignisManifest == null) {
+    manifests.push({
+      archetype: IGNIS_ARCHETYPE,
+      version: IGNIS_VERSION,
+      urls: {
+        exemplarCard: IGNIS_CANONICAL_FALLBACK,
+        exemplar_card: IGNIS_CANONICAL_FALLBACK,
+      },
+    });
+  }
+
+  const envFallback = (process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "").trim();
+  const ignis = (ignisManifest ?? manifests.find((m: unknown) => (m as { archetype?: string })?.archetype === IGNIS_ARCHETYPE)) as { urls?: Record<string, unknown> } | null;
+  const urls = ignis?.urls ?? {};
+  const card = (urls.exemplarCard ?? urls.exemplar_card ?? envFallback ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`) as string;
+  const isPlaceholder = !card || card.includes("/exemplars/ignispectrum.png");
+  const ignisImageUrl = (isPlaceholder && envFallback ? envFallback : card) || IGNIS_CANONICAL_FALLBACK;
+
+  return { manifests, ignisImageUrl };
+}

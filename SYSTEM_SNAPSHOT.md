@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑04 (Origin SSR: no Ignis flicker)
+
+**Flicker fix:** /origin page now server-renders Ignis URL + manifests via `getExemplarManifestsServer()`. `BeautyLandingClient` accepts `initialIgnisImageUrl` and `initialManifests`; when provided, skips client fetch. Initial HTML contains correct img src; no post-load swap. `export const dynamic = "force-dynamic"` on origin page. `lib/exemplar-store.ts`: added `getExemplarManifestsServer(version)` (same logic as GET /api/exemplars).
+
 ## Verification Log – 2026‑03‑02 (Restore prior Ignis background source)
 
 **Regression fix:** Glyph-overlay work switched Ignis from `exemplarCard` to `marketingBackground`, causing wrong imagery after load. Restored prior logic (585b944): (1) Hero + Examples use `urls.exemplarCard ?? urls.exemplar_card` from manifest; env/static fallbacks unchanged. (2) API fallback manifest injects `exemplarCard`/`exemplar_card` = IGNIS_CANONICAL_FALLBACK (env or /exemplars/ignispectrum.png). (3) Glyph overlay kept on both tiles. (4) `lib/ignis-landing.ts` no longer used for landing.
