@@ -315,7 +315,7 @@ export async function POST(req: Request) {
       archetype: arch,
       version,
       createdAt,
-      markType: overlaySpec.markType ?? "brand",
+      markType: ("markType" in overlaySpec ? (overlaySpec as { markType?: string }).markType : undefined) ?? "brand",
       markArchetype: (overlaySpec as { markArchetype?: string }).markArchetype ?? undefined,
       overlayCopy: {
         headline: overlayCopy.headline,
@@ -365,7 +365,7 @@ export async function POST(req: Request) {
         archetype: arch,
         version,
         createdAt,
-        markType: overlaySpec.markType ?? "brand",
+        markType: ("markType" in overlaySpec ? (overlaySpec as { markType?: string }).markType : undefined) ?? "brand",
         overlayCopy: manifest.overlayCopy,
         urls: {
           marketingBackground: "[LIVE: Blob URL]",
