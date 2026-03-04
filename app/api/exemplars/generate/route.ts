@@ -21,12 +21,15 @@ import {
   saveExemplarToBlob,
   saveExemplarManifest,
 } from "@/lib/exemplar-store";
+import { deriveIdempotencyKey } from "@/lib/idempotency-store";
 import { LIGS_ARCHETYPES, FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import { GLOBAL_LOGO_PATH } from "@/lib/brand";
-import { composeExemplarCardToBuffer } from "@/lib/marketing/compose-card";
+import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
+import { buildGlyphReferenceLogoMarkPrompt } from "@/lib/marketing/glyphReferencePrompt";
 import { allowExternalWrites, isDryRun } from "@/lib/runtime-mode";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
 import sharp from "sharp";
+import { buildImagePromptSpec } from "@/src/ligs/image";
 
 const VALID_ARCHETYPES = new Set(LIGS_ARCHETYPES);
 
@@ -94,7 +97,8 @@ export async function POST(req: Request) {
 
     const b = body as Record<string, unknown>;
     const archetype = String(b.archetype ?? "").trim();
-    const mode = (b.mode as string) ?? "dry";
+    const dryRunParam = b.dryRun === true || b.dryRun === "true";
+    const mode = dryRunParam ? "dry" : ((b.mode as string) ?? "dry");
     const version = String(b.version ?? "v1").trim() || "v1";
 
     if (!zSchema.archetype(archetype)) {
@@ -134,17 +138,18 @@ export async function POST(req: Request) {
 
     const baseUrl = getBaseUrl(req);
     const profile = buildMinimalVoiceProfile(arch, { deterministicId: `exemplar_${arch}_${version}` });
-    const idempotencyKeyBg = `exemplar-${arch}-${version}-marketing_background`;
-    const idempotencyKeyShare = `exemplar-${arch}-${version}-share_card`;
+    const exemplarBaseKey = "a1b2c3d4-e5f6-4789-a012-345678901234"; // fixed base for exemplar derivation
+    const idempotencyKeyBg = deriveIdempotencyKey(exemplarBaseKey, `${arch}-${version}-marketing_background`);
+    const idempotencyKeyShare = deriveIdempotencyKey(exemplarBaseKey, `${arch}-${version}-share_card`);
 
     let marketingBackgroundUrl: string | null = null;
     let shareCardUrl: string | null = null;
-    let providerPrompts: {
+    const providerPrompts: {
       marketing_background?: { positive?: string; negative?: string; full?: string };
       share_card?: { positive?: string; negative?: string; full?: string };
     } = {};
 
-    // 1) marketing_background (LIVE only)
+    // 1) marketing_background (LIVE only). All archetypes use DALL·E 3; Ignis gets CENTER VOID (field-first) + glyph in compose.
     let backgroundBuffer: Buffer;
     if (isLive) {
       const res = await fetch(`${baseUrl}/api/image/generate`, {
@@ -153,7 +158,11 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           profile,
           purpose: "marketing_background",
-          image: { aspectRatio: "16:9", size: "1024", count: 1 },
+          image: {
+            aspectRatio: arch === "Ignispectrum" ? "1:1" : "16:9",
+            size: "1024",
+            count: 1,
+          },
           variationKey: `exemplar-${version}`,
           idempotencyKey: idempotencyKeyBg,
         }),
@@ -200,8 +209,8 @@ export async function POST(req: Request) {
       backgroundBuffer = await createDryBackgroundPlaceholder();
     }
 
-    // 2) share_card (LIVE only)
-    if (isLive) {
+    // 2) share_card — non-Ignis: generate via DALL·E. Ignis: skip; use composed image (step 3).
+    if (isLive && arch !== "Ignispectrum") {
       const res = await fetch(`${baseUrl}/api/image/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -266,22 +275,45 @@ export async function POST(req: Request) {
       logoBuffer = Buffer.alloc(0);
     }
 
-    const pngBuffer = await composeExemplarCardToBuffer(overlaySpec, backgroundBuffer, {
-      size: 1024,
-      logoBuffer,
-    });
+    let pngBuffer: Buffer;
+    try {
+      const result = await renderStaticCardOverlay(overlaySpec, backgroundBuffer, {
+        size: 1024,
+        logoBuffer: overlaySpec.markType === "archetype" ? null : logoBuffer,
+      });
+      pngBuffer = result.buffer;
+    } catch (e) {
+      log("error", "exemplar_compose_failed", { requestId, archetype: arch, error: e instanceof Error ? e.message : String(e) });
+      return NextResponse.json(
+        { error: "EXEMPLAR_COMPOSE_FAILED", message: e instanceof Error ? e.message : "Glyph load or overlay failed", requestId },
+        { status: 500 }
+      );
+    }
 
-    const exemplarCardUrl = await saveExemplarToBlob(
-      exemplarPath(arch, version, "exemplar_card"),
-      pngBuffer,
-      "image/png"
-    );
+    let exemplarCardUrl: string | null = null;
+    if (isLive) {
+      exemplarCardUrl = await saveExemplarToBlob(
+        exemplarPath(arch, version, "exemplar_card"),
+        pngBuffer,
+        "image/png"
+      );
+      // Ignis: share_card = composed from same background (coherence, no blanks)
+      if (arch === "Ignispectrum" && !shareCardUrl) {
+        shareCardUrl = await saveExemplarToBlob(
+          exemplarPath(arch, version, "share_card"),
+          pngBuffer,
+          "image/png"
+        );
+      }
+    }
 
     const createdAt = new Date().toISOString();
     const manifest = {
       archetype: arch,
       version,
       createdAt,
+      markType: overlaySpec.markType ?? "brand",
+      markArchetype: (overlaySpec as { markArchetype?: string }).markArchetype ?? undefined,
       overlayCopy: {
         headline: overlayCopy.headline,
         subhead: overlayCopy.subhead,
@@ -295,7 +327,86 @@ export async function POST(req: Request) {
       providerPrompts: isLive ? providerPrompts : undefined,
     };
 
-    await saveExemplarManifest(exemplarManifestPath(arch, version), manifest);
+    if (isLive) {
+      await saveExemplarManifest(exemplarManifestPath(arch, version), manifest);
+    }
+
+    if (!isLive) {
+      const specBg = buildImagePromptSpec(profile, {
+        purpose: "marketing_background",
+        aspectRatio: "16:9",
+        size: "1024",
+        variationKey: `exemplar-${version}`,
+      });
+      const specShare = buildImagePromptSpec(profile, {
+        purpose: "share_card",
+        aspectRatio: "16:9",
+        size: "1024",
+        variationKey: `exemplar-${version}`,
+      });
+      const promptBg = specBg.prompt?.positive ?? "";
+      const promptShare = specShare.prompt?.positive ?? "";
+      const negativeBg = specBg.prompt?.negative ?? "";
+      const negativeShare = specShare.prompt?.negative ?? "";
+      const marketingLogoMarkPrompt =
+        arch === "Ignispectrum" ? buildGlyphReferenceLogoMarkPrompt(arch) : null;
+
+      const filePlan = {
+        marketing_background: exemplarPath(arch, version, "marketing_background"),
+        share_card: exemplarPath(arch, version, "share_card"),
+        exemplar_card: exemplarPath(arch, version, "exemplar_card"),
+        manifest: exemplarManifestPath(arch, version),
+      };
+
+      const manifestShape = {
+        archetype: arch,
+        version,
+        createdAt,
+        markType: overlaySpec.markType ?? "brand",
+        overlayCopy: manifest.overlayCopy,
+        urls: {
+          marketingBackground: "[LIVE: Blob URL]",
+          shareCard: "[LIVE: Blob URL]",
+          exemplarCard: "[LIVE: Blob URL]",
+        },
+      };
+
+      return NextResponse.json({
+        requestId,
+        dryRun: true,
+        mode: "dry",
+        archetype: arch,
+        version,
+        plan: {
+          providerUsed: "dall-e-3",
+          providerChoice: {
+            marketing_background: arch === "Ignispectrum" ? "dall-e-3 (field-first, center void)" : "dall-e-3 (no referenceImage)",
+            share_card: arch === "Ignispectrum" ? "compose (same as exemplar_card, coherence)" : "dall-e-3 (no referenceImage)",
+            exemplar_card: "compose (glyph from public/glyphs/ignis.svg when markType=archetype)",
+          },
+          prompts: {
+            marketing_background: {
+              positive: promptBg,
+              negative: negativeBg,
+              full: `${promptBg} Avoid: ${negativeBg}.`,
+            },
+            share_card: {
+              positive: promptShare,
+              negative: negativeShare,
+              full: `${promptShare} Avoid: ${negativeShare}.`,
+            },
+            ...(marketingLogoMarkPrompt && {
+              marketing_logo_mark_glyph_reference: {
+                note: "For emblem-from-glyph flow (referenceImage present → dalle2_edits)",
+                positive: marketingLogoMarkPrompt,
+              },
+            }),
+          },
+          filePlan,
+          manifestShape,
+        },
+      });
+    }
 
     log("info", "exemplar_pack_generated", {
       requestId,

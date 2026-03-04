@@ -36,7 +36,7 @@ import { buildMinimalVoiceProfile } from "@/lib/marketing/minimal-profile";
 import { pickBackgroundSource } from "@/lib/ligs-studio-utils";
 import { buildOverlaySpecWithCopy } from "@/src/ligs/marketing";
 import { createArchetypeGradientSvgBuffer } from "@/lib/marketing/gradient-background";
-import { composeMarketingCardToBuffer } from "@/lib/marketing/compose-card";
+import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import {
   saveKeeperManifest,
@@ -525,7 +525,7 @@ export async function POST(req: Request) {
                 archetypeName
               );
               overlaySpecForKeeper = { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta };
-              const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, bgBuf, { size: 1024, logoBuffer: logoBuf });
+              const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, bgBuf, { size: 1024, logoBuffer: logoBuf });
               marketingCardUrl = (await saveImageToBlob(reportId, "marketing_card", new Uint8Array(pngBuffer).buffer, "image/png")) ?? undefined;
               if (marketingCardUrl) payloadRecord.marketingCardUrl = marketingCardUrl;
             }
@@ -545,7 +545,7 @@ export async function POST(req: Request) {
                 archetypeName
               );
               overlaySpecForKeeper = { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta };
-              const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, bgBuf, { size: 1024 });
+              const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, bgBuf, { size: 1024 });
               marketingCardUrl = (await saveImageToBlob(reportId, "marketing_card", new Uint8Array(pngBuffer).buffer, "image/png")) ?? undefined;
               if (marketingCardUrl) payloadRecord.marketingCardUrl = marketingCardUrl;
             }
@@ -660,7 +660,7 @@ export async function POST(req: Request) {
           variationKey: reportId,
         }, undefined, archetypeName);
         const backgroundBuffer = createArchetypeGradientSvgBuffer(archetypeName);
-        const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, backgroundBuffer, { size: 1024 });
+        const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, backgroundBuffer, { size: 1024 });
         log("info", "marketing_card_composed", {
           requestId,
           reportId,
@@ -750,7 +750,7 @@ export async function POST(req: Request) {
     // D) Assets manifest (DRY run path – no LIVE marketing assets)
     const finalPayload = payload as unknown as Record<string, unknown>;
     const sigUrlsFinal = (finalPayload.imageUrls as string[] | undefined) ?? [];
-    let sigUrlsResolved = sigUrlsFinal.slice(0, 3);
+    const sigUrlsResolved = sigUrlsFinal.slice(0, 3);
     if (reportId && (sigUrlsResolved.length < 3 || sigUrlsResolved.some((u) => !u))) {
       for (let i = 0; i < 3; i++) {
         if (!sigUrlsResolved[i]) sigUrlsResolved[i] = (await getImageUrlFromBlob(reportId, IMAGE_SLUGS[i])) ?? "";

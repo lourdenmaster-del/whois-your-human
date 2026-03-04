@@ -54,6 +54,8 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
             <img
               src={imageUrl}
               alt=""
+              width={1024}
+              height={1024}
               className="relative z-[1] w-full h-full object-cover"
               onError={handleError}
             />
@@ -187,7 +189,7 @@ export default function LandingPreviews({
     : manifestsByArchetypeState;
 
   useEffect(() => {
-    if (!staticGrid) setSelectedCard(null);
+    if (!staticGrid) queueMicrotask(() => setSelectedCard(null));
   }, [clearSelectionTrigger, staticGrid]);
 
   useEffect(() => {

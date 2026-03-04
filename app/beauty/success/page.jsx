@@ -18,7 +18,7 @@ function BeautySuccessContent() {
   useEffect(() => {
     track("beauty_success_page");
     if (!sessionId) {
-      setStatus("error");
+      queueMicrotask(() => setStatus("error"));
       return;
     }
     let cancelled = false;
@@ -54,10 +54,10 @@ function BeautySuccessContent() {
                   {!sessionId ? "Missing checkout session." : "Payment verification failed."}
                 </p>
                 <Link
-                  href="/beauty"
+                  href="/origin"
                   className="inline-block px-6 py-3 bg-[#7A4FFF] text-white text-sm font-semibold rounded-lg hover:opacity-90"
                 >
-                  Back to /beauty
+                  Back to /origin
                 </Link>
               </>
             ) : (

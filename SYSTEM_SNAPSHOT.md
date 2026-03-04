@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑04 (Production hygiene pass)
+
+**Build/lint:** Fixed prefer-const (engine, exemplars/generate, triangulatePrompt); react/no-unescaped-entities (not-found, BeautyLandingClient, LigsStudio); set-state-in-effect (success, LandingPreviews, MarketingHeader) via queueMicrotask defer. **Cleanup:** Removed redundant app/page.tsx (middleware rewrite handles /→/origin). **Perf:** Added width/height (1024×1024) to Ignis hero img and ExemplarSlot imgs to prevent layout shift. **Origin:** No SSR Blob fetch; client fetches exemplars; IGNIS_LANDING_URL single source of truth; glyph overlay + locked-blur intact.
+
 ## Verification Log – 2026‑03‑04 (Landing polish: hero tagline, CTA, labels, form trust, OG meta)
 
 **Hero:** Added muted line "(L)igs: Helping Humans Integrate Since 2026" under "(L)igs — The physics of you." Footer unchanged. **CTA:** Primary "Begin your Light Identity Report →" + secondary text link "Join Early Access" (scrolls to #form). **Labels:** Ignispectrum (Title Case) for headings; generic "UNLOCKING SOON" chip in waitlist + grid (no "IGNISPECTRUM unlocking soon"). **Form:** "No spam. Early access only." under waitlist submit; placeholder `your@email.com`. **OG meta:** origin/layout.tsx: title/description/OG/Twitter match hero; og:image = IGNIS_LANDING_URL. Root layout: added og:image (was missing).

@@ -166,12 +166,22 @@ function isHighEnergyArchetype(primaryArchetype: LigsArchetype): boolean {
   return mood.includes("energetic") || mood.includes("vivid") || mood.includes("intense");
 }
 
+/** CENTER VOID (FIELD-FIRST): for Ignispectrum marketing_background. Reserve center for glyph anchor; field radiates outward. */
+const CENTER_VOID_IGNIS = `CENTER VOID (ANCHOR SPACE):
+- Create a clear radial origin at center.
+- Leave a soft circular region of negative space at the center (about 1/3 of frame width), smooth gradient, low texture.
+- The Ignis field grows outward from that origin: warm ember/amber spectrum, white-hot core diffusion, directional energy shear, subtle prismatic heat haze.
+- No typography, no corporate marks, no additional graphic elements.`;
+
 /** Mode directive line (short header). Archetype-aware for marketing_background. */
 function getModeDirective(mode: TriangulateMode, primaryArchetype?: LigsArchetype): string {
   if (mode === "variation") return "Variation: abstract premium background.";
   if (mode === "signature") return "Signature: archetype-coherent aesthetic field.";
   if (mode === "marketing_logo_mark") return "Logo mark: abstract premium symbol, single focal element, centered, strong silhouette, favicon-like.";
   if (mode === "marketing_background") {
+    if (primaryArchetype === "Ignispectrum") {
+      return "Marketing background (FIELD-FIRST): center void for glyph anchor, field radiates outward.";
+    }
     if (primaryArchetype && isHighEnergyArchetype(primaryArchetype)) {
       return "Marketing background: full-width, premium negative space, high-clarity field.";
     }
@@ -443,16 +453,21 @@ export function buildTriangulatedImagePrompt(input: BuildTriangulatedImagePrompt
   const secondaryRaw = buildSecondaryImageBlock(secondaryArchetype, options);
   const secondaryLines = enforceSecondaryLimits(secondaryRaw, primaryBlockForCharCount.length);
 
-  let resolvedBlock = buildResolvedBlock(primaryArchetype, secondaryLines, twilightPhase, mode);
+  const resolvedBlock = buildResolvedBlock(primaryArchetype, secondaryLines, twilightPhase, mode);
 
   const modeDirective = getModeDirective(mode, primaryArchetype);
   const negative = getNegativeForMode(mode, primaryArchetype);
 
+  const centerVoidBlock =
+    primaryArchetype === "Ignispectrum" && mode === "marketing_background"
+      ? `\n\n${CENTER_VOID_IGNIS}\n\n`
+      : "";
+
   let positive: string;
   if (basePrompt && basePrompt.trim()) {
-    positive = `${modeDirective}\n${primaryGrammarLine}\n\n${basePrompt.trim()}\n\n${resolvedBlock}`;
+    positive = `${modeDirective}\n${primaryGrammarLine}${centerVoidBlock}${basePrompt.trim()}\n\n${resolvedBlock}`;
   } else {
-    positive = `${modeDirective}\n${primaryGrammarLine}\n\n${resolvedBlock}`;
+    positive = `${modeDirective}\n${primaryGrammarLine}${centerVoidBlock}${resolvedBlock}`;
   }
   positive = positive.replace(/\n{3,}/g, "\n\n").trim();
 

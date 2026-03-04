@@ -322,6 +322,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
                 <img
                   src={IGNIS_LANDING_URL}
                   alt=""
+                  width={1024}
+                  height={1024}
                   className="relative z-[1] w-full h-full object-cover"
                 />
                 <img
@@ -398,12 +400,12 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
                 disabled={waitlistLoading || waitlistSuccess || !waitlistEmail.trim()}
                 className="px-6 py-3 bg-[#7A4FFF] text-white text-base font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-70 disabled:cursor-not-allowed whitespace-nowrap"
               >
-                {waitlistLoading ? "Joining…" : waitlistSuccess ? "You're on the list" : "Join Early Access"}
+                {waitlistLoading ? "Joining…" : waitlistSuccess ? "You&apos;re on the list" : "Join Early Access"}
               </button>
             </form>
             <p className="text-xs beauty-text-muted mt-2">No spam. Early access only.</p>
             {waitlistSuccess && (
-              <p className="text-sm text-green-700 font-medium">You're on the list.</p>
+              <p className="text-sm text-green-700 font-medium">You&apos;re on the list.</p>
             )}
             {waitlistError && (
               <p className="text-sm text-red-600">{waitlistError}</p>

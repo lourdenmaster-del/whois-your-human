@@ -61,7 +61,7 @@ export default function MarketingHeader({
 
   useEffect(() => {
     if (assetsProp !== undefined) {
-      setAssets(assetsProp ?? null);
+      queueMicrotask(() => setAssets(assetsProp ?? null));
       return;
     }
     if (!primaryArchetype || typeof window === "undefined") return;

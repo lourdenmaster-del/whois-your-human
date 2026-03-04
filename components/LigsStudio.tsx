@@ -1594,7 +1594,7 @@ export default function LigsStudio() {
           <li><strong>Save</strong> — Exemplar Card (landing), Share Card, or Marketing Background</li>
         </ol>
         <p className="text-xs text-indigo-800 mt-2">
-          <strong>Where do I add glyph?</strong> For Ignispectrum, the glyph is added automatically in Compose. Set <code className="bg-indigo-100 px-1 rounded">primary_archetype: "Ignispectrum"</code> in VoiceProfile; the compose step uses <code className="bg-indigo-100 px-1 rounded">public/glyphs/ignis.svg</code> and places it in the center void. No manual glyph step.
+          <strong>Where do I add glyph?</strong> For Ignispectrum, the glyph is added automatically in Compose. Set <code className="bg-indigo-100 px-1 rounded">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses <code className="bg-indigo-100 px-1 rounded">public/glyphs/ignis.svg</code> and places it in the center void. No manual glyph step.
         </p>
       </div>
       <div className="mb-4 p-3 rounded border border-gray-300 bg-gray-50 space-y-2">
