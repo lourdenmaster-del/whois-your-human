@@ -261,7 +261,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
             {/* Hero text — above watermark (z-2 so above watermark + scrim) */}
             <div className="relative" style={{ zIndex: 2 }}>
             <h1
-              className={`${headingClass} mb-6 hero-headline`}
+              className={`${headingClass} mb-2 hero-headline`}
               style={{ letterSpacing: "0.02em" }}
             >
               <a
@@ -273,6 +273,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
                 (L)igs
               </a>
             </h1>
+            <p className="text-xl sm:text-2xl font-medium tracking-wide beauty-heading text-[var(--beauty-text,#0d0b10)] mb-6 max-w-xl mx-auto">
+              (L)igs — The physics of you.
+            </p>
             <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
               A new scientific framework exploring how physical forces present at
               birth shape identity.
@@ -501,26 +504,31 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
 
       {/* Footer */}
       <footer className={sectionClass}>
-        <div className="max-w-3xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
-          <a
-            href="https://ligs.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={`text-xs ${mutedClass} uppercase tracking-widest font-medium hover:opacity-80 transition-colors`}
-            style={{ letterSpacing: "0.2em" }}
-          >
-            LIGS — Light Identity System
-          </a>
-          <p className={`text-xs ${mutedClass} font-light`}>
-            A scientific identity framework ·{" "}
+        <div className="max-w-3xl mx-auto flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <a
               href="https://ligs.io"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#7A4FFF]/80 hover:text-[#7A4FFF] transition-colors"
+              className={`text-xs ${mutedClass} uppercase tracking-widest font-medium hover:opacity-80 transition-colors`}
+              style={{ letterSpacing: "0.2em" }}
             >
-              ligs.io
+              LIGS — Light Identity System
             </a>
+            <p className={`text-xs ${mutedClass} font-light`}>
+              A scientific identity framework ·{" "}
+              <a
+                href="https://ligs.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#7A4FFF]/80 hover:text-[#7A4FFF] transition-colors"
+              >
+                ligs.io
+              </a>
+            </p>
+          </div>
+          <p className={`text-xs ${mutedClass} font-light text-center`}>
+            (L)igs — Helping Humans Integrate Since 2026
           </p>
         </div>
       </footer>
