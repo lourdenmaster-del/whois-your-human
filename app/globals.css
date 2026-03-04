@@ -88,6 +88,7 @@ body {
   --beauty-line: rgba(255, 255, 255, 0.4);
 }
 
+/* APPROVED LANDING — DO NOT MODIFY WITHOUT EXPLICIT APPROVAL. */
 /* Origin landing — dark texture bg; use --text-on-dark for all text (Option 1) */
 .origin-landing {
   color: var(--text-on-dark) !important;

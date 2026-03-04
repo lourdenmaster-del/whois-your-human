@@ -1,5 +1,6 @@
 "use client";
 
+/* APPROVED LANDING — DO NOT MODIFY WITHOUT EXPLICIT APPROVAL. */
 /* DO NOT REFORMAT. Copy/spacing sensitive. */
 
 import { useEffect, useState, useCallback } from "react";

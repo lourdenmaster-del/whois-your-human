@@ -1,3 +1,4 @@
+/* APPROVED LANDING — DO NOT MODIFY WITHOUT EXPLICIT APPROVAL. */
 import BeautyLandingClient from "@/app/beauty/BeautyLandingClient";
 import { getExemplarManifestsServer } from "@/lib/exemplar-store";
 
