@@ -308,13 +308,22 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         <div className="max-w-3xl mx-auto">
           <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center">
             <div className="flex-shrink-0 w-full md:max-w-sm">
-              <div className="aspect-[4/3] overflow-hidden rounded-lg border border-[var(--beauty-line,#e8e4e8)] bg-[#0A0F1C]/5">
+              <div className="aspect-[4/3] overflow-hidden rounded-lg border border-[var(--beauty-line,#e8e4e8)] bg-[#0A0F1C]/5 relative">
                 {ignisImageUrl ? (
-                  <img
-                    src={ignisImageUrl}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    <img
+                      src={ignisImageUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                    <img
+                      src="/glyphs/ignis.svg"
+                      alt=""
+                      aria-hidden
+                      className="absolute left-1/2 top-1/2 w-[45%] h-auto pointer-events-none select-none -translate-x-1/2 -translate-y-1/2"
+                      style={{ opacity: 0.16, filter: "brightness(0) invert(1)" }}
+                    />
+                  </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center beauty-text-muted text-sm">—</div>
                 )}
