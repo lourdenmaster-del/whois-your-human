@@ -61,7 +61,7 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
                 alt=""
                 aria-hidden
                 className="absolute left-1/2 top-1/2 w-[45%] h-auto pointer-events-none select-none -translate-x-1/2 -translate-y-1/2"
-                style={{ opacity: 0.16, filter: "brightness(0) invert(1)" }}
+                style={{ opacity: 0.14 }}
               />
             )}
           </>
