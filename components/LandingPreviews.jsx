@@ -67,16 +67,23 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
             )}
           </>
         )}
-        {showLockedBlur && !showPlaceholder && (
+        {showLockedBlur && (
           <div
-            className="absolute left-1/2 top-1/2 flex items-center justify-center locked-blur-overlay"
+            className="locked-blur-overlay"
             style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
               transform: "translate(-50%, -50%)",
               width: "72%",
               height: "44%",
               maxWidth: "95%",
               maxHeight: "95%",
               borderRadius: "9999px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 10,
               backdropFilter: "blur(10px)",
               WebkitBackdropFilter: "blur(10px)",
               background: "rgba(0,0,0,0.18)",

@@ -143,6 +143,12 @@ body {
   text-shadow: none;
 }
 
+/* Locked exemplar blur overlay — pill-shaped "Unlocking" label. iOS Safari: -webkit-backdrop-filter. */
+.locked-blur-overlay {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
 /* Ignis glyph overlay — centered on IGNISPECTRUM imagery (layerable <img). Low opacity for v1 card (already has glyph). */
 .ignis-glyph-overlay {
   position: absolute;
