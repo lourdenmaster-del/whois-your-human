@@ -54,8 +54,6 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
             <img
               src={imageUrl}
               alt=""
-              width={1024}
-              height={1024}
               className="relative z-[1] w-full h-full object-cover"
               onError={handleError}
             />
@@ -120,8 +118,8 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
           </ul>
         )}
         {staticGrid ? (
-          <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF]/70 font-medium">
-            UNLOCKING SOON
+          <p className="mt-3 text-xs text-[#7A4FFF]/70 font-medium">
+            {isHighlighted ? "IGNISPECTRUM unlocking soon" : "Unlocking soon"}
           </p>
         ) : (
           <p className="mt-3 text-xs text-[#7A4FFF]/80 font-medium">
@@ -189,7 +187,7 @@ export default function LandingPreviews({
     : manifestsByArchetypeState;
 
   useEffect(() => {
-    if (!staticGrid) queueMicrotask(() => setSelectedCard(null));
+    if (!staticGrid) setSelectedCard(null);
   }, [clearSelectionTrigger, staticGrid]);
 
   useEffect(() => {
