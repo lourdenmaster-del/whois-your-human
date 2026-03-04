@@ -376,6 +376,14 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑04 (Landing locked)
+
+**Landing lock:** `.cursor/rules/landing-lock.mdc` — always-applied rule forbids edits to BeautyLandingClient, LandingPreviews, origin page/layout, and origin styles in globals.css without explicit user approval. No reformatting, refactoring, or auto-fixing. Source files carry `DO NOT REFORMAT OR REFACTOR` comments.
+
+## Verification Log – 2026‑03‑04 (Finish repo hygiene)
+
+**Root fallback:** Restored `app/page.tsx` — redirects `/` to `/origin` if middleware bypassed. **TypeScript:** Fixed NODE_ENV assignment (cast `process.env` in tests); fixed regex `s` flag in glyphField.test (use `[\s\S]` instead). **Lint:** Renamed `useBlob` → `isBlobEnabled` in exemplar-store, keeper-manifest, idempotency-store, report-store, beauty-profile-store; fixed MarketingHeader setLoadingVisuals queueMicrotask. `npx tsc --noEmit`, `npm run build`, `npm run lint` all pass.
+
 ## Verification Log – 2026‑03‑04 (Production hygiene pass)
 
 **Build/lint:** Fixed prefer-const (engine, exemplars/generate, triangulatePrompt); react/no-unescaped-entities (not-found, BeautyLandingClient, LigsStudio); set-state-in-effect (success, LandingPreviews, MarketingHeader) via queueMicrotask defer. **Cleanup:** Removed redundant app/page.tsx (middleware rewrite handles /→/origin). **Perf:** Added width/height (1024×1024) to Ignis hero img and ExemplarSlot imgs to prevent layout shift. **Origin:** No SSR Blob fetch; client fetches exemplars; IGNIS_LANDING_URL single source of truth; glyph overlay + locked-blur intact.
