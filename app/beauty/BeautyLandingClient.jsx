@@ -274,14 +274,13 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
               </a>
             </h1>
             <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
-              A new scientific field for understanding how physical forces shape
-              identity.
+              A new scientific framework exploring how physical forces present at
+              birth shape identity.
             </p>
             <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
-              Your biology, your behavior, and your inner architecture are not
-              random. They are the result of visible and invisible forces that
-              imprint a unique Light Signature at birth — a pattern that stays with
-              you for life.
+              Your biology, behavior, and inner architecture are not random.
+              They emerge from physical forces present at birth that imprint a
+              unique Light Signature — a pattern that stays with you for life.
             </p>
             <p className={`${textClass} max-w-xl mx-auto mb-6 hero-subhead`}>
               LIGS reveals that pattern. The Light Identity Report interprets it.
@@ -293,6 +292,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
             >
               Begin your Light Identity Report →
             </button>
+            <p className={`${textClass} mt-3 text-sm opacity-90 max-w-xl mx-auto`}>
+              Discover the pattern written into your birth moment.
+            </p>
             </div>
           </div>
         </div>
@@ -336,7 +338,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
                 </li>
                 <li className="flex gap-3">
                   <span className="text-[#7A4FFF] font-medium">•</span>
-                  <span>Shareable artifact card, 3 signature images, and full narrative report — yours to keep.</span>
+                  <span>A shareable artifact card, three signature images, and a full narrative report — yours to keep.</span>
                 </li>
               </ul>
             </div>
@@ -350,6 +352,11 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
           <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
             {WAITLIST_ONLY ? "Join Early Access" : "Get your Light Signature"}
           </h2>
+          {WAITLIST_ONLY && (
+            <p className={`${textClass} text-center`}>
+              Be among the first to discover your Light Identity.
+            </p>
+          )}
 
           {/* Early Access waitlist — always shown, prominent when WAITLIST_ONLY */}
           <div className={`max-w-md mx-auto ${WAITLIST_ONLY ? "space-y-4" : "space-y-3"}`}>
