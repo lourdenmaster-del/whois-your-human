@@ -279,7 +279,10 @@ export async function POST(req: Request) {
     try {
       const result = await renderStaticCardOverlay(overlaySpec, backgroundBuffer, {
         size: 1024,
-        logoBuffer: overlaySpec.markType === "archetype" ? null : logoBuffer,
+        logoBuffer:
+          ("markType" in overlaySpec && (overlaySpec as any).markType === "archetype")
+            ? null
+            : logoBuffer,
       });
       pngBuffer = result.buffer;
     } catch (e) {
