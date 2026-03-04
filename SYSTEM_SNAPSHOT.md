@@ -376,9 +376,9 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
-## Verification Log – 2026‑03‑02 (Ignis landing key: marketingBackground)
+## Verification Log – 2026‑03‑02 (Ignis: marketingBackground only + glyph overlay)
 
-**Ignis landing uses marketing_background, not exemplar_card:** (1) `lib/ignis-landing.ts`: `getIgnisLandingUrl(urls)` resolves from `marketingBackground` > `shareCard`; never `exemplarCard` (composed placeholder look). Guard: reject `/exemplars/ignispectrum.png` and any URL ending in `/exemplar_card.png`. (2) `GET /api/exemplars`: Fallback manifest uses `marketingBackground` when Blob unavailable. (3) Hero + Examples grid: both use `getIgnisLandingUrl` — same resolved Ignis URL, no flicker. View-source: Ignis `img src` points to marketing_background or share_card blob URL, never exemplar_card.png or static placeholder.
+**Ignis landing: raw field + live glyph:** (1) `lib/ignis-landing.ts`: `getIgnisLandingUrl` uses **only** `marketingBackground` (v2, then v1). Never `exemplarCard` or `shareCard` (both identical composed card). Guard: reject `/exemplars/ignispectrum.png`, `/exemplar_card.png`, `/share_card.png`. (2) Hero + Examples: same `marketingBackground` URL; glyph overlay via `<img src="/glyphs/ignis.svg" className="ignis-glyph-overlay" />` (transparent SVG, `currentColor`, CSS `filter: brightness(0) invert(1)` for white on dark). (3) View-source: Ignis `img src` = `.../marketing_background.png`; no flicker; no exemplar_card/share_card.
 
 ## Verification Log – 2026‑03‑02 (Ignis placeholder fix)
 

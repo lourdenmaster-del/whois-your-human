@@ -1,7 +1,7 @@
 /**
  * GET /api/exemplars?version=v1
  * Returns list of exemplar manifests. For Ignis: ALWAYS loads v2 (ligs-exemplars/Ignispectrum/v2/manifest.json).
- * Ignis landing uses urls.marketingBackground (or shareCard), NOT exemplarCard (composed placeholder).
+ * Ignis landing uses urls.marketingBackground only (raw DALL·E field). Never exemplarCard/shareCard (composed).
  * When Blob manifest cannot be read: injects manifest with marketingBackground = env URL if set.
  */
 

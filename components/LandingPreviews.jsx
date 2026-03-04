@@ -262,8 +262,8 @@ export default function LandingPreviews({
                   ignisNoRealImage = true;
                 }
                 if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-                  if (ignisUrl) console.log("[IGNIS] Using landing image (marketingBackground/shareCard):", ignisUrl);
-                  else console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground/shareCard and env");
+                  if (ignisUrl) console.log("[IGNIS] Using landing image (marketingBackground):", ignisUrl);
+                  else console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground and env");
                 }
                 if (imageUrl && !imageUrl.includes("data:")) {
                   imageUrl = `${imageUrl}?${ignisCacheBust.current}`;

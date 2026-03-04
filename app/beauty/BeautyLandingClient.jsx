@@ -98,9 +98,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         const urls = ignis?.urls ?? {};
         const card = getIgnisLandingUrl(urls, envFallbackUrl);
         if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-          if (card) console.log("[IGNIS] Using landing image (marketingBackground/shareCard):", card);
+          if (card) console.log("[IGNIS] Using landing image (marketingBackground):", card);
           else
-            console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground/shareCard and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
+            console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
         }
         setIgnisImageUrl(card);
       })
