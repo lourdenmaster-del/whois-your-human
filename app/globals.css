@@ -158,7 +158,8 @@ body {
   height: auto;
   pointer-events: none;
   z-index: 20;
-  opacity: 0.20;
+  opacity: 0.38;
+  filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.25));
 }
 
 /* Hero panel — logo watermark behind text; text uses --text-on-dark */
