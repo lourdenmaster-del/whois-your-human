@@ -227,8 +227,14 @@ export default function LandingPreviews({
                 if (isPlaceholder) {
                   const override = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
                   if (override) imageUrl = override;
-                  else if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-                    console.warn("[IGNIS] Anti-placeholder: using static fallback. Set NEXT_PUBLIC_IGNIS_EXEMPLAR_URL for real imagery.");
+                }
+                const isBlob = imageUrl.startsWith("https://") && imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+                const isStaticPlaceholder = imageUrl === placeholderPath || (imageUrl.includes("/exemplars/") && imageUrl.includes("ignispectrum"));
+                if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+                  if (isBlob) {
+                    console.log("[IGNIS] Using BLOB exemplar v2:", imageUrl);
+                  } else if (isStaticPlaceholder) {
+                    console.warn("[IGNIS] Using STATIC placeholder fallback: /exemplars/ignispectrum.png");
                   }
                 }
                 if (imageUrl && !imageUrl.includes("data:")) {

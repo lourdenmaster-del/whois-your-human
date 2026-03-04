@@ -25,7 +25,7 @@ export function exemplarManifestPath(archetype: string, version: string): string
   return `${BLOB_EXEMPLARS_PREFIX}${archetype}/${version}/manifest.json`;
 }
 
-/** Archetypes that prefer a newer version when available. Used to roll out v2 for Ignis without overwriting v1. */
+/** Archetypes that prefer a newer version when available. Ignis always uses v2 (ligs-exemplars/Ignispectrum/v2/manifest.json) even when version=v1 is requested. */
 export const PREFERRED_ARCHETYPE_VERSIONS: Record<string, string> = {
   Ignispectrum: "v2",
 };

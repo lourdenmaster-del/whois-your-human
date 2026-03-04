@@ -96,8 +96,14 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         if (isPlaceholder) {
           const override = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
           if (override) card = override;
-          else if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-            console.warn("[IGNIS] Anti-placeholder: using static fallback. Set NEXT_PUBLIC_IGNIS_EXEMPLAR_URL for real imagery.");
+        }
+        const isBlob = card.startsWith("https://") && card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+        const isStaticPlaceholder = card === `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png` || (card.includes("/exemplars/") && card.includes("ignispectrum"));
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+          if (isBlob) {
+            console.log("[IGNIS] Using BLOB exemplar v2:", card);
+          } else if (isStaticPlaceholder) {
+            console.warn("[IGNIS] Using STATIC placeholder fallback: /exemplars/ignispectrum.png");
           }
         }
         setIgnisImageUrl(card);
