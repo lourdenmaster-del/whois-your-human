@@ -376,6 +376,18 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑04 (Ignis glyph overlay)
+
+**Glyph overlay:** `.ignis-glyph-overlay` in globals.css — position: absolute; inset: 0; margin: auto; width: 40%; opacity: 0.20; z-index: 20. Hero tile + Examples grid Ignis tile both layer `/glyphs/ignis.svg` above base image. No filter; SVG stays transparent.
+
+## Verification Log – 2026‑03‑04 (Hydration mismatch fixes)
+
+**"missing required error components, refreshing" fix:** Moved `window.location` / `getDryRunFromUrl()` / `getTestModeFromUrl()` from render to `useEffect` in BeautyLandingClient, beauty/start, BeautyViewClient. SSR/client now match on first paint; URL flags applied after mount. Added `dev:no-overlay` script (NEXT_DISABLE_ERROR_OVERLAY=1) for diagnosis.
+
+## Verification Log – 2026‑03‑04 (Origin 500 fix)
+
+**Internal server error:** Removed `getExemplarManifestsServer` call from `/origin` page. Page is now sync; client fetches exemplars via `/api/exemplars`. Avoids 500 when Blob/network fails during SSR. Ignis still uses `IGNIS_LANDING_URL`; grid uses client-fetched manifests or static fallbacks.
+
 ## Verification Log – 2026‑03‑04 (Lock Ignis v1 + restore locked blur overlays)
 
 **Ignis:** Hero and Examples use `IGNIS_LANDING_URL` (v1 exemplar_card); no API override. **Blur overlays:** Locked cards (non-Ignis in static grid) show pill-shaped "Unlocking" overlay with backdrop-filter; z-index 10 above image; `.locked-blur-overlay` in globals.css with `-webkit-backdrop-filter` for iOS Safari. Overlay shows on all locked cards (including placeholder).

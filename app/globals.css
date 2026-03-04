@@ -149,19 +149,16 @@ body {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* Ignis glyph overlay — centered on IGNISPECTRUM imagery (layerable <img). Low opacity for v1 card (already has glyph). */
+/* Ignis glyph overlay — floats above Ignis card image. SVG stays transparent. */
 .ignis-glyph-overlay {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 45%;
+  inset: 0;
+  margin: auto;
+  width: 40%;
   height: auto;
-  opacity: 0.06;
   pointer-events: none;
-  z-index: 2;
-  /* Glyph uses currentColor (black); invert so it appears white on dark imagery */
-  filter: brightness(0) invert(1);
+  z-index: 20;
+  opacity: 0.20;
 }
 
 /* Hero panel — logo watermark behind text; text uses --text-on-dark */
