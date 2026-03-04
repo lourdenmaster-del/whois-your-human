@@ -44,7 +44,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 |------|------|--------|
 | `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308). Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
-| `app/page.tsx` | Server | Fallback redirect to `/origin` (middleware handles first) |
+| — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
 | `app/globals.css` | Global styles | Tailwind + app CSS |
 
@@ -375,6 +375,10 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑04 (Final people-proof polish)
+
+**Root 200:** Deleted `app/page.tsx`; middleware rewrite serves /origin for `/` (200, no redirect). **Health marker:** Simplified to `<!-- ORIGIN_LANDING: v1 53ec531 -->` in origin source (template element). **Background:** Compressed `ligs-landing-bg.png` 2.1MB → 434KB (sharp, same 1024×1024 dimensions).
 
 ## Verification Log – 2026‑03‑04 (Production hardening pass)
 
