@@ -95,7 +95,7 @@ export function getStorageInfo(): {
   fetchHint: string;
   inMemoryCount: number;
 } {
-  const useBlobStorage = useBlob();
+  const useBlobStorage = isBlobEnabled();
   return {
     storage: useBlobStorage ? "blob" : "memory",
     blobPathnamePattern: useBlobStorage ? `${BLOB_PREFIX}{reportId}.json` : "",
@@ -106,21 +106,21 @@ export function getStorageInfo(): {
 
 /** For debug: list Blob pathnames when using Blob (so we can show where reports are). */
 export async function listBlobReportPathnames(): Promise<string[]> {
-  if (!useBlob()) return [];
+  if (!isBlobEnabled()) return [];
   const { blobs } = await list({ prefix: BLOB_PREFIX, limit: 20 });
   return blobs.map((b) => b.pathname);
 }
 
 /** List Beauty Profile pathnames in Blob (ligs-beauty/{reportId}.json). */
 export async function listBlobBeautyPathnames(): Promise<string[]> {
-  if (!useBlob()) return [];
+  if (!isBlobEnabled()) return [];
   const { blobs } = await list({ prefix: BLOB_BEAUTY_PREFIX, limit: 50 });
   return blobs.map((b) => b.pathname);
 }
 
 /** List Beauty Profiles with upload metadata, sorted by most recent first. */
 export async function listBlobBeautyProfilesSorted(limit = 20): Promise<Array<{ pathname: string; uploadedAt?: Date }>> {
-  if (!useBlob()) return [];
+  if (!isBlobEnabled()) return [];
   const { blobs } = await list({ prefix: BLOB_BEAUTY_PREFIX, limit: 50 });
   const withMeta = blobs.map((b) => ({
     pathname: b.pathname,
@@ -136,11 +136,11 @@ export async function listBlobBeautyProfilesSorted(limit = 20): Promise<Array<{ 
 
 /** For debug: list in-memory report IDs when not using Blob. */
 export function getMemoryReportIds(): string[] {
-  if (useBlob()) return [];
+  if (isBlobEnabled()) return [];
   return Array.from(memoryStore.keys());
 }
 
-function useBlob(): boolean {
+function isBlobEnabled(): boolean {
   return (
     allowBlobWrites &&
     typeof process.env.BLOB_READ_WRITE_TOKEN === "string" &&
@@ -158,7 +158,7 @@ export async function saveReport(
     createdAt: Date.now(),
   };
 
-  if (useBlob()) {
+  if (isBlobEnabled()) {
     const blobKey = reportBlobPathname(reportId);
     try {
       const putResult = await put(blobKey, JSON.stringify(payload), {
@@ -225,7 +225,7 @@ export async function saveReportAndConfirm(
     createdAt: Date.now(),
   };
 
-  if (!useBlob()) {
+  if (!isBlobEnabled()) {
     memoryStore.set(reportId, payload);
     const verified = memoryStore.get(reportId);
     if (verified && verified.full_report === payload.full_report) {
@@ -360,7 +360,7 @@ export async function saveReportAndConfirm(
 }
 
 export async function getReport(reportId: string): Promise<StoredReport | undefined> {
-  if (useBlob()) {
+  if (isBlobEnabled()) {
     const pathname = reportBlobPathname(reportId);
     try {
       const meta = await head(pathname);
@@ -381,7 +381,7 @@ export async function getReport(reportId: string): Promise<StoredReport | undefi
  * will return 404 in that configuration.
  */
 export async function saveBeautyProfile(reportId: string, profile: BeautyProfile): Promise<void> {
-  if (!useBlob()) return;
+  if (!isBlobEnabled()) return;
   const pathname = `${BLOB_BEAUTY_PREFIX}${reportId}.json`;
   await put(pathname, JSON.stringify(profile), {
     access: "public",
@@ -392,7 +392,7 @@ export async function saveBeautyProfile(reportId: string, profile: BeautyProfile
 
 /** Get E.V.E. Beauty Profile from Blob by reportId. */
 export async function getBeautyProfile(reportId: string): Promise<BeautyProfile | undefined> {
-  if (!useBlob()) return undefined;
+  if (!isBlobEnabled()) return undefined;
   const pathname = `${BLOB_BEAUTY_PREFIX}${reportId}.json`;
   try {
     const meta = await head(pathname);
@@ -407,7 +407,7 @@ export async function getBeautyProfile(reportId: string): Promise<BeautyProfile 
 
 /** Get stored image URL from Blob if it exists (reportId + slug). */
 export async function getImageUrlFromBlob(reportId: string, slug: string): Promise<string | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   for (const ext of ["png", "jpg"]) {
     const pathname = `${BLOB_IMAGES_PREFIX}${reportId}/${slug}.${ext}`;
     try {
@@ -427,7 +427,7 @@ export async function saveImageToBlob(
   imageBuffer: ArrayBuffer,
   contentType: string = "image/png"
 ): Promise<string | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   const ext = contentType.includes("png") ? "png" : "jpg";
   const pathname = `${BLOB_IMAGES_PREFIX}${reportId}/${slug}.${ext}`;
   const blob = await put(pathname, imageBuffer, {

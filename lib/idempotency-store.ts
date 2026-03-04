@@ -33,7 +33,7 @@ export function deriveIdempotencyKey(base: string, suffix: string): string {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
 }
 
-function useBlob(): boolean {
+function isBlobEnabled(): boolean {
   return (
     allowBlobWrites &&
     typeof process.env.BLOB_READ_WRITE_TOKEN === "string" &&
@@ -58,7 +58,7 @@ export async function getIdempotentResult<T = unknown>(
 ): Promise<T | null> {
   const pathname = blobPathname(route, key);
 
-  if (!useBlob()) {
+  if (!isBlobEnabled()) {
     const mem = memoryStore.get(pathname);
     return mem != null ? (mem as T) : null;
   }
@@ -86,7 +86,7 @@ export async function setIdempotentResult(
 ): Promise<void> {
   const pathname = blobPathname(route, key);
 
-  if (!useBlob()) {
+  if (!isBlobEnabled()) {
     memoryStore.set(pathname, payload);
     return;
   }

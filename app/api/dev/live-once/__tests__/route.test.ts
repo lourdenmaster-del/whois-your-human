@@ -23,24 +23,26 @@ const validBody = {
   email: "test@example.com",
 };
 
+const env = process.env as Record<string, string | undefined>;
+
 describe("POST /api/dev/live-once", () => {
   const originalEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = "development";
+    env.NODE_ENV = "development";
     vi.stubGlobal("fetch", mockFetch);
     // Reset module-level used by re-importing — but vitest caches modules.
     // We'll test 429 by calling twice; the first successful call sets used=true.
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    env.NODE_ENV = originalEnv;
     vi.unstubAllGlobals();
   });
 
   it("returns 403 when NODE_ENV is production", async () => {
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
 
     const res = await POST(jsonRequest(validBody));
 

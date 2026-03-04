@@ -97,7 +97,7 @@ describe("buildGlyphFieldPrompt", () => {
       ["Tenebris", t],
     ] as const) {
       expect(p.split("\n\n")).toHaveLength(2);
-      expect(p).toMatch(/SECTION 1.*SECTION 2/s);
+      expect(p).toMatch(/SECTION 1[\s\S]*SECTION 2/);
       if (process.env.DUMP_GLYPH_EXAMPLES) {
         console.log(`\n=== ${name} ===\n${p}\n`);
       }

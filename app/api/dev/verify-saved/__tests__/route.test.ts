@@ -21,21 +21,23 @@ function jsonRequest(body: unknown) {
   });
 }
 
+const env = process.env as Record<string, string | undefined>;
+
 describe("POST /api/dev/verify-saved", () => {
   const originalEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = "development";
+    env.NODE_ENV = "development";
     mockGetStorageInfo.mockReturnValue({ storage: "blob" });
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    env.NODE_ENV = originalEnv;
   });
 
   it("returns 403 when NODE_ENV is production", async () => {
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
 
     const res = await POST(jsonRequest({ reportId: "abc-123" }));
 

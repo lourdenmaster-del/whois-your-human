@@ -29,6 +29,8 @@ function jsonRequest(body: unknown) {
   });
 }
 
+const env = process.env as Record<string, string | undefined>;
+
 describe("POST /api/engine/generate", () => {
   const originalEnv = process.env.NODE_ENV;
   const originalDebug = process.env.DEBUG_PERSISTENCE;
@@ -89,13 +91,13 @@ describe("POST /api/engine/generate", () => {
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalEnv;
+    env.NODE_ENV = originalEnv;
     if (originalDebug !== undefined) process.env.DEBUG_PERSISTENCE = originalDebug;
     else delete process.env.DEBUG_PERSISTENCE;
   });
 
   it("returns 200 with full_report and warning when storage fails and DEBUG_PERSISTENCE=1", async () => {
-    process.env.NODE_ENV = "development";
+    env.NODE_ENV = "development";
     process.env.DEBUG_PERSISTENCE = "1";
     process.env.OPENAI_API_KEY = "sk-test";
     mockSaveReportAndConfirm.mockResolvedValueOnce({
@@ -124,7 +126,7 @@ describe("POST /api/engine/generate", () => {
   });
 
   it("returns 200 with fallback when storage fails in development (no DEBUG_PERSISTENCE)", async () => {
-    process.env.NODE_ENV = "development";
+    env.NODE_ENV = "development";
     delete process.env.DEBUG_PERSISTENCE;
     process.env.OPENAI_API_KEY = "sk-test";
     mockSaveReportAndConfirm.mockResolvedValueOnce({
@@ -149,7 +151,7 @@ describe("POST /api/engine/generate", () => {
   });
 
   it("runs constraint gate repair when full_report contains forbidden term (chakra)", async () => {
-    process.env.NODE_ENV = "development";
+    env.NODE_ENV = "development";
     process.env.OPENAI_API_KEY = "sk-test";
     mockSaveReportAndConfirm.mockResolvedValue({ ok: true });
     mockOpenAICreate.mockReset();
@@ -235,7 +237,7 @@ describe("POST /api/engine/generate", () => {
   });
 
   it("returns 503 when storage fails in production without DEBUG_PERSISTENCE", async () => {
-    process.env.NODE_ENV = "production";
+    env.NODE_ENV = "production";
     delete process.env.DEBUG_PERSISTENCE;
     process.env.OPENAI_API_KEY = "sk-test";
     mockSaveReportAndConfirm.mockResolvedValueOnce({

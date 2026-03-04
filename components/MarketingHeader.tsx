@@ -66,7 +66,7 @@ export default function MarketingHeader({
     }
     if (!primaryArchetype || typeof window === "undefined") return;
 
-    setLoadingVisuals(true);
+    queueMicrotask(() => setLoadingVisuals(true));
     fetch("/api/marketing/visuals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

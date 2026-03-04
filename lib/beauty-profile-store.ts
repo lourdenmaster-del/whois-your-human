@@ -5,7 +5,7 @@ import type { BeautyProfileV1 } from "@/lib/beauty-profile-schema";
 import { log } from "@/lib/log";
 import { BLOB_BEAUTY_PREFIX } from "@/lib/report-store";
 
-function useBlob(): boolean {
+function isBlobEnabled(): boolean {
   return typeof process.env.BLOB_READ_WRITE_TOKEN === "string" && process.env.BLOB_READ_WRITE_TOKEN.length > 0;
 }
 
@@ -19,7 +19,7 @@ export async function saveBeautyProfileV1(
     log("info", "beauty_profile_save_skipped_blob_disabled", { requestId, reportId });
     return;
   }
-  if (!useBlob()) {
+  if (!isBlobEnabled()) {
     throw new Error("BEAUTY_PROFILE_WRITE_FAILED");
   }
   const pathname = `${BLOB_BEAUTY_PREFIX}${reportId}.json`;
@@ -41,7 +41,7 @@ export async function loadBeautyProfileV1(
   requestId: string
 ): Promise<BeautyProfileV1> {
   log("info", "beauty_profile_load_start", { requestId, reportId });
-  if (!useBlob()) {
+  if (!isBlobEnabled()) {
     throw new Error("BEAUTY_PROFILE_NOT_FOUND");
   }
   const pathname = `${BLOB_BEAUTY_PREFIX}${reportId}.json`;

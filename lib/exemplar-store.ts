@@ -9,7 +9,7 @@ import { log } from "./log";
 
 export const BLOB_EXEMPLARS_PREFIX = "ligs-exemplars/";
 
-function useBlob(): boolean {
+function isBlobEnabled(): boolean {
   return (
     allowBlobWrites &&
     typeof process.env.BLOB_READ_WRITE_TOKEN === "string" &&
@@ -50,7 +50,7 @@ export async function saveExemplarToBlob(
   imageBuffer: ArrayBuffer | Buffer,
   contentType: string = "image/png"
 ): Promise<string | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   const buf =
     imageBuffer instanceof Buffer
       ? imageBuffer
@@ -76,7 +76,7 @@ export async function saveExemplarManifest(
   pathname: string,
   manifest: unknown
 ): Promise<string | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   try {
     const blob = await put(pathname, JSON.stringify(manifest, null, 2), {
       access: "public",
@@ -95,7 +95,7 @@ export async function saveExemplarManifest(
 
 /** Get manifest URL from Blob head. Returns null if not found. */
 export async function getExemplarManifestUrl(pathname: string): Promise<string | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   try {
     const meta = await head(pathname);
     return meta.url;
@@ -106,7 +106,7 @@ export async function getExemplarManifestUrl(pathname: string): Promise<string |
 
 /** Load exemplar manifest JSON by pathname. Returns null if not found. */
 export async function loadExemplarManifest(pathname: string): Promise<unknown | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   try {
     const meta = await head(pathname);
     const res = await fetch(meta.url);

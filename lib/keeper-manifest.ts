@@ -50,7 +50,7 @@ export interface KeeperManifest {
   identitySpecVersion: string;
 }
 
-function useBlob(): boolean {
+function isBlobEnabled(): boolean {
   return (
     allowBlobWrites &&
     typeof process.env.BLOB_READ_WRITE_TOKEN === "string" &&
@@ -68,7 +68,7 @@ export async function saveKeeperManifest(
   manifest: KeeperManifest,
   dryRun = false
 ): Promise<string | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   const prefix = dryRun ? BLOB_KEEPERS_DRY_PREFIX : BLOB_KEEPERS_PREFIX;
   const pathname = `${prefix}${manifest.reportId}.json`;
   try {
@@ -93,7 +93,7 @@ export async function loadKeeperManifest(
   reportId: string,
   dry = false
 ): Promise<KeeperManifest | null> {
-  if (!useBlob()) return null;
+  if (!isBlobEnabled()) return null;
   const prefix = dry ? BLOB_KEEPERS_DRY_PREFIX : BLOB_KEEPERS_PREFIX;
   const pathname = `${prefix}${reportId}.json`;
   try {
