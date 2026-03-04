@@ -1,11 +1,18 @@
 /**
  * GET /api/exemplars?version=v1
  * Returns list of exemplar manifests for the given version (all 12 archetypes that exist).
+ * For Ignispectrum: when no Blob manifest exists, injects synthetic manifest with IGNIS_CANONICAL_FALLBACK.
  */
 
 import { NextResponse } from "next/server";
 import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
-import { exemplarManifestPath, loadExemplarManifest } from "@/lib/exemplar-store";
+import {
+  loadExemplarManifestWithPreferred,
+  IGNIS_CANONICAL_FALLBACK,
+  getPreferredExemplarVersion,
+} from "@/lib/exemplar-store";
+
+const IGNIS_ARCHETYPE = "Ignispectrum";
 
 export async function GET(req: Request) {
   const requestId = crypto.randomUUID();
@@ -14,12 +21,21 @@ export async function GET(req: Request) {
     const version = searchParams.get("version")?.trim() || "v1";
 
     const manifests: unknown[] = [];
+    let hasIgnis = false;
     for (const archetype of LIGS_ARCHETYPES) {
-      const pathname = exemplarManifestPath(archetype, version);
-      const manifest = await loadExemplarManifest(pathname);
+      const manifest = await loadExemplarManifestWithPreferred(archetype, version);
       if (manifest != null) {
         manifests.push(manifest);
+        if (archetype === IGNIS_ARCHETYPE) hasIgnis = true;
       }
+    }
+    if (!hasIgnis) {
+      const ignisVersion = getPreferredExemplarVersion(IGNIS_ARCHETYPE, version);
+      manifests.push({
+        archetype: IGNIS_ARCHETYPE,
+        version: ignisVersion,
+        urls: { exemplarCard: IGNIS_CANONICAL_FALLBACK, exemplar_card: IGNIS_CANONICAL_FALLBACK },
+      });
     }
 
     return NextResponse.json({

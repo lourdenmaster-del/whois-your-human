@@ -25,6 +25,20 @@ export function exemplarManifestPath(archetype: string, version: string): string
   return `${BLOB_EXEMPLARS_PREFIX}${archetype}/${version}/manifest.json`;
 }
 
+/** Archetypes that prefer a newer version when available. Used to roll out v2 for Ignis without overwriting v1. */
+export const PREFERRED_ARCHETYPE_VERSIONS: Record<string, string> = {
+  Ignispectrum: "v2",
+};
+
+/** Canonical Ignis exemplar URL when Blob manifest is missing. Set EXEMPLAR_IGNIS_CANONICAL_URL to override. */
+export const IGNIS_CANONICAL_FALLBACK =
+  process.env.EXEMPLAR_IGNIS_CANONICAL_URL || process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "/exemplars/ignispectrum.png";
+
+/** Resolve version to try: for archetypes in PREFERRED_ARCHETYPE_VERSIONS, prefer that; else use requested. */
+export function getPreferredExemplarVersion(archetype: string, requestedVersion: string): string {
+  return PREFERRED_ARCHETYPE_VERSIONS[archetype] ?? requestedVersion;
+}
+
 /** Save image buffer to exemplar Blob path. Returns public URL or null. */
 export async function saveExemplarToBlob(
   pathname: string,
@@ -97,4 +111,18 @@ export async function loadExemplarManifest(pathname: string): Promise<unknown | 
   } catch {
     return null;
   }
+}
+
+/** Load manifest for archetype, preferring PREFERRED_ARCHETYPE_VERSIONS when set. Tries preferred first, then requested. */
+export async function loadExemplarManifestWithPreferred(
+  archetype: string,
+  requestedVersion: string
+): Promise<unknown | null> {
+  const preferred = getPreferredExemplarVersion(archetype, requestedVersion);
+  const fromPreferred = await loadExemplarManifest(exemplarManifestPath(archetype, preferred));
+  if (fromPreferred != null) return fromPreferred;
+  if (preferred !== requestedVersion) {
+    return loadExemplarManifest(exemplarManifestPath(archetype, requestedVersion));
+  }
+  return null;
 }

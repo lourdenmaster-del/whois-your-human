@@ -221,8 +221,19 @@ export default function LandingPreviews({
               const shareCard = urls.shareCard ?? urls.share_card;
               const lightboxImages = [exemplarCard, marketingBackground, shareCard].filter(Boolean);
               let imageUrl = exemplarCard ?? `/exemplars/${archetype.toLowerCase()}.png`;
-              if (archetype === "Ignispectrum" && imageUrl && !imageUrl.includes("data:")) {
-                imageUrl = `${imageUrl}?${ignisCacheBust.current}`;
+              if (archetype === "Ignispectrum") {
+                const placeholderPath = `/exemplars/ignispectrum.png`;
+                const isPlaceholder = imageUrl === placeholderPath || (imageUrl.includes("/exemplars/") && imageUrl.includes("ignispectrum"));
+                if (isPlaceholder) {
+                  const override = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
+                  if (override) imageUrl = override;
+                  else if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+                    console.warn("[IGNIS] Anti-placeholder: using static fallback. Set NEXT_PUBLIC_IGNIS_EXEMPLAR_URL for real imagery.");
+                  }
+                }
+                if (imageUrl && !imageUrl.includes("data:")) {
+                  imageUrl = `${imageUrl}?${ignisCacheBust.current}`;
+                }
               }
               const descriptor = manifest?.marketingDescriptor ?? getMarketingDescriptor(archetype);
               return (

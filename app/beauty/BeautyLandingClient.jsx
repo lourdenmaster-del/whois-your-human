@@ -91,11 +91,21 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         const list = data.manifests ?? [];
         const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
         const urls = ignis?.urls ?? {};
-        const card = urls.exemplarCard ?? urls.exemplar_card;
-        setIgnisImageUrl(card ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`);
+        let card = urls.exemplarCard ?? urls.exemplar_card ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
+        const isPlaceholder = card === `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png` || (card.includes("/exemplars/") && card.includes("ignispectrum"));
+        if (isPlaceholder) {
+          const override = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
+          if (override) card = override;
+          else if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
+            console.warn("[IGNIS] Anti-placeholder: using static fallback. Set NEXT_PUBLIC_IGNIS_EXEMPLAR_URL for real imagery.");
+          }
+        }
+        setIgnisImageUrl(card);
       })
       .catch(() => {
-        if (!cancelled) setIgnisImageUrl(`/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`);
+        const fallback = (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL)
+          || `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
+        if (!cancelled) setIgnisImageUrl(fallback);
       });
     return () => { cancelled = true; };
   }, []);
