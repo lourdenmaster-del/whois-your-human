@@ -42,7 +42,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | Redirects `/` → `/origin`, `/beauty` and `/beauty/` → `/origin` (308 permanent). Matcher: `['/', '/beauty', '/beauty/']`. Does NOT redirect `/beauty/start`, `/beauty/view`, etc. |
+| `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308). Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | `app/page.tsx` | Server | Fallback redirect to `/origin` (middleware handles first) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -375,6 +375,10 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑04 (Production hardening pass)
+
+**Landing people-proof:** (1) No debug artifacts (BUILD_ID, LOGO DEBUG, deploy stamp, debug query strings). (2) Middleware: www→apex 308, / rewrite to /origin, /beauty→/origin 308; matcher includes `/` explicitly. (3) Health marker `<!-- ORIGIN_LANDING: v1 e1292a8 -->` in origin page source (hidden). (4) Watermark img: width/height 1086×724 for layout stability; aria-hidden, alt="". (5) CTA console.logs gated behind NODE_ENV development. (6) .origin-page-bg: fixed, inset:0, height:100dvh, no transform; mobile background-position 50% 20%. Assets: ligs-landing-bg.png 2.1MB, ligs-logo.jpeg 32KB; both in /public, return 200 on ligs.io.
 
 ## Verification Log – 2026‑03‑02 (iPhone Safari: pageBg layer + img watermark)
 

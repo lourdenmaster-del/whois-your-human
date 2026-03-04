@@ -161,7 +161,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   );
 
   const handleCtaPrimary = useCallback(async () => {
-    console.log("[CTA] clicked", { unlocked, TEST_MODE, formValid });
+    if (process.env.NODE_ENV === "development") console.log("[CTA] clicked", { unlocked, TEST_MODE, formValid });
     if (!formValid || !formData) return;
 
     if (unlocked || TEST_MODE) {
@@ -169,7 +169,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       return;
     }
     if (FAKE_PAY) {
-      console.log("FAKE PAY MODE – no charge made");
+      if (process.env.NODE_ENV === "development") console.log("FAKE PAY MODE – no charge made");
       setBeautyUnlocked();
       await runGenerate(formData);
       return;
@@ -185,7 +185,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         const prep = await prepurchaseBeautyDraft(formData);
         draftId = prep?.draftId ?? null;
       } catch (e) {
-        console.warn("[Prepurchase] server draft failed, using localStorage fallback:", e?.message);
+        if (process.env.NODE_ENV === "development") console.warn("[Prepurchase] server draft failed, using localStorage fallback:", e?.message);
       }
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
@@ -216,7 +216,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   }, [unlocked, formValid, formData, runGenerate]);
 
   const handleAlreadyPurchased = useCallback(() => {
-    console.log("[CTA] clicked", { unlocked, TEST_MODE, formValid });
+    if (process.env.NODE_ENV === "development") console.log("[CTA] clicked", { unlocked, TEST_MODE, formValid });
     if (unlocked || TEST_MODE) {
       const el = document.getElementById("form");
       el?.scrollIntoView({ behavior: "smooth" });
@@ -251,6 +251,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
             <img
               src="/ligs-logo.jpeg"
               alt=""
+              width={1086}
+              height={724}
               className="hero-watermark-img"
               loading="eager"
               decoding="async"
