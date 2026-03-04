@@ -9,6 +9,7 @@ import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, setBeautyDraft, sa
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
+import { getIgnisLandingUrl } from "@/lib/ignis-landing";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 
@@ -95,23 +96,13 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         setExemplarManifests(list);
         const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
         const urls = ignis?.urls ?? {};
-        let card = urls.exemplarCard ?? urls.exemplar_card ?? null;
-        const isPlaceholder =
-          !card || card === "" || card.includes("/exemplars/ignispectrum.png");
-        const isBlob =
-          card &&
-          card.startsWith("https://") &&
-          card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+        const card = getIgnisLandingUrl(urls, envFallbackUrl);
         if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-          if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", card);
-          else if (isPlaceholder && !envFallbackUrl)
-            console.warn("[IGNIS] NO REAL IMAGE - missing blob manifest and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
+          if (card) console.log("[IGNIS] Using landing image (marketingBackground/shareCard):", card);
+          else
+            console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground/shareCard and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
         }
-        if (isPlaceholder) {
-          if (envFallbackUrl) setIgnisImageUrl(envFallbackUrl);
-        } else {
-          setIgnisImageUrl(card);
-        }
+        setIgnisImageUrl(card);
       })
       .catch(() => {
         if (!cancelled) setIgnisImageUrl(envFallbackUrl);

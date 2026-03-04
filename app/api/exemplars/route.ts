@@ -1,8 +1,8 @@
 /**
  * GET /api/exemplars?version=v1
  * Returns list of exemplar manifests. For Ignis: ALWAYS loads v2 (ligs-exemplars/Ignispectrum/v2/manifest.json).
- * When Blob manifest cannot be read: uses EXEMPLAR_IGNIS_CANONICAL_URL or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL.
- * If neither env is set: returns null for Ignis exemplarCard (never the static placeholder).
+ * Ignis landing uses urls.marketingBackground (or shareCard), NOT exemplarCard (composed placeholder).
+ * When Blob manifest cannot be read: injects manifest with marketingBackground = env URL if set.
  */
 
 import { NextResponse } from "next/server";
@@ -44,8 +44,8 @@ export async function GET(req: Request) {
         archetype: IGNIS_ARCHETYPE,
         version: IGNIS_VERSION,
         urls: {
-          exemplarCard: IGNIS_CANONICAL_FALLBACK ?? undefined,
-          exemplar_card: IGNIS_CANONICAL_FALLBACK ?? undefined,
+          marketingBackground: IGNIS_CANONICAL_FALLBACK ?? undefined,
+          marketing_background: IGNIS_CANONICAL_FALLBACK ?? undefined,
         },
       });
     }

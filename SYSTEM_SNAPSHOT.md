@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑02 (Ignis landing key: marketingBackground)
+
+**Ignis landing uses marketing_background, not exemplar_card:** (1) `lib/ignis-landing.ts`: `getIgnisLandingUrl(urls)` resolves from `marketingBackground` > `shareCard`; never `exemplarCard` (composed placeholder look). Guard: reject `/exemplars/ignispectrum.png` and any URL ending in `/exemplar_card.png`. (2) `GET /api/exemplars`: Fallback manifest uses `marketingBackground` when Blob unavailable. (3) Hero + Examples grid: both use `getIgnisLandingUrl` — same resolved Ignis URL, no flicker. View-source: Ignis `img src` points to marketing_background or share_card blob URL, never exemplar_card.png or static placeholder.
+
 ## Verification Log – 2026‑03‑02 (Ignis placeholder fix)
 
 **Ignis never uses static placeholder:** (1) `lib/exemplar-store.ts`: `IGNIS_CANONICAL_FALLBACK` returns env URL or `null` (never `/exemplars/ignispectrum.png`). (2) `GET /api/exemplars`: When Blob manifest is unavailable, injects Ignis manifest with `exemplarCard` = env or `undefined` (never static path). (3) `BeautyLandingClient.jsx` hero tile: if resolved Ignis URL is missing or equals placeholder path, use `NEXT_PUBLIC_IGNIS_EXEMPLAR_URL` or keep empty-state (glyph overlay + dev-only badge "IGNIS NO REAL IMAGE"); never show dash when real URL available. (4) `LandingPreviews.jsx` ExemplarSlot: same anti-placeholder guard for Ignis tiles; `ignisNoRealImage` prop for glyph + dev badge when no real URL. Production must never show `/exemplars/ignispectrum.png` for Ignis.

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import { getIgnisLandingUrl } from "@/lib/ignis-landing";
 import PreviewCardModal from "./PreviewCardModal";
 
 /** Neutral placeholder block when no image available (avoids broken img). */
@@ -248,29 +249,21 @@ export default function LandingPreviews({
               const marketingBackground = urls.marketingBackground ?? urls.marketing_background;
               const shareCard = urls.shareCard ?? urls.share_card;
               const lightboxImages = [exemplarCard, marketingBackground, shareCard].filter(Boolean);
+              const envOverride =
+                (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL) || null;
               let imageUrl = exemplarCard ?? `/exemplars/${archetype.toLowerCase()}.png`;
               let ignisNoRealImage = false;
               if (archetype === "Ignispectrum") {
-                const envOverride =
-                  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL) || null;
-                const isPlaceholder =
-                  !imageUrl ||
-                  imageUrl === "" ||
-                  imageUrl.includes("/exemplars/ignispectrum.png");
-                const isBlob =
-                  imageUrl &&
-                  imageUrl.startsWith("https://") &&
-                  imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-                if (isPlaceholder && envOverride) {
-                  imageUrl = envOverride;
-                } else if (isPlaceholder) {
+                const ignisUrl = getIgnisLandingUrl(urls, envOverride);
+                if (ignisUrl) {
+                  imageUrl = ignisUrl;
+                } else {
                   imageUrl = null;
                   ignisNoRealImage = true;
                 }
                 if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-                  if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", imageUrl);
-                  else if (ignisNoRealImage)
-                    console.warn("[IGNIS] NO REAL IMAGE - missing blob manifest and NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
+                  if (ignisUrl) console.log("[IGNIS] Using landing image (marketingBackground/shareCard):", ignisUrl);
+                  else console.warn("[IGNIS] NO REAL IMAGE - missing marketingBackground/shareCard and env");
                 }
                 if (imageUrl && !imageUrl.includes("data:")) {
                   imageUrl = `${imageUrl}?${ignisCacheBust.current}`;
