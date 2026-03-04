@@ -143,6 +143,21 @@ body {
   text-shadow: none;
 }
 
+/* Ignis glyph overlay — centered on IGNISPECTRUM imagery (layerable <img>) */
+.ignis-glyph-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 45%;
+  height: auto;
+  opacity: 0.14;
+  pointer-events: none;
+  z-index: 2;
+  /* Glyph uses currentColor (black); invert so it appears white on dark imagery */
+  filter: brightness(0) invert(1);
+}
+
 /* Hero panel — logo watermark behind text; text uses --text-on-dark */
 .hero-panel {
   overflow: hidden;
