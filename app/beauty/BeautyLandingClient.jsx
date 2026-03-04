@@ -39,7 +39,9 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
   const [formData, setFormData] = useState(null);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const [ignisImageUrl, setIgnisImageUrl] = useState(null);
+  const envFallback = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
+  const [ignisImageUrl, setIgnisImageUrl] = useState(envFallback || "/exemplars/ignispectrum.png");
+  const [exemplarManifests, setExemplarManifests] = useState([]);
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistSuccess, setWaitlistSuccess] = useState(false);
@@ -89,29 +91,28 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
       .then((data) => {
         if (cancelled) return;
         const list = data.manifests ?? [];
+        setExemplarManifests(list);
         const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
         const urls = ignis?.urls ?? {};
-        let card = urls.exemplarCard ?? urls.exemplar_card ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
-        const isPlaceholder = card === `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png` || (card.includes("/exemplars/") && card.includes("ignispectrum"));
-        if (isPlaceholder) {
-          const override = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-          if (override) card = override;
-        }
-        const isBlob = card.startsWith("https://") && card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-        const isStaticPlaceholder = card === `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png` || (card.includes("/exemplars/") && card.includes("ignispectrum"));
+        let card = urls.exemplarCard ?? urls.exemplar_card ?? envFallback ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
+        const isBlob = card && card.startsWith("https://") && card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+        const isPlaceholder = !card || card.includes("/exemplars/ignispectrum.png");
         if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
           if (isBlob) {
             console.log("[IGNIS] Using BLOB exemplar v2:", card);
-          } else if (isStaticPlaceholder) {
-            console.warn("[IGNIS] Using STATIC placeholder fallback: /exemplars/ignispectrum.png");
+          } else if (isPlaceholder) {
+            console.warn("[IGNIS] PLACEHOLDER ACTIVE - missing blob manifest or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
           }
         }
-        setIgnisImageUrl(card);
+        if (isPlaceholder && envFallback) card = envFallback;
+        setIgnisImageUrl(card || envFallback || "/exemplars/ignispectrum.png");
       })
       .catch(() => {
-        const fallback = (typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL)
-          || `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
+        const fallback = envFallback || "/exemplars/ignispectrum.png";
         if (!cancelled) setIgnisImageUrl(fallback);
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !envFallback) {
+          console.warn("[IGNIS] PLACEHOLDER ACTIVE - missing blob manifest or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -504,6 +505,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false }) {
         variant="beauty"
         staticGrid={true}
         highlightArchetype="Ignispectrum"
+        manifests={exemplarManifests}
       />
 
       {/* Unlock teaser — hidden when WAITLIST_ONLY */}

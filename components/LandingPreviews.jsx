@@ -155,6 +155,7 @@ export default function LandingPreviews({
   variant = "dark", // "dark" | "beauty"
   staticGrid = false, // conversion MVP: non-interactive grid, no links, non-highlight opacity 0.6, "Unlocking Soon"
   highlightArchetype = "Ignispectrum", // full opacity in static mode
+  manifests: manifestsProp, // when provided (from BeautyLandingClient), use instead of fetching — ensures same Ignis URL
 }) {
   const isBeauty = variant === "beauty";
   const sectionBorder = isBeauty ? "border-[var(--beauty-line,#e8e4e8)]" : "border-[#0A0F1C]";
@@ -167,14 +168,24 @@ export default function LandingPreviews({
   // Static value to avoid hydration mismatch (server/client must match)
   const ignisCacheBust = useRef("v=ignis-glyph");
 
-  // Maps archetype -> manifest (from GET /api/exemplars)
-  const [manifestsByArchetype, setManifestsByArchetype] = useState({});
+  const [manifestsByArchetypeState, setManifestsByArchetypeState] = useState({});
+  const manifestsByArchetype = manifestsProp != null
+    ? (() => {
+        const map = {};
+        for (const m of manifestsProp) {
+          const a = m?.archetype;
+          if (a) map[a] = m;
+        }
+        return map;
+      })()
+    : manifestsByArchetypeState;
 
   useEffect(() => {
     if (!staticGrid) setSelectedCard(null);
   }, [clearSelectionTrigger, staticGrid]);
 
   useEffect(() => {
+    if (manifestsProp != null) return;
     let cancelled = false;
     async function loadExemplars() {
       try {
@@ -188,14 +199,14 @@ export default function LandingPreviews({
           const a = m.archetype;
           if (a) map[a] = m;
         }
-        if (!cancelled) setManifestsByArchetype(map);
+        if (!cancelled) setManifestsByArchetypeState(map);
       } catch {
         // leave empty map; slots use getMarketingDescriptor + fallback images
       }
     }
     loadExemplars();
     return () => { cancelled = true; };
-  }, [exemplarVersion]);
+  }, [exemplarVersion, manifestsProp]);
 
   return (
     <>
@@ -222,19 +233,16 @@ export default function LandingPreviews({
               const lightboxImages = [exemplarCard, marketingBackground, shareCard].filter(Boolean);
               let imageUrl = exemplarCard ?? `/exemplars/${archetype.toLowerCase()}.png`;
               if (archetype === "Ignispectrum") {
-                const placeholderPath = `/exemplars/ignispectrum.png`;
-                const isPlaceholder = imageUrl === placeholderPath || (imageUrl.includes("/exemplars/") && imageUrl.includes("ignispectrum"));
-                if (isPlaceholder) {
-                  const override = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-                  if (override) imageUrl = override;
-                }
-                const isBlob = imageUrl.startsWith("https://") && imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-                const isStaticPlaceholder = imageUrl === placeholderPath || (imageUrl.includes("/exemplars/") && imageUrl.includes("ignispectrum"));
+                const envOverride = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
+                const isBlob = imageUrl && imageUrl.startsWith("https://") && imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
+                const isPlaceholder = !imageUrl || imageUrl.includes("/exemplars/ignispectrum.png");
+                if (isPlaceholder && envOverride) imageUrl = envOverride;
+                else if (isPlaceholder) imageUrl = imageUrl || "/exemplars/ignispectrum.png";
                 if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
                   if (isBlob) {
                     console.log("[IGNIS] Using BLOB exemplar v2:", imageUrl);
-                  } else if (isStaticPlaceholder) {
-                    console.warn("[IGNIS] Using STATIC placeholder fallback: /exemplars/ignispectrum.png");
+                  } else if (isPlaceholder || !imageUrl) {
+                    console.warn("[IGNIS] PLACEHOLDER ACTIVE - missing blob manifest or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
                   }
                 }
                 if (imageUrl && !imageUrl.includes("data:")) {

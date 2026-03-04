@@ -30,9 +30,10 @@ export const PREFERRED_ARCHETYPE_VERSIONS: Record<string, string> = {
   Ignispectrum: "v2",
 };
 
-/** Canonical Ignis exemplar URL when Blob manifest is missing. Set EXEMPLAR_IGNIS_CANONICAL_URL to override. */
+/** Canonical Ignis exemplar URL when Blob manifest cannot be read. Prefer env; only use static when both are missing. */
 export const IGNIS_CANONICAL_FALLBACK =
-  process.env.EXEMPLAR_IGNIS_CANONICAL_URL || process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "/exemplars/ignispectrum.png";
+  (process.env.EXEMPLAR_IGNIS_CANONICAL_URL || process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "").trim() ||
+  "/exemplars/ignispectrum.png";
 
 /** Resolve version to try: for archetypes in PREFERRED_ARCHETYPE_VERSIONS, prefer that; else use requested. */
 export function getPreferredExemplarVersion(archetype: string, requestedVersion: string): string {

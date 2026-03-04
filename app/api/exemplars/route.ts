@@ -1,7 +1,8 @@
 /**
  * GET /api/exemplars?version=v1
- * Returns list of exemplar manifests for the given version (all 12 archetypes that exist).
- * For Ignispectrum: when no Blob manifest exists, injects synthetic manifest with IGNIS_CANONICAL_FALLBACK.
+ * Returns list of exemplar manifests. For Ignis: ALWAYS loads v2 (ligs-exemplars/Ignispectrum/v2/manifest.json).
+ * When Blob manifest cannot be read: uses EXEMPLAR_IGNIS_CANONICAL_URL or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL.
+ * Only if both are missing: falls back to /exemplars/ignispectrum.png.
  */
 
 import { NextResponse } from "next/server";
@@ -9,10 +10,12 @@ import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
 import {
   loadExemplarManifestWithPreferred,
   IGNIS_CANONICAL_FALLBACK,
-  getPreferredExemplarVersion,
+  exemplarManifestPath,
+  loadExemplarManifest,
 } from "@/lib/exemplar-store";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
+const IGNIS_VERSION = "v2";
 
 export async function GET(req: Request) {
   const requestId = crypto.randomUUID();
@@ -21,19 +24,25 @@ export async function GET(req: Request) {
     const version = searchParams.get("version")?.trim() || "v1";
 
     const manifests: unknown[] = [];
-    let hasIgnis = false;
+    let ignisManifest: unknown = null;
+
     for (const archetype of LIGS_ARCHETYPES) {
-      const manifest = await loadExemplarManifestWithPreferred(archetype, version);
-      if (manifest != null) {
-        manifests.push(manifest);
-        if (archetype === IGNIS_ARCHETYPE) hasIgnis = true;
+      if (archetype === IGNIS_ARCHETYPE) {
+        const ignis = await loadExemplarManifest(exemplarManifestPath(IGNIS_ARCHETYPE, IGNIS_VERSION));
+        if (ignis != null) {
+          manifests.push(ignis);
+          ignisManifest = ignis;
+        }
+      } else {
+        const manifest = await loadExemplarManifestWithPreferred(archetype, version);
+        if (manifest != null) manifests.push(manifest);
       }
     }
-    if (!hasIgnis) {
-      const ignisVersion = getPreferredExemplarVersion(IGNIS_ARCHETYPE, version);
+
+    if (ignisManifest == null) {
       manifests.push({
         archetype: IGNIS_ARCHETYPE,
-        version: ignisVersion,
+        version: IGNIS_VERSION,
         urls: { exemplarCard: IGNIS_CANONICAL_FALLBACK, exemplar_card: IGNIS_CANONICAL_FALLBACK },
       });
     }
