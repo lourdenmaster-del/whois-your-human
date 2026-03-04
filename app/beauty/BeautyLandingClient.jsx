@@ -9,6 +9,7 @@ import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, setBeautyDraft, sa
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
+import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 
@@ -33,16 +34,12 @@ function isFormValid(formData) {
   return Boolean(n && d && l && e);
 }
 
-export default function BeautyLandingClient({ dryRun: dryRunProp = false, initialIgnisImageUrl = null, initialManifests = null }) {
+export default function BeautyLandingClient({ dryRun: dryRunProp = false, initialManifests = null }) {
   const [ctaCheckoutLoading, setCtaCheckoutLoading] = useState(false);
   const [ctaCheckoutError, setCtaCheckoutError] = useState(null);
   const [alreadyPurchasedMessage, setAlreadyPurchasedMessage] = useState(null);
   const [formData, setFormData] = useState(null);
   const [generateLoading, setGenerateLoading] = useState(false);
-  const envFallback = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-  const [ignisImageUrl, setIgnisImageUrl] = useState(
-    initialIgnisImageUrl ?? envFallback ?? "/exemplars/ignispectrum.png"
-  );
   const [exemplarManifests, setExemplarManifests] = useState(initialManifests ?? []);
   const [waitlistEmail, setWaitlistEmail] = useState("");
   const [waitlistLoading, setWaitlistLoading] = useState(false);
@@ -87,34 +84,17 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
   }, []);
 
   useEffect(() => {
-    if (initialManifests != null && initialManifests.length > 0 && initialIgnisImageUrl) {
-      return;
-    }
+    if (initialManifests != null && initialManifests.length > 0) return;
     let cancelled = false;
     fetch(`/api/exemplars?version=v1`)
       .then((res) => (res.ok ? res.json() : { manifests: [] }))
       .then((data) => {
         if (cancelled) return;
-        const list = data.manifests ?? [];
-        setExemplarManifests(list);
-        const ignis = list.find((m) => m.archetype === IGNIS_ARCHETYPE);
-        const urls = ignis?.urls ?? {};
-        let card = urls.exemplarCard ?? urls.exemplar_card ?? envFallback ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`;
-        const isBlob = card && card.startsWith("https://") && card.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-        const isPlaceholder = !card || card.includes("/exemplars/ignispectrum.png");
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-          if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", card);
-          else if (isPlaceholder) console.warn("[IGNIS] PLACEHOLDER - missing blob or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
-        }
-        if (isPlaceholder && envFallback) card = envFallback;
-        setIgnisImageUrl(card || envFallback || "/exemplars/ignispectrum.png");
+        setExemplarManifests(data.manifests ?? []);
       })
-      .catch(() => {
-        const fallback = envFallback || "/exemplars/ignispectrum.png";
-        if (!cancelled) setIgnisImageUrl(fallback);
-      });
+      .catch(() => {});
     return () => { cancelled = true; };
-  }, [initialManifests, initialIgnisImageUrl]);
+  }, [initialManifests]);
 
   const handleHeroCta = useCallback(() => {
     const el = document.getElementById("form");
@@ -325,23 +305,17 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
           <div className="flex flex-col md:flex-row gap-8 md:gap-12 items-center">
             <div className="flex-shrink-0 w-full md:max-w-sm">
               <div className="aspect-[4/3] overflow-hidden rounded-lg border border-[var(--beauty-line,#e8e4e8)] bg-[#0A0F1C]/5 relative">
-                {ignisImageUrl ? (
-                  <>
-                    <img
-                      src={ignisImageUrl}
-                      alt=""
-                      className="relative z-[1] w-full h-full object-cover"
-                    />
-                    <img
-                      src="/glyphs/ignis.svg"
-                      alt=""
-                      aria-hidden
-                      className="ignis-glyph-overlay"
-                    />
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center beauty-text-muted text-sm">—</div>
-                )}
+                <img
+                  src={IGNIS_LANDING_URL}
+                  alt=""
+                  className="relative z-[1] w-full h-full object-cover"
+                />
+                <img
+                  src="/glyphs/ignis.svg"
+                  alt=""
+                  aria-hidden
+                  className="ignis-glyph-overlay"
+                />
               </div>
               <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF] font-medium">
                 {IGNIS_ARCHETYPE}

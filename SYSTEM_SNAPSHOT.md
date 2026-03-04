@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑04 (Lock Ignis landing to v1 exemplar_card)
+
+**Ignis landing image:** Hardcoded `IGNIS_LANDING_URL` (v1 exemplar_card Blob URL). Hero tile and Examples grid both use it; no API override, no placeholder, no v2. Glyph overlay opacity reduced to 0.06 (card may already contain glyph). `lib/exemplar-store.ts`: `IGNIS_LANDING_URL` constant; `getExemplarManifestsServer` returns it for `ignisImageUrl`.
+
 ## Verification Log – 2026‑03‑04 (Origin SSR: no Ignis flicker)
 
 **Flicker fix:** /origin page now server-renders Ignis URL + manifests via `getExemplarManifestsServer()`. `BeautyLandingClient` accepts `initialIgnisImageUrl` and `initialManifests`; when provided, skips client fetch. Initial HTML contains correct img src; no post-load swap. `export const dynamic = "force-dynamic"` on origin page. `lib/exemplar-store.ts`: added `getExemplarManifestsServer(version)` (same logic as GET /api/exemplars).

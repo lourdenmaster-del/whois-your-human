@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
 import PreviewCardModal from "./PreviewCardModal";
 
 /** Neutral placeholder block when no image available (avoids broken img). */
@@ -166,9 +167,6 @@ export default function LandingPreviews({
   const cardBg = isBeauty ? "bg-white/50" : "bg-[#0A0F1C]/50";
   const snippetClass = isBeauty ? "text-[var(--beauty-text,#0d0b10)]" : "text-[#F5F5F5]/90";
   const [selectedCard, setSelectedCard] = useState(null);
-  // Static value to avoid hydration mismatch (server/client must match)
-  const ignisCacheBust = useRef("v=ignis-glyph");
-
   const [manifestsByArchetypeState, setManifestsByArchetypeState] = useState({});
   const manifestsByArchetype = manifestsProp != null
     ? (() => {
@@ -231,22 +229,12 @@ export default function LandingPreviews({
               const exemplarCard = urls.exemplarCard ?? urls.exemplar_card;
               const marketingBackground = urls.marketingBackground ?? urls.marketing_background;
               const shareCard = urls.shareCard ?? urls.share_card;
-              const lightboxImages = [exemplarCard, marketingBackground, shareCard].filter(Boolean);
-              let imageUrl = exemplarCard ?? `/exemplars/${archetype.toLowerCase()}.png`;
-              if (archetype === "Ignispectrum") {
-                const envOverride = typeof process !== "undefined" && process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL;
-                const isBlob = imageUrl && imageUrl.startsWith("https://") && imageUrl.includes("blob.vercel-storage.com/ligs-exemplars/Ignispectrum/");
-                const isPlaceholder = !imageUrl || imageUrl.includes("/exemplars/ignispectrum.png");
-                if (isPlaceholder && envOverride) imageUrl = envOverride;
-                else if (isPlaceholder) imageUrl = imageUrl || "/exemplars/ignispectrum.png";
-                if (typeof process !== "undefined" && process.env.NODE_ENV === "development") {
-                  if (isBlob) console.log("[IGNIS] Using BLOB exemplar v2:", imageUrl);
-                  else if (isPlaceholder) console.warn("[IGNIS] PLACEHOLDER - missing blob or NEXT_PUBLIC_IGNIS_EXEMPLAR_URL");
-                }
-                if (imageUrl && !imageUrl.includes("data:")) {
-                  imageUrl = `${imageUrl}?${ignisCacheBust.current}`;
-                }
-              }
+              const lightboxImages = archetype === "Ignispectrum"
+                ? [IGNIS_LANDING_URL, exemplarCard, marketingBackground, shareCard].filter(Boolean)
+                : [exemplarCard, marketingBackground, shareCard].filter(Boolean);
+              const imageUrl = archetype === "Ignispectrum"
+                ? IGNIS_LANDING_URL
+                : (exemplarCard ?? `/exemplars/${archetype.toLowerCase()}.png`);
               const descriptor = manifest?.marketingDescriptor ?? getMarketingDescriptor(archetype);
               return (
                 <ExemplarSlot

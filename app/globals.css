@@ -143,7 +143,7 @@ body {
   text-shadow: none;
 }
 
-/* Ignis glyph overlay — centered on IGNISPECTRUM imagery (layerable <img>) */
+/* Ignis glyph overlay — centered on IGNISPECTRUM imagery (layerable <img). Low opacity for v1 card (already has glyph). */
 .ignis-glyph-overlay {
   position: absolute;
   top: 50%;
@@ -151,7 +151,7 @@ body {
   transform: translate(-50%, -50%);
   width: 45%;
   height: auto;
-  opacity: 0.14;
+  opacity: 0.06;
   pointer-events: none;
   z-index: 2;
   /* Glyph uses currentColor (black); invert so it appears white on dark imagery */

@@ -35,6 +35,10 @@ export const IGNIS_CANONICAL_FALLBACK =
   (process.env.EXEMPLAR_IGNIS_CANONICAL_URL || process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "").trim() ||
   "/exemplars/ignispectrum.png";
 
+/** Approved Ignis landing image — v1 exemplar_card. Use on /origin (hero + Examples grid) only. No v2, no placeholder. */
+export const IGNIS_LANDING_URL =
+  "https://rne9k1g6lgh8e9is.public.blob.vercel-storage.com/ligs-exemplars/Ignispectrum/v1/exemplar_card.png";
+
 /** Resolve version to try: for archetypes in PREFERRED_ARCHETYPE_VERSIONS, prefer that; else use requested. */
 export function getPreferredExemplarVersion(archetype: string, requestedVersion: string): string {
   return PREFERRED_ARCHETYPE_VERSIONS[archetype] ?? requestedVersion;
@@ -164,12 +168,5 @@ export async function getExemplarManifestsServer(version: string): Promise<{
     });
   }
 
-  const envFallback = (process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "").trim();
-  const ignis = (ignisManifest ?? manifests.find((m: unknown) => (m as { archetype?: string })?.archetype === IGNIS_ARCHETYPE)) as { urls?: Record<string, unknown> } | null;
-  const urls = ignis?.urls ?? {};
-  const card = (urls.exemplarCard ?? urls.exemplar_card ?? envFallback ?? `/exemplars/${IGNIS_ARCHETYPE.toLowerCase()}.png`) as string;
-  const isPlaceholder = !card || card.includes("/exemplars/ignispectrum.png");
-  const ignisImageUrl = (isPlaceholder && envFallback ? envFallback : card) || IGNIS_CANONICAL_FALLBACK;
-
-  return { manifests, ignisImageUrl };
+  return { manifests, ignisImageUrl: IGNIS_LANDING_URL };
 }
