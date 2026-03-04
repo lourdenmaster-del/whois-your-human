@@ -15,3 +15,12 @@ export const FAKE_PAY =
 export const TEST_MODE =
   process.env.NEXT_PUBLIC_TEST_MODE === "1" ||
   process.env.NEXT_PUBLIC_TEST_MODE === "true";
+
+/**
+ * PROOF_ONLY: Blocks ALL live imagery calls (DALL·E, compose, generate).
+ * Only "Render Proof Card (FREE)" works — zero external calls, zero spend.
+ * Set NEXT_PUBLIC_PROOF_ONLY=1 until glyph + overlay render correctly locally.
+ */
+export const PROOF_ONLY =
+  process.env.NEXT_PUBLIC_PROOF_ONLY === "1" ||
+  process.env.NEXT_PUBLIC_PROOF_ONLY === "true";
