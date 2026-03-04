@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * DO NOT REFORMAT OR REFACTOR THIS FILE WITHOUT EXPLICIT APPROVAL.
+ * The landing page layout is copy/style-sensitive.
+ * No auto-formatting that changes JSX structure, list markup, or spacing.
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
