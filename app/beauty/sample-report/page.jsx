@@ -49,12 +49,20 @@ export default function SampleReportPage() {
       <div className="max-w-[600px] mx-auto space-y-8">
         {/* Top bar */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <Link
-            href="/origin"
-            className="registry-ctrl text-[11px] font-medium text-[#7A4FFF] hover:underline"
-          >
-            ← Back to Origin
-          </Link>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 gap-1">
+            <Link
+              href="/beauty/view?reportId=exemplar-Ignispectrum"
+              className="registry-ctrl text-[11px] font-medium text-[#7A4FFF] hover:underline"
+            >
+              ← Return to preview dossier
+            </Link>
+            <Link
+              href="/origin"
+              className="registry-ctrl text-[11px] font-medium text-[#9a9aa0] hover:text-[#7A4FFF] hover:underline"
+            >
+              ← Back to Origin
+            </Link>
+          </div>
           <div className="registry-meta flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider text-[#9a9aa0]">
             <span>Sample full record</span>
           </div>
@@ -96,12 +104,18 @@ export default function SampleReportPage() {
 
         <hr className="border-[var(--beauty-line)]/40" />
 
-        <div className="mt-10 text-center">
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/origin"
+            href="/beauty/view?reportId=exemplar-Ignispectrum"
             className="registry-ctrl inline-block px-5 py-2.5 rounded border border-[#2a2a2e] text-[#c8c8cc] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50"
           >
-            RETURN TO ORIGIN
+            ← Return to preview dossier
+          </Link>
+          <Link
+            href="/origin"
+            className="registry-ctrl text-[11px] font-medium text-[#9a9aa0] hover:text-[#7A4FFF] hover:underline"
+          >
+            Back to Origin
           </Link>
         </div>
 
