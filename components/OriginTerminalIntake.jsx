@@ -58,6 +58,7 @@ export default function OriginTerminalIntake() {
   const lastEnterHandledRef = useRef(0);
   const ctaSubmittingRef = useRef(false);
   const redirectFiredRef = useRef(false);
+  const countdownTimerRef = useRef(null);
 
   const [phase, setPhase] = useState("boot");
   const [bootIndex, setBootIndex] = useState(0);
@@ -75,6 +76,7 @@ export default function OriginTerminalIntake() {
   const [processingIndex, setProcessingIndex] = useState(0);
   const [archetypePreviewShown, setArchetypePreviewShown] = useState(false);
   const [waitlistState, setWaitlistState] = useState("idle"); // idle | running | done
+  const [countdownRemaining, setCountdownRemaining] = useState(null); // 3 | 2 | 1 | null
   const [ctaVisible, setCtaVisible] = useState(false);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
@@ -89,11 +91,55 @@ export default function OriginTerminalIntake() {
     setLines((prev) => [...prev, { text, type }]);
   }, []);
 
+  const redirectNow = useCallback(() => {
+    if (redirectFiredRef.current) return;
+    redirectFiredRef.current = true;
+    if (countdownTimerRef.current) {
+      clearTimeout(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setCountdownRemaining(null);
+    router.push("/beauty/view?reportId=exemplar-Ignispectrum");
+  }, [router]);
+
   const scrollToBottom = useCallback(() => {
     queueMicrotask(() => {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "auto" });
     });
   }, []);
+
+  // Start countdown: chained setTimeout, one timer ref, explicit cleanup. Called when entering completion phase.
+  const startRedirectCountdown = useCallback(() => {
+    if (countdownTimerRef.current) return;
+    let remaining = 3;
+    const tick = () => {
+      remaining--;
+      if (remaining === 0) {
+        redirectNow();
+        return;
+      }
+      addLine(`${remaining}…`);
+      setCountdownRemaining(remaining);
+      countdownTimerRef.current = setTimeout(tick, 1000);
+    };
+    countdownTimerRef.current = setTimeout(tick, 1000);
+  }, [addLine, redirectNow]);
+
+  // Cleanup countdown timer on unmount
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) {
+        clearTimeout(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  // When we enter completion phase with countdown, start it once
+  useEffect(() => {
+    if (phase !== "completeAwaitingEnterRedirect" || countdownRemaining == null) return;
+    startRedirectCountdown();
+  }, [phase, countdownRemaining, startRedirectCountdown]);
 
   // Boot sequence
   useEffect(() => {
@@ -133,9 +179,7 @@ export default function OriginTerminalIntake() {
         lastEnterHandledRef.current = now;
 
         if (phase === "completeAwaitingEnterRedirect") {
-          if (redirectFiredRef.current) return;
-          redirectFiredRef.current = true;
-          router.push("/beauty/view?reportId=exemplar-Ignispectrum");
+          redirectNow();
           return;
         }
 
@@ -236,7 +280,7 @@ export default function OriginTerminalIntake() {
         }
       }
     },
-    [phase, currentField, inputValue, dateNeedsConfirm, addLine, router]
+    [phase, currentField, inputValue, dateNeedsConfirm, addLine, redirectNow]
   );
 
   // Processing sequence
@@ -269,8 +313,9 @@ export default function OriginTerminalIntake() {
     if (!email || !email.includes("@")) {
       addLine("Identity query logged.");
       addLine("Sample identity artifacts available.");
-      addLine("Press ENTER to view sample records.");
+      addLine("Opening registry preview in 3…");
       setPhase("completeAwaitingEnterRedirect");
+      setCountdownRemaining(3);
       setWaitlistState("done");
       return;
     }
@@ -287,25 +332,24 @@ export default function OriginTerminalIntake() {
       .then(({ ok }) => {
         if (cancelled) return;
         if (ok) {
-          addLine("Identity query logged.");
-          addLine("Waitlist registration complete.");
-          addLine(`Email recorded: ${email}`);
+          addLine("Email accepted.");
+          addLine("Sample identity record resolved.");
         } else {
           addLine("Identity query logged.");
+          addLine("Sample identity artifacts available.");
         }
-        addLine("");
-        addLine("Sample identity artifacts available.");
-        addLine("Press ENTER to view sample records.");
+        addLine("Opening registry preview in 3…");
         setPhase("completeAwaitingEnterRedirect");
+        setCountdownRemaining(3);
         setWaitlistState("done");
       })
       .catch(() => {
         if (cancelled) return;
         addLine("Identity query logged.");
-        addLine("");
         addLine("Sample identity artifacts available.");
-        addLine("Press ENTER to view sample records.");
+        addLine("Opening registry preview in 3…");
         setPhase("completeAwaitingEnterRedirect");
+        setCountdownRemaining(3);
         setWaitlistState("done");
       });
     return () => { cancelled = true; };
@@ -336,14 +380,12 @@ export default function OriginTerminalIntake() {
           setCtaError(data?.error ?? "Something went wrong. Try again.");
           return;
         }
-        addLine("Identity query logged.");
-        addLine("Waitlist registration complete.");
-        addLine(`Email recorded: ${payload.email.trim().toLowerCase()}`);
-        addLine("");
-        addLine("Sample identity artifacts available.");
-        addLine("Press ENTER to view a sample record.");
+        addLine("Email accepted.");
+        addLine("Sample identity record resolved.");
+        addLine("Opening registry preview in 3…");
         setCtaVisible(false);
         setPhase("completeAwaitingEnterRedirect");
+        setCountdownRemaining(3);
         return;
       }
 
@@ -461,7 +503,7 @@ export default function OriginTerminalIntake() {
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  aria-label={phase === "completeAwaitingEnterRedirect" ? "Press Enter to view sample" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
+                  aria-label={phase === "completeAwaitingEnterRedirect" ? "Press Enter to view sample now, or wait for automatic redirect" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
                 />
                 <span
                   className="inline-block w-2 h-4 bg-[#7a7a80] animate-pulse"
