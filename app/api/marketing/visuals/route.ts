@@ -6,6 +6,7 @@ import { LigsArchetypeEnum } from "@/src/ligs/voice/schema";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import { MarketingVisualsRequestSchema } from "./request-schema";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import { deriveIdempotencyKey } from "@/lib/idempotency-store";
 
 const VALID_ARCHETYPES = new Set(LigsArchetypeEnum.options);
 
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
     const profile = buildMinimalVoiceProfile(profileArchetype as import("@/src/ligs/voice/schema").LigsArchetype);
     const baseUrl = getBaseUrl(req);
     const warnings: string[] = [];
+    const baseKey = crypto.randomUUID();
 
     const logoMark = await fetchImageGenerate(baseUrl, {
       profile,
@@ -66,6 +68,7 @@ export async function POST(req: Request) {
       image: { aspectRatio: "1:1", size: "1024", count: 1 },
       variationKey: vk,
       archetype: profileArchetype,
+      idempotencyKey: deriveIdempotencyKey(baseKey, "logo-mark"),
     });
     const logoNorm = logoMark ? pickBackgroundSource({ images: [logoMark] }) : null;
     if (!logoNorm) warnings.push("No logoMark returned from image/generate");
@@ -76,6 +79,7 @@ export async function POST(req: Request) {
       image: { aspectRatio: "16:9", size: "1024", count: 1 },
       variationKey: vk,
       archetype: profileArchetype,
+      idempotencyKey: deriveIdempotencyKey(baseKey, "marketing-bg"),
     });
     const bgNorm = marketingBackground ? pickBackgroundSource({ images: [marketingBackground] }) : null;
     if (!bgNorm) warnings.push("No marketingBackground returned from image/generate");

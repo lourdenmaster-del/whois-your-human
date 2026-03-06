@@ -10,6 +10,21 @@ vi.mock("@/lib/report-store", () => ({
   saveReportAndConfirm: (...args: unknown[]) => mockSaveReportAndConfirm(...args),
 }));
 
+vi.mock("@/lib/engine/computeBirthContextForReport", () => ({
+  computeBirthContextForReport: vi.fn().mockResolvedValue({
+    lat: 40.7128,
+    lon: -74.006,
+    placeName: "New York",
+    timezoneId: "America/New_York",
+    localTimestamp: "1990-01-15T14:30:00.000-05:00",
+    utcTimestamp: "1990-01-15T19:30:00.000Z",
+    sun: { sunAltitudeDeg: 25, sunAzimuthDeg: 210, twilightPhase: "day", sunriseLocal: "07:15", sunsetLocal: "17:00", dayLengthMinutes: 585 },
+    moon: { phaseName: "Waning Gibbous", illuminationFrac: 0.8, moonAltitudeDeg: 45, moonAzimuthDeg: 120 },
+    sunLonDeg: 295,
+    solarSeasonProfile: { seasonIndex: 11, archetype: "Fluxionis", lonCenterDeg: 345, solarDeclinationDeg: -20, seasonalPolarity: "waning", anchorType: "none" },
+  }),
+}));
+
 const mockOpenAICreate = vi.fn();
 vi.mock("openai", () => ({
   default: vi.fn().mockImplementation(() => ({
@@ -261,5 +276,79 @@ describe("POST /api/engine/generate", () => {
     expect(data.status).toBeUndefined();
     expect(data.error).toBeDefined();
     expect(data.data).toBeUndefined();
+  });
+
+  it("returns 500 when birth context computation fails in production", async () => {
+    const { computeBirthContextForReport } = await import("@/lib/engine/computeBirthContextForReport");
+    (computeBirthContextForReport as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("geocoding failed"));
+
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    const res = await POST(
+      jsonRequest({
+        fullName: "Test",
+        birthDate: "1990-01-15",
+        birthTime: "14:30",
+        birthLocation: "InvalidPlaceXYZ123",
+        email: "test@example.com",
+        idempotencyKey: "a1b2c3d4-e5f6-4789-a012-345678901099",
+      })
+    );
+
+    process.env.NODE_ENV = originalNodeEnv;
+    expect(res.status).toBe(500);
+  });
+
+  it("uses LigsStudio fallback birth context when compute fails in development", async () => {
+    const { computeBirthContextForReport } = await import("@/lib/engine/computeBirthContextForReport");
+    (computeBirthContextForReport as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("geocoding failed"));
+
+    const res = await POST(
+      jsonRequest({
+        fullName: "Test",
+        birthDate: "1990-01-15",
+        birthTime: "14:30",
+        birthLocation: "InvalidPlaceXYZ123",
+        email: "test@example.com",
+        idempotencyKey: "a1b2c3d4-e5f6-4789-a012-345678901098",
+      })
+    );
+    // In dev/test, fallback is used; request proceeds (may fail later for other reasons, but not 500 from compute)
+    expect(res.status).not.toBe(500);
+  });
+
+  it("returns 400 when birthTime is missing or invalid", async () => {
+    const resMissing = await POST(
+      jsonRequest({
+        fullName: "Test",
+        birthDate: "1990-01-15",
+        birthLocation: "New York",
+        email: "test@example.com",
+      })
+    );
+    expect(resMissing.status).toBe(400);
+
+    const resEmpty = await POST(
+      jsonRequest({
+        fullName: "Test",
+        birthDate: "1990-01-15",
+        birthTime: "",
+        birthLocation: "New York",
+        email: "test@example.com",
+      })
+    );
+    expect(resEmpty.status).toBe(400);
+
+    const resInvalid = await POST(
+      jsonRequest({
+        fullName: "Test",
+        birthDate: "1990-01-15",
+        birthTime: "99:99",
+        birthLocation: "New York",
+        email: "test@example.com",
+      })
+    );
+    expect(resInvalid.status).toBe(400);
   });
 });

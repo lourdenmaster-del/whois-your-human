@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * LIGS Studio — internal control room for image generation and compose.
+ * No automatic generation: user must explicitly trigger Generate/Compose/Full Pipeline.
+ * Cursor/AI should not trigger generation; Studio is the control room.
+ */
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { safeParseVoiceProfile } from "@/src/ligs/voice/schema";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
@@ -652,6 +658,10 @@ export default function LigsStudio() {
   const [studioRunResult, setStudioRunResult] = useState<StudioRunResult | null>(null);
   const [verifyResult, setVerifyResult] = useState<Record<string, unknown> | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
+
+  const [reportOnlyLoading, setReportOnlyLoading] = useState(false);
+  const [reportOnlyError, setReportOnlyError] = useState<string | null>(null);
+  const [reportOnlyResult, setReportOnlyResult] = useState<{ full_report: string; reportId?: string; emotional_snippet?: string } | null>(null);
 
   const [lastReportId, setLastReportId] = useState<string | null>(null);
   const [lastResultProfile, setLastResultProfile] = useState<Record<string, unknown> | null>(null);
@@ -1501,6 +1511,44 @@ export default function LigsStudio() {
     }
   }, [studioRunResult?.reportId]);
 
+  const runReportOnly = useCallback(async () => {
+    if (!effectiveDryRun && !window.confirm("This will call OpenAI and may cost money. Generate report only (no images)? Continue?")) return;
+    setReportOnlyLoading(true);
+    setReportOnlyError(null);
+    setReportOnlyResult(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (!effectiveDryRun) headers["X-Force-Live"] = "1";
+      const res = await fetch(`${getBaseUrl()}/api/engine/generate`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          fullName: liveFullName,
+          birthDate: liveBirthDate,
+          birthTime: liveBirthTime,
+          birthLocation: liveBirthLocation,
+          email: "dev@example.com",
+          dryRun: effectiveDryRun,
+          idempotencyKey: effectiveDryRun ? undefined : crypto.randomUUID(),
+        }),
+      });
+      const data = (await res.json()) as Record<string, unknown>;
+      if (!res.ok) {
+        setReportOnlyError((data.error ?? data.message ?? "Request failed") as string);
+        return;
+      }
+      const payload = (data.data ?? data) as Record<string, unknown>;
+      const full_report = (payload.full_report ?? "") as string;
+      const reportId = (payload.reportId ?? data.reportId) as string | undefined;
+      const emotional_snippet = (payload.emotional_snippet ?? "") as string;
+      setReportOnlyResult({ full_report, reportId, emotional_snippet });
+    } catch (e) {
+      setReportOnlyError(e instanceof Error ? e.message : "Request failed");
+    } finally {
+      setReportOnlyLoading(false);
+    }
+  }, [effectiveDryRun, liveFullName, liveBirthDate, liveBirthTime, liveBirthLocation]);
+
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -1714,6 +1762,90 @@ export default function LigsStudio() {
           <p className="text-sm font-semibold">PROOF ONLY: All live calls blocked. No DALL·E, no background generation, no compose API. Use &quot;Render Proof Card (FREE)&quot; to verify glyph + overlay locally.</p>
         </div>
       )}
+      <div className="mb-4 p-4 rounded border-2 border-teal-300 bg-teal-50 space-y-3">
+        <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide">Report Only (no images)</p>
+        <p className="text-sm text-teal-700">Generate a full field-resolution report. Stops at report text; no DALL·E or compose.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div>
+            <label className="block text-gray-600 text-xs mb-0.5">fullName</label>
+            <input
+              type="text"
+              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              value={liveFullName}
+              onChange={(e) => setLiveFullName(e.target.value)}
+              placeholder="Full name"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-600 text-xs mb-0.5">birthDate</label>
+            <input
+              type="text"
+              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              value={liveBirthDate}
+              onChange={(e) => setLiveBirthDate(e.target.value)}
+              placeholder="YYYY-MM-DD"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-600 text-xs mb-0.5">birthTime</label>
+            <input
+              type="text"
+              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              value={liveBirthTime}
+              onChange={(e) => setLiveBirthTime(e.target.value)}
+              placeholder="HH:MM"
+            />
+          </div>
+          <div>
+            <label className="block text-gray-600 text-xs mb-0.5">birthLocation</label>
+            <input
+              type="text"
+              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              value={liveBirthLocation}
+              onChange={(e) => setLiveBirthLocation(e.target.value)}
+              placeholder="City, State"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="px-3 py-2 rounded bg-teal-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700"
+            disabled={reportOnlyLoading || apiDisabled}
+            onClick={runReportOnly}
+          >
+            {reportOnlyLoading ? "Generating…" : "Generate Report"}
+          </button>
+          <span className="text-xs text-teal-800">
+            {effectiveDryRun ? "Dry run (mock report)" : "Live (OpenAI)"}
+          </span>
+        </div>
+        {reportOnlyError && (
+          <p className="text-red-600 text-sm">{reportOnlyError}</p>
+        )}
+        {reportOnlyResult && (
+          <div className="mt-3 p-3 rounded border border-teal-200 bg-white">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-teal-800">Full Report</p>
+              <div className="flex gap-2">
+                {reportOnlyResult.reportId && (
+                  <span className="text-xs text-gray-500">reportId: {reportOnlyResult.reportId}</span>
+                )}
+                <button
+                  type="button"
+                  className="px-2 py-1 text-xs rounded bg-teal-100 text-teal-800 hover:bg-teal-200"
+                  onClick={() => copyToClipboard(reportOnlyResult.full_report)}
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+            <pre className="text-xs font-mono text-black overflow-auto max-h-96 p-3 rounded bg-gray-50 border border-gray-200 whitespace-pre-wrap">
+              {reportOnlyResult.full_report}
+            </pre>
+          </div>
+        )}
+      </div>
       {(effectiveDryRun || PROOF_ONLY) && (
         <div className="mb-4 p-4 rounded border-2 border-slate-400 bg-slate-50 space-y-3">
           <p className="text-xs font-semibold text-slate-800 uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>

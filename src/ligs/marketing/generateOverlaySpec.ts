@@ -205,6 +205,9 @@ export function buildOverlaySpecWithCopy(
       noMedicalClaims: profile.claims_policy.medical_claims === "prohibited",
       noGuarantees: profile.claims_policy.before_after_promises === "prohibited",
     },
+
+    markType: arch === "Ignispectrum" ? ("archetype" as const) : ("brand" as const),
+    markArchetype: arch === "Ignispectrum" ? "Ignispectrum" : undefined,
   };
 }
 
@@ -274,5 +277,8 @@ export async function generateOverlaySpec(
       noMedicalClaims: profile.claims_policy.medical_claims === "prohibited",
       noGuarantees: profile.claims_policy.before_after_promises === "prohibited",
     },
+
+    markType: arch === "Ignispectrum" ? ("archetype" as const) : ("brand" as const),
+    markArchetype: arch === "Ignispectrum" ? "Ignispectrum" : undefined,
   };
 }

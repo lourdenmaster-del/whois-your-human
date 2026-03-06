@@ -173,7 +173,7 @@ describe("POST /api/engine", () => {
     const req = jsonRequest({
       fullName: "Other User",
       birthDate: "1985-06-20",
-      birthTime: "",
+      birthTime: "14:30",
       birthLocation: "London, UK",
       email: "other@example.com",
     });

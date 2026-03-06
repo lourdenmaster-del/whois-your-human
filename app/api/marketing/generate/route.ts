@@ -9,6 +9,7 @@ import {
   getIdempotentResult,
   setIdempotentResult,
   isValidIdempotencyKey,
+  deriveIdempotencyKey,
 } from "@/lib/idempotency-store";
 import { LigsArchetypeEnum } from "@/src/ligs/voice/schema";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
@@ -104,6 +105,7 @@ export async function POST(req: Request) {
         image: { aspectRatio: "1:1", size: "1024", count: 1 },
         variationKey: vk,
         archetype: profileArchetype,
+        idempotencyKey: deriveIdempotencyKey(idempotencyKey!, "logo-mark"),
       });
       if (logoResult) assets.logoMark = logoResult;
 
@@ -113,6 +115,7 @@ export async function POST(req: Request) {
         image: { aspectRatio: "16:9", size: "1024", count: 1 },
         variationKey: vk,
         archetype: profileArchetype,
+        idempotencyKey: deriveIdempotencyKey(idempotencyKey!, "marketing-bg"),
       });
       if (bgResult) assets.marketingBackground = bgResult;
     }

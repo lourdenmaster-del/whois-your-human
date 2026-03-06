@@ -84,23 +84,18 @@ export default function ShareCard({
 
   return (
     <div
-      className={`share-card relative w-full mx-auto overflow-hidden rounded-2xl shadow-xl ${hasMarketingCard ? "max-w-lg" : "max-w-sm"}`}
-      style={{
-        backgroundColor: "var(--beauty-cream, #fdf8f5)",
-        border: "1px solid rgba(122, 79, 255, 0.15)",
-      }}
+      className={`share-card registry-share-panel relative w-full mx-auto overflow-hidden rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] ${hasMarketingCard ? "max-w-md" : "max-w-sm"}`}
     >
-      {/* (L) brand mark */}
+      {/* (L) registry mark */}
       <div
-        className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold text-[#7A4FFF]/60"
-        style={{ backgroundColor: "rgba(255,255,255,0.9)" }}
+        className="absolute top-2 right-2 z-10 w-6 h-6 flex items-center justify-center rounded text-[9px] font-mono text-[#9a9aa0] border border-[#2a2a2e] bg-[#0a0a0b]/80"
         aria-hidden
       >
         (L)
       </div>
 
-      {/* Primary image: marketing card (bigger) when present, else signature */}
-      <div className={`overflow-hidden bg-[#0A0F1C]/5 ${hasMarketingCard ? "aspect-square max-w-md mx-auto" : "aspect-[4/3]"}`}>
+      {/* Primary image */}
+      <div className={`overflow-hidden bg-[#0a0a0b] border-b border-[#2a2a2e] ${hasMarketingCard ? "aspect-square max-w-sm mx-auto" : "aspect-[4/3]"}`}>
         <img
           src={primaryImage}
           alt=""
@@ -109,16 +104,16 @@ export default function ShareCard({
       </div>
 
       {/* Content */}
-      <div className="px-5 py-4">
-        <h2 className="text-lg font-semibold beauty-text-inverse tracking-tight mb-0.5">
+      <div className="px-4 py-3">
+        <h2 className="text-[13px] font-medium text-[#e8e8ec] tracking-tight mb-0.5 font-mono">
           {descriptor.archetypeLabel}
         </h2>
-        <p className="text-sm beauty-text-muted mb-3">{descriptor.tagline}</p>
+        <p className="text-[11px] text-[#9a9aa0] mb-2">{descriptor.tagline}</p>
         {hitPoints.length > 0 && (
-          <ul className="space-y-1 text-sm beauty-text-inverse font-medium">
+          <ul className="space-y-0.5 text-[12px] text-[#c8c8cc]">
             {hitPoints.map((point, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="text-[#7A4FFF] mt-0.5">•</span>
+                <span className="text-[#7A4FFF]/80 shrink-0">→</span>
                 <span>{point}</span>
               </li>
             ))}
@@ -126,28 +121,28 @@ export default function ShareCard({
         )}
       </div>
 
-      {/* Actions */}
-      <div className="px-5 pb-4 flex flex-col sm:flex-row gap-2 flex-wrap">
+      {/* Actions — registry controls */}
+      <div className="px-4 pb-4 flex flex-col sm:flex-row gap-2 flex-wrap">
         <button
           type="button"
           onClick={onCopyLink}
           disabled={!shareUrl}
-          className="flex-1 min-w-[140px] beauty-body text-sm font-semibold py-2.5 rounded-xl border border-[#7A4FFF]/40 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 min-w-[120px] py-2 rounded border border-[#2a2a2e] text-[#c8c8cc] font-mono text-[11px] hover:border-[#7A4FFF]/40 hover:text-[#e8e8ec] transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-[#2a2a2e] disabled:hover:text-[#c8c8cc]"
         >
-          {copied ? "Copied!" : "Copy share link"}
+          {copied ? "Copied" : "Copy record link"}
         </button>
         <button
           type="button"
           onClick={handleDownloadPrimary}
-          className="flex-1 min-w-[140px] beauty-body text-sm font-semibold py-2.5 rounded-xl border border-[#7A4FFF]/40 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors"
+          className="flex-1 min-w-[120px] py-2 rounded border border-[#2a2a2e] text-[#c8c8cc] font-mono text-[11px] hover:border-[#7A4FFF]/40 hover:text-[#e8e8ec] transition-colors"
         >
-          {hasMarketingCard ? "Download card" : "Download image"}
+          {hasMarketingCard ? "Download artifact" : "Download image"}
         </button>
         {hasMarketingCard && (
           <button
             type="button"
             onClick={handleDownloadSignature}
-            className="flex-1 min-w-[140px] beauty-body text-sm font-semibold py-2.5 rounded-xl border border-[#7A4FFF]/40 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors"
+            className="flex-1 min-w-[120px] py-2 rounded border border-[#2a2a2e] text-[#c8c8cc] font-mono text-[11px] hover:border-[#7A4FFF]/40 hover:text-[#e8e8ec] transition-colors"
           >
             Download signature
           </button>

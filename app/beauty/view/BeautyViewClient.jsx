@@ -13,7 +13,6 @@ import { track } from "@/lib/analytics";
 import { unwrapResponse } from "@/lib/unwrap-response";
 import { fetchBlobPreviews } from "@/lib/api-client";
 import PreviewCarousel from "./PreviewCarousel";
-import EmotionalSnippet from "./EmotionalSnippet";
 import WhoisReportSections from "./WhoisReportSections";
 import RegistrySummary from "./RegistrySummary";
 import ShareCard from "./ShareCard";
@@ -149,9 +148,10 @@ export default function BeautyViewClient() {
   // No reportId — Select report UI
   if (!urlChecked || (!reportId && !loading)) {
     return (
-      <main className="beauty-theme beauty-page min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24" style={{ background: "var(--beauty-cream, #fdf8f5)" }}>
-        <div className="max-w-md w-full beauty-form-card rounded-3xl px-8 py-12 text-center space-y-6">
-          <h1 className="beauty-heading text-xl beauty-text-inverse">Select a report</h1>
+      <main className="beauty-theme registry-view min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+        <div className="max-w-md w-full registry-panel rounded-lg border border-[#2a2a2e] px-8 py-12 text-center space-y-6 bg-[#0d0d0f]">
+          <h1 className="registry-label text-center mb-2">Query record</h1>
+          <p className="beauty-body text-[#c8c8cc] text-sm">Select a report to view</p>
           {previewsLoading ? (
             <p className="beauty-body beauty-text-muted">Loading reports…</p>
           ) : previewsError ? (
@@ -165,7 +165,7 @@ export default function BeautyViewClient() {
                   id="report-select"
                   value={selectedPreviewId}
                   onChange={(e) => setSelectedPreviewId(e.target.value)}
-                  className="w-full p-3 rounded-xl border border-[rgba(122,79,255,0.25)] bg-white/90 text-[var(--beauty-text)] focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/40"
+                  className="w-full p-3 rounded border border-[#2a2a2e] bg-[#0a0a0b] text-[#e8e8ec] font-mono text-sm focus:outline-none focus:border-[#7A4FFF]/50"
                   aria-label="Select report"
                 >
                   <option value="">— Choose a report —</option>
@@ -177,24 +177,23 @@ export default function BeautyViewClient() {
                 </select>
               </div>
               <div>
-                <label htmlFor="manual-report-id" className="beauty-body text-sm beauty-text-muted block text-left mb-1">Or enter report ID manually</label>
+                <label htmlFor="manual-report-id" className="registry-label block text-left mb-1">Or enter report ID manually</label>
                 <input
                   id="manual-report-id"
                   type="text"
                   value={manualReportId}
                   onChange={(e) => setManualReportId(e.target.value)}
-                  placeholder="Report ID"
-                  className="w-full p-3 rounded-xl border border-[rgba(122,79,255,0.25)] bg-white/90 text-[var(--beauty-text)] placeholder-[var(--beauty-text-muted)] focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/40"
+                  placeholder="report-id"
+                  className="w-full p-3 rounded border border-[#2a2a2e] bg-[#0a0a0b] text-[#e8e8ec] font-mono text-sm placeholder-[#6b6b70] focus:outline-none focus:border-[#7A4FFF]/50"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleViewReport}
                 disabled={!selectedPreviewId && !manualReportId?.trim()}
-                className="w-full px-6 py-3 rounded-full text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/50"
-                style={{ backgroundColor: "#7A4FFF" }}
+                className="w-full px-6 py-3 rounded border border-[#7A4FFF]/50 bg-[#7A4FFF]/10 text-[#c4b5ff] font-mono text-sm font-medium hover:bg-[#7A4FFF]/20 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:border-[#7A4FFF]"
               >
-                View report
+                View record
               </button>
             </>
           )}
@@ -212,9 +211,11 @@ export default function BeautyViewClient() {
   // Loading
   if (loading) {
     return (
-      <main className="beauty-theme min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center">
-        <div className="max-w-2xl mx-auto w-full beauty-form-card rounded-3xl px-8 py-16 text-center">
-          <p className="beauty-body beauty-text-muted">Loading your Light Identity Report…</p>
+      <main className="min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center">
+        <div className="max-w-2xl mx-auto w-full beauty-form-card rounded-lg px-8 py-16 text-center">
+          <p className="beauty-body beauty-text-muted font-mono text-sm" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Loading registry record…
+          </p>
         </div>
       </main>
     );
@@ -223,21 +224,18 @@ export default function BeautyViewClient() {
   // Error (and not dryRun 404)
   if (error) {
     return (
-      <main className="beauty-theme min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center">
-        <div className="max-w-md mx-auto w-full beauty-form-card rounded-3xl px-8 py-12 text-center space-y-6">
+      <main className="min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center">
+        <div className="max-w-md mx-auto w-full beauty-form-card rounded-lg px-8 py-12 text-center space-y-6">
           <p className="beauty-body text-lg beauty-text-inverse font-normal">{error}</p>
           <button
             type="button"
             onClick={loadProfile}
-            className="beauty-body font-semibold text-[#7A4FFF] hover:underline focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/40 rounded-lg px-4 py-2"
+            className="registry-cta px-4 py-2 rounded border border-[#7A4FFF]/50 bg-[#7A4FFF]/10 text-[#c4b5ff] font-mono text-sm hover:bg-[#7A4FFF]/20"
           >
             Retry
           </button>
-          <Link
-            href="/origin"
-            className="beauty-body font-semibold text-[#7A4FFF] hover:underline block"
-          >
-            Start Over
+          <Link href="/origin" className="beauty-body font-semibold text-[#7A4FFF] hover:underline block">
+            Return to Origin
           </Link>
         </div>
       </main>
@@ -247,14 +245,14 @@ export default function BeautyViewClient() {
   // No profile (shouldn't normally hit if we have DRY_RUN)
   if (!profile) {
     return (
-      <main className="beauty-theme beauty-page min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
-        <div className="max-w-md w-full beauty-form-card rounded-3xl px-8 py-12 text-center space-y-6">
+      <main className="min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+        <div className="max-w-md w-full beauty-form-card rounded-lg px-8 py-12 text-center space-y-6">
           <p className="beauty-body text-lg beauty-text-inverse font-normal">Report not found.</p>
           <Link
             href="/origin"
-            className="beauty-body font-semibold text-[#7A4FFF] hover:underline focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/40 rounded-lg px-4 py-2 inline-block"
+            className="beauty-body font-semibold text-[#7A4FFF] hover:underline focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/40 rounded px-4 py-2 inline-block"
           >
-            Start Over
+            Return to Origin
           </Link>
         </div>
       </main>
@@ -264,11 +262,11 @@ export default function BeautyViewClient() {
   const hasMajorFields = profile.light_signature != null || profile.vector_zero != null || profile.fullReport || profile.isExemplar;
   if (!hasMajorFields && profile.reportId !== "dry-run-preview") {
     return (
-      <main className="beauty-theme min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
-        <div className="max-w-md w-full beauty-form-card rounded-3xl px-8 py-12 text-center space-y-6">
+      <main className="min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+        <div className="max-w-md w-full beauty-form-card rounded-lg px-8 py-12 text-center space-y-6">
           <p className="beauty-body text-lg beauty-text-inverse font-normal">Report not found.</p>
           <Link href="/origin" className="beauty-body font-semibold text-[#7A4FFF] hover:underline inline-block">
-            Start Over
+            Return to Origin
           </Link>
         </div>
       </main>
@@ -296,41 +294,47 @@ export default function BeautyViewClient() {
   ].filter((f) => hasValue(f.value));
 
   return (
-    <main className="beauty-theme min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32" style={{ background: "var(--beauty-cream, #fdf8f5)" }}>
-      <div className="max-w-3xl mx-auto space-y-10">
-        {/* Back + Paid notice */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+    <main className="beauty-theme registry-view min-h-screen font-sans relative px-5 sm:px-8 lg:px-12 py-16 sm:py-20">
+      <div className="max-w-[600px] mx-auto space-y-8">
+        {/* Top bar: nav + record metadata */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <Link
             href="/origin"
-            className="beauty-body text-sm font-medium text-[#7A4FFF] hover:underline flex items-center gap-2"
+            className="registry-ctrl text-[11px] font-medium text-[#7A4FFF] hover:underline"
           >
             ← Back to Origin
           </Link>
-          <p className="beauty-body text-sm beauty-text-muted">
-            Paid / View Only — no checkout on this page
-          </p>
+          <div className="registry-meta flex items-center gap-4 text-[10px] font-mono uppercase tracking-wider text-[#9a9aa0]">
+            <span>Record: {profile.reportId}</span>
+            <span>{profile.isExemplar ? "Sample" : "Active"}</span>
+          </div>
         </div>
 
-        {/* Header / emotional snippet */}
-        <header className="text-center space-y-6">
-          <p className="beauty-body text-xs uppercase tracking-widest beauty-text-muted" style={{ letterSpacing: "0.2em" }}>
-            {profile.isExemplar ? "Sample Identity Record" : "Your Light Identity Report"}
-          </p>
-          <EmotionalSnippet snippet={profile.emotionalSnippet} subjectName={heading} />
+        {/* Record header: resolved query + subject + snippet */}
+        <header className="space-y-4 pb-6 border-b border-[#2a2a2e]">
+          <p className="registry-label">Query resolved</p>
+          <h1 className="text-xl sm:text-2xl font-semibold text-[#e8e8ec] tracking-tight" style={{ fontFamily: "var(--font-beauty-serif), Georgia, serif" }}>
+            {heading}
+          </h1>
+          {profile.emotionalSnippet && (
+            <p className="text-sm text-[#9a9aa0] leading-relaxed max-w-xl">
+              &ldquo;{profile.emotionalSnippet}&rdquo;
+            </p>
+          )}
         </header>
 
-        {/* HUMAN WHOIS RECORD */}
-        <section className="beauty-form-card rounded-3xl p-6 border-l-4 border-[#7A4FFF]">
-          <h2 className="beauty-body text-xs font-bold uppercase tracking-widest beauty-text-muted mb-1" style={{ letterSpacing: "0.25em" }}>
-            HUMAN WHOIS RECORD
-          </h2>
-          <p className="beauty-body text-xs beauty-text-muted mb-4">Registry: LIGS Identity Network</p>
+        {/* HUMAN WHOIS RECORD — primary anchor */}
+        <section className="registry-whois-block beauty-form-card p-5 sm:p-6 border-l-[3px] border-[#7A4FFF]">
+          <div className="flex items-baseline justify-between gap-4 mb-4">
+            <h2 className="registry-label">Human WHOIS Record</h2>
+            <span className="registry-label text-[9px]">LIGS Identity Network</span>
+          </div>
           {whoisFields.length > 0 ? (
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <dl className="registry-whois-grid grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-[13px]">
               {whoisFields.map(({ label, value, mono }) => (
                 <span key={label} className="contents">
-                  <dt className="beauty-body beauty-text-muted font-medium">{label}</dt>
-                  <dd className={`beauty-body beauty-text-inverse ${mono ? "font-mono" : ""}`}>{value}</dd>
+                  <dt className="registry-label text-[10px] font-mono">{label}</dt>
+                  <dd className={`text-[#e8e8ec] font-medium ${mono ? "font-mono text-[12px]" : ""}`}>{value}</dd>
                 </span>
               ))}
             </dl>
@@ -346,9 +350,9 @@ export default function BeautyViewClient() {
         )}
 
         {/* Archetype Artifact (hero + info panel) */}
-        <section className="beauty-form-card rounded-3xl p-6">
-          <h2 className="beauty-body text-sm font-bold uppercase tracking-widest beauty-text-muted mb-4 text-center" style={{ letterSpacing: "0.2em" }}>
-            Archetype Artifact
+        <section className="beauty-form-card p-6">
+          <h2 className="registry-label mb-4 text-center">
+            ARCHETYPE ARTIFACT
           </h2>
           <ArchetypeArtifactCard
             imageUrl={
@@ -360,6 +364,7 @@ export default function BeautyViewClient() {
             artifacts={buildArtifactsFromProfile(profile)}
             imageAlt={`Light Signature for ${heading}`}
             showGlyphOverlay={profile.isExemplar && profile.dominantArchetype === "Ignispectrum"}
+            registryVariant
           />
         </section>
 
@@ -369,9 +374,9 @@ export default function BeautyViewClient() {
         )}
 
         {/* Identity Artifacts */}
-        <section className="beauty-form-card rounded-3xl p-6">
-          <h2 className="beauty-body text-sm font-bold uppercase tracking-widest beauty-text-muted mb-4 text-center" style={{ letterSpacing: "0.2em" }}>
-            Identity Artifacts
+        <section className="beauty-form-card p-6">
+          <h2 className="registry-label mb-4 text-center">
+            REGISTERED IDENTITY ARTIFACTS
           </h2>
           <PreviewCarousel
             imageUrls={profile.imageUrls}
@@ -384,8 +389,8 @@ export default function BeautyViewClient() {
 
         {/* Share Card */}
         <section className="space-y-4">
-          <h2 className="beauty-body text-sm font-bold uppercase tracking-widest beauty-text-muted text-center" style={{ letterSpacing: "0.2em" }}>
-            Share Your Light Identity
+          <h2 className="registry-label text-center">
+            SHARE RECORD
           </h2>
           <ShareCard
             profile={profile}
@@ -397,22 +402,21 @@ export default function BeautyViewClient() {
 
         <hr className="border-[var(--beauty-line)]/40" />
 
-        <div className="mt-16 text-center">
+        <div className="mt-10 text-center">
           <Link
             href="/origin"
             onClick={() => track("beauty_start_over", reportId)}
-            className="inline-block px-6 py-3 rounded-full text-white font-medium hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/50"
-            style={{ backgroundColor: "#7A4FFF" }}
+            className="registry-ctrl inline-block px-5 py-2.5 rounded border border-[#2a2a2e] text-[#c8c8cc] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50"
           >
-            Start Over
+            RETURN TO ORIGIN
           </Link>
         </div>
 
-        <footer className="pt-8 text-center">
-          <p className="beauty-body text-sm beauty-text-muted font-normal">
+        <footer className="pt-6 text-center">
+          <p className="registry-meta text-[10px] font-normal">
             {profile.isExemplar
-              ? "Sample archetype record — not a personalized report."
-              : "This report is generated uniquely for you using the LIGS engine."}
+              ? "Sample record — not a personalized identity resolution."
+              : "Identity record resolved by the LIGS registry."}
           </p>
         </footer>
       </div>

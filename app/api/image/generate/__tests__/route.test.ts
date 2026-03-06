@@ -183,6 +183,35 @@ describe("POST /api/image/generate", () => {
     const data = await res.json();
     expect(data.spec.ligs.primary_archetype).toBe("Radiantis");
   });
+
+  it("returns rich DRY payload for archetype_background_from_glyph with Ignispectrum", async () => {
+    const ignisProfile = parseVoiceProfile({
+      ...validProfile,
+      id: "exemplar_Ignispectrum_v1",
+      ligs: { primary_archetype: "Ignispectrum", secondary_archetype: null, blend_weights: {} },
+    });
+    const req = jsonRequest({
+      profile: ignisProfile,
+      purpose: "archetype_background_from_glyph",
+      image: { aspectRatio: "1:1", size: "1024", count: 1 },
+      variationKey: "exemplar-v1",
+      archetype: "Ignispectrum",
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.dryRun).toBe(true);
+    expect(data.providerUsed).toBe("dalle2_edits");
+    expect(data.glyphDryPlan).toBeDefined();
+    expect(data.glyphDryPlan.glyphLoaded).toEqual({ path: "public/glyphs/ignis.svg", rasterizedTo: "1024x1024" });
+    expect(data.glyphDryPlan.maskCreated).toEqual({ size: "1024x1024", transparent: true });
+    expect(data.glyphDryPlan.finalPromptContainsSeedGrowth).toBe(true);
+    expect(typeof data.glyphDryPlan.finalPrompt).toBe("string");
+    expect(data.glyphDryPlan.finalPrompt).toMatch(/seed|grows/i);
+    expect(data.glyphDryPlan.fileUrlPlan).toBeDefined();
+    expect(data.glyphDryPlan.fileUrlPlan.live).toContain("saveExemplarToBlob");
+    expect(data.glyphDryPlan.fileUrlPlan.live).toContain("marketing_background");
+  });
 });
 
 describe("POST /api/image/generate - cache", () => {

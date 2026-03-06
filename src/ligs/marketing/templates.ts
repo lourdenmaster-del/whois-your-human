@@ -24,11 +24,11 @@ const SQUARE_CARD_V1: TemplatePlacement = {
   safeArea: { x: 0.08, y: 0.08, w: 0.84, h: 0.84 },
   logo: { anchor: "br", paddingPct: 0.05, maxWidthPct: 0.18 },
   textBlock: {
-    box: { x: 0.12, y: 0.18, w: 0.76, h: 0.52 },
+    box: { x: 0.12, y: 0.1, w: 0.76, h: 0.28 },
     align: "center",
   },
   ctaChip: {
-    box: { x: 0.32, y: 0.72, w: 0.36, h: 0.1 },
+    box: { x: 0.32, y: 0.78, w: 0.36, h: 0.1 },
     align: "center",
   },
 };

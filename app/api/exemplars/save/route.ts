@@ -14,6 +14,8 @@ import {
   exemplarManifestPath,
   saveExemplarToBlob,
   saveExemplarManifest,
+  loadExemplarManifest,
+  getPreferredExemplarVersion,
 } from "@/lib/exemplar-store";
 import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
@@ -61,66 +63,96 @@ export async function POST(req: Request) {
       );
     }
 
-    const exemplarCardB64 = (b.exemplarCardB64 ?? (b.assets as Record<string, unknown>)?.exemplarCardB64) as string | undefined;
-    if (typeof exemplarCardB64 !== "string" || !exemplarCardB64.trim()) {
-      return NextResponse.json(
-        { error: "EXEMPLAR_SAVE_INVALID", message: "exemplarCardB64 required (composed image base64)", requestId },
-        { status: 400 }
-      );
+    const targetRaw = b.target as string;
+    const target =
+      targetRaw === "share_card"
+        ? "share_card"
+        : targetRaw === "marketing_background"
+          ? "marketing_background"
+          : "exemplar_card";
+
+    let imageB64: string;
+    if (target === "marketing_background") {
+      const mb = (b.marketingBackgroundB64 ?? (b.assets as Record<string, unknown>)?.marketingBackgroundB64) as string | undefined;
+      if (typeof mb !== "string" || !mb.trim()) {
+        return NextResponse.json(
+          { error: "EXEMPLAR_SAVE_INVALID", message: "marketingBackgroundB64 required when target=marketing_background", requestId },
+          { status: 400 }
+        );
+      }
+      imageB64 = mb.replace(/^data:image\/\w+;base64,/, "").trim();
+    } else {
+      const exemplarCardB64 = (b.exemplarCardB64 ?? (b.assets as Record<string, unknown>)?.exemplarCardB64) as string | undefined;
+      if (typeof exemplarCardB64 !== "string" || !exemplarCardB64.trim()) {
+        return NextResponse.json(
+          { error: "EXEMPLAR_SAVE_INVALID", message: "exemplarCardB64 required (composed image base64)", requestId },
+          { status: 400 }
+        );
+      }
+      imageB64 = exemplarCardB64.replace(/^data:image\/\w+;base64,/, "").trim();
     }
-
     const overlay = (b.overlay ?? (b.prompts as Record<string, unknown>)?.overlay) as Record<string, unknown> | undefined ?? {};
+    const resolvedVersion = getPreferredExemplarVersion(archetype, version);
 
-    let exemplarCardBlobUrl: string | null = null;
+    let blobUrl: string | null = null;
+    const slug = target === "marketing_background" ? "marketing_background" : target === "share_card" ? "share_card" : "exemplar_card";
 
     try {
-      const exemplarB64 = exemplarCardB64.replace(/^data:image\/\w+;base64,/, "").trim();
-      const exemplarBuf = Buffer.from(exemplarB64, "base64");
-      exemplarCardBlobUrl = await saveExemplarToBlob(
-        exemplarPath(archetype, version, "exemplar_card"),
-        exemplarBuf,
+      const imageBuf = Buffer.from(imageB64, "base64");
+      blobUrl = await saveExemplarToBlob(
+        exemplarPath(archetype, resolvedVersion, slug),
+        imageBuf,
         "image/png"
       );
     } catch (err) {
-      log("warn", "exemplar_save_exemplar_card_failed", {
+      log("warn", "exemplar_save_failed", {
         requestId,
         archetype,
+        target,
         error: err instanceof Error ? err.message : String(err),
       });
       return NextResponse.json(
         {
           error: "EXEMPLAR_SAVE_FAILED",
-          message: "Failed to decode or save exemplar_card",
+          message: `Failed to decode or save ${target}`,
           requestId,
         },
         { status: 502 }
       );
     }
 
-    const createdAt = new Date().toISOString();
+    const existing = await loadExemplarManifest(exemplarManifestPath(archetype, resolvedVersion));
+    const ex = existing && typeof existing === "object" ? (existing as Record<string, unknown>) : null;
+    const prevUrls = (ex?.urls as Record<string, string> | undefined) ?? {};
+    const prevOverlay = (ex?.overlayCopy as Record<string, string> | undefined) ?? {};
+    const createdAt = (ex?.createdAt as string | undefined) ?? new Date().toISOString();
+
     const manifest = {
       archetype,
-      version,
+      version: resolvedVersion,
       createdAt,
+      markType: ex?.markType ?? "brand",
+      markArchetype: ex?.markArchetype ?? undefined,
       overlayCopy: {
-        headline: overlay?.headline ?? "",
-        subhead: overlay?.subhead ?? "",
-        cta: overlay?.cta ?? "",
+        headline: overlay?.headline != null && String(overlay.headline).trim() !== "" ? String(overlay.headline) : (prevOverlay?.headline ?? ""),
+        subhead: overlay?.subhead != null && String(overlay.subhead).trim() !== "" ? String(overlay.subhead) : (prevOverlay?.subhead ?? ""),
+        cta: overlay?.cta != null && String(overlay.cta).trim() !== "" ? String(overlay.cta) : (prevOverlay?.cta ?? ""),
       },
       urls: {
-        marketingBackground: undefined as string | undefined,
-        shareCard: undefined as string | undefined,
-        exemplarCard: exemplarCardBlobUrl ?? undefined,
+        marketingBackground: target === "marketing_background" ? (blobUrl ?? prevUrls.marketingBackground ?? prevUrls.marketing_background) : (prevUrls.marketingBackground ?? prevUrls.marketing_background),
+        shareCard: target === "share_card" ? (blobUrl ?? prevUrls.shareCard ?? prevUrls.share_card) : (prevUrls.shareCard ?? prevUrls.share_card),
+        exemplarCard: target === "exemplar_card" ? (blobUrl ?? prevUrls.exemplarCard ?? prevUrls.exemplar_card) : (prevUrls.exemplarCard ?? prevUrls.exemplar_card),
       },
     };
 
-    await saveExemplarManifest(exemplarManifestPath(archetype, version), manifest);
+    await saveExemplarManifest(exemplarManifestPath(archetype, resolvedVersion), manifest);
 
     log("info", "exemplar_saved", {
       requestId,
       archetype,
       version,
-      exemplarCardUrl: !!exemplarCardBlobUrl,
+      target,
+      blobUrl: !!blobUrl,
     });
 
     return NextResponse.json({

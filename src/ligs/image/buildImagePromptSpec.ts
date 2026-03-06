@@ -2,6 +2,7 @@ import type { VoiceProfile, LigsArchetype } from "../voice/schema";
 import type { ImagePromptSpec } from "./schema";
 import { getVisualParamsOrFallback } from "@/src/ligs/archetypes/adapters";
 import { buildTriangulatedMarketingPrompt } from "@/lib/marketing/visuals";
+import { buildGlyphConditionedBackgroundPrompt } from "@/lib/marketing/glyphConditionedBackground";
 import {
   getPrimaryArchetypeFromSolarLongitude,
   resolveSecondaryArchetype,
@@ -24,6 +25,12 @@ export const NEGATIVE_EXCLUSIONS = [
   "symbols",
   "busy texture",
   "high contrast",
+];
+
+/** For archetype_background_from_glyph: exclude "symbols" (glyph is provided), add glyph-specific exclusion */
+export const GLYPH_NEGATIVE_EXCLUSIONS = [
+  ...NEGATIVE_EXCLUSIONS.filter((t) => t !== "symbols"),
+  "no extra symbols besides the provided glyph",
 ];
 
 const MATERIAL_ACCENTS = [
@@ -131,6 +138,51 @@ export function buildImagePromptSpec(
   const arch = options.archetype ?? profile.ligs.primary_archetype;
   const variationKey = options.variationKey ?? "0";
 
+  if (purpose === "archetype_background_from_glyph") {
+    const archetypeStr = String(arch);
+    const positive = buildGlyphConditionedBackgroundPrompt(archetypeStr);
+    return {
+      id: `img_${profile.id}_glyph_${Date.now()}`,
+      version: "1.0.0",
+      created_at: new Date().toISOString(),
+      ligs: {
+        primary_archetype: arch as LigsArchetype,
+        secondary_archetype: profile.ligs.secondary_archetype,
+        blend_weights: profile.ligs.blend_weights ?? {},
+      },
+      purpose,
+      style: getVisualParamsOrFallback(archetypeStr),
+      composition: {
+        layout: "centered",
+        symmetry: "medium",
+        negative_space: "high",
+        focal_behavior: "central",
+        flow_lines: "present",
+      },
+      constraints: {
+        no_text: true,
+        no_logos: true,
+        no_faces: true,
+        no_figures: true,
+        no_symbols: false,
+        no_astrology: true,
+        avoid_busy_textures: true,
+        safety_notes: [],
+      },
+      output: {
+        aspectRatio: "1:1",
+        size: options.size ?? "1024",
+        count: 1,
+      },
+      prompt: { positive, negative: GLYPH_NEGATIVE_EXCLUSIONS.join(", ") },
+      variation: {
+        variationId: `var_glyph_${Date.now().toString(36)}`,
+        motifs: [],
+        randomnessLevel: 0.6,
+      },
+    };
+  }
+
   if (MARKETING_PURPOSES.includes(purpose as (typeof MARKETING_PURPOSES)[number])) {
     const contrastDelta = parseContrastDeltaFromVariationKey(variationKey);
     const archStr = parseArchetypeFromVariationKey(variationKey, arch as LigsArchetype);
@@ -185,11 +237,12 @@ export function buildImagePromptSpec(
       },
       output: {
         aspectRatio:
-          purpose === "marketing_logo_mark"
+          options.aspectRatio ??
+          (purpose === "marketing_logo_mark"
             ? "1:1"
             : TRIANGULATED_MARKETING_PURPOSES.includes(purpose as (typeof TRIANGULATED_MARKETING_PURPOSES)[number])
               ? "16:9"
-              : "1:1",
+              : "1:1"),
         size: options.size ?? "1024",
         count: 1,
       },

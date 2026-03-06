@@ -15,7 +15,7 @@ import { saveImageToBlob } from "@/lib/report-store";
 import { buildMinimalVoiceProfile } from "@/lib/marketing/minimal-profile";
 import { buildOverlaySpecWithCopy } from "@/src/ligs/marketing";
 import { createArchetypeGradientSvgBuffer } from "@/lib/marketing/gradient-background";
-import { composeMarketingCardToBuffer } from "@/lib/marketing/compose-card";
+import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
 import type { BeautyProfileV1 } from "@/lib/beauty-profile-schema";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
 
@@ -157,7 +157,7 @@ export async function POST(request: Request) {
           variationKey: reportId,
         }, undefined, archetypeName);
         const backgroundBuffer = createArchetypeGradientSvgBuffer(archetypeName);
-        const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, backgroundBuffer, { size: 1024 });
+        const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, backgroundBuffer, { size: 1024 });
         log("info", "marketing_card_composed", {
           requestId,
           reportId,

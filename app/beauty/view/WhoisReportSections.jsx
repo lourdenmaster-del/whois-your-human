@@ -124,8 +124,8 @@ export default function WhoisReportSections({ profile, isExemplar, sections = "a
   if (!hasIdentityContent && !hasInterpretationContent) {
     if (hasContent(profile.fullReport) && sections === "all") {
       return (
-        <div className="beauty-form-card rounded-3xl p-8">
-          <h2 className="beauty-body text-xs font-bold uppercase tracking-[0.25em] beauty-text-muted mb-6">
+        <div className="beauty-form-card p-6">
+          <h2 className="registry-label mb-5">
             Identity Field Interpretation
           </h2>
           <pre className="beauty-body text-sm beauty-text-inverse font-normal leading-relaxed whitespace-pre-wrap text-left">
@@ -140,8 +140,8 @@ export default function WhoisReportSections({ profile, isExemplar, sections = "a
   if (sections === "interpretation" && !hasInterpretationContent) return null;
 
   return (
-    <div className="beauty-form-card rounded-3xl p-8">
-      <h2 className="beauty-body text-xs font-bold uppercase tracking-[0.25em] beauty-text-muted mb-6">
+    <div className="beauty-form-card p-6">
+      <h2 className="registry-label mb-5">
         {sections === "identity" ? "Field Conditions & Resolved Identity" : sections === "interpretation" ? "Field Interpretation" : "Identity Field Interpretation"}
       </h2>
 

@@ -85,9 +85,9 @@ export default function RegistrySummary({ profile }) {
   if (lines.length === 0) return null;
 
   return (
-    <section className="beauty-form-card rounded-3xl p-5 border-l-4 border-[#7A4FFF]/60">
-      <h2 className="beauty-body text-[11px] font-bold uppercase tracking-[0.2em] beauty-text-muted mb-3" style={{ letterSpacing: "0.2em" }}>
-        REGISTRY SUMMARY
+    <section className="beauty-form-card p-5 sm:p-6 border-l-[3px] border-[#7A4FFF]/70">
+      <h2 className="registry-label mb-3">
+        Registry Summary
       </h2>
       <div className="space-y-2">
         {lines.map((line, i) => (

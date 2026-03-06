@@ -38,6 +38,7 @@ export async function POST(request: Request) {
     ...body,
     email: body.email ?? "dev@example.com",
     dryRun: false,
+    idempotencyKey: (body.idempotencyKey as string) ?? crypto.randomUUID(),
   };
 
   const validation = validateEngineBody(engineBody);

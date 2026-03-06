@@ -11,7 +11,26 @@ import { successResponse } from "@/lib/success-response";
 import { saveReportAndConfirm } from "@/lib/report-store";
 import { validateEngineBody } from "@/lib/validate-engine-body";
 import { getArchetypeOrFallback, FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
+import type { LigsArchetype } from "@/src/ligs/voice/schema";
+import { getSolarSeasonProfile, getSolarSeasonByIndex } from "@/src/ligs/astronomy/solarSeason";
+import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import { scanForbidden, redactForbidden } from "@/lib/engine/constraintGate";
+import { injectDeterministicBlocksIntoReport, getSolarProfileFromContext } from "@/lib/engine/deterministic-blocks";
+import { computeBirthContextForReport } from "@/lib/engine/computeBirthContextForReport";
+import {
+  validateThreeVoiceSections,
+  buildThreeVoiceRepairPrompt,
+} from "@/lib/engine/threeVoiceValidation";
+import {
+  subjectNamePresentInInitiation,
+  injectBirthAnchoringSentence as injectInitiationAnchor,
+} from "@/lib/engine/initiation-anchor";
+import {
+  validateReport,
+  buildReportRepairPrompt,
+  hasDeterministicAnchors,
+  extractCanonicalRegimeFromReport,
+} from "@/lib/engine/reportValidators";
 import {
   getIdempotentResult,
   setIdempotentResult,
@@ -23,13 +42,51 @@ if (process.env.DRY_RUN === "1") {
   console.log("DRY_RUN ENABLED — skipping OpenAI calls, returning fixture mock");
 }
 
-const REPORT_BASE_PROMPT = `Generate the full Light Identity Report and emotional snippet for this birth data using LIGS Engine v1.1 (canonical 14-section structure + Cosmology Marbling Patch):
+/** LigsStudio default birth data (1990-01-15, 14:30, New York, NY) — used when compute fails in development. */
+const STUDIO_FALLBACK_BIRTH_CONTEXT: Record<string, unknown> = {
+  lat: 40.7128,
+  lon: -74.006,
+  placeName: "New York, NY",
+  timezoneId: "America/New_York",
+  localTimestamp: "1990-01-15T14:30:00.000-05:00",
+  utcTimestamp: "1990-01-15T19:30:00.000Z",
+  sun: {
+    sunAltitudeDeg: 25,
+    sunAzimuthDeg: 210,
+    sunAboveHorizon: true,
+    twilightPhase: "day",
+    sunriseLocal: "1990-01-15T07:15:00.000-05:00",
+    sunsetLocal: "1990-01-15T17:00:00.000-05:00",
+    dayLengthMinutes: 585,
+  },
+  moon: {
+    phaseName: "Waning Gibbous",
+    illuminationFrac: 0.8,
+    moonAltitudeDeg: 45,
+    moonAzimuthDeg: 120,
+    moonAboveHorizon: true,
+  },
+  sunLonDeg: 295,
+  solarSeasonProfile: {
+    seasonIndex: 11,
+    archetype: "Fluxionis",
+    lonCenterDeg: 345,
+    solarDeclinationDeg: -20,
+    seasonalPolarity: "waning",
+    anchorType: "none",
+  },
+  sun_sign: "Capricorn",
+  moon_sign: "Capricorn",
+  rising_sign: "Libra",
+};
+
+const REPORT_BASE_PROMPT = `Generate the full field-resolution report and emotional snippet for this birth data (Engine v1.3.2 — 14-section structure, field-resolution document, observational only):
 
 {{BIRTH_DATA}}
 
-Output valid JSON only with exactly these keys: "full_report" (string, the complete 14-section report: Initiation, Spectral Origin, Temporal Encoding, Gravitational Patterning, Directional Field, Archetype Revelation, Archetype Micro-Profiles, Behavioral Expression, Relational Field, Environmental Resonance, Cosmology Overlay, Identity Field Equation, Legacy Trajectory, Integration. In EVERY section: RAW SIGNAL with 1 subtle cosmological echo; CUSTODIAN with 1 ancient physiological mirror; ORACLE with full fusion of physics, metaphysics, and human meaning—cosmology woven into sentences, not listed. Tone: mythic-scientific, elegant, readable. The full_report must be a long string (multiple paragraphs; no shortening).) and "emotional_snippet" (string, 1-2 declarative sentences). No other text.`;
+Output valid JSON only with exactly these keys: "full_report" (string, the complete 14-section field-resolution report: Initiation MUST begin with "(L) denotes the identity field..." law statement — then 14 sections. In EVERY section: RAW SIGNAL (max 3 bullets, each ending with [key=value] citation from BOUNDARY/RESOLUTION KEYS/FIELD SOLUTION), CUSTODIAN (max 2 bullets), ORACLE (1-2 lines). Max 18 words per sentence; each section under 90 words total. Use observational language only; no chakras, Kabbalah, mystical claims, or "Light Identity Grid System". Tone: mythic-scientific, elegant, readable. The full_report must be a complete string.) and "emotional_snippet" (string, 1-2 declarative sentences). No other text.`;
 
-/** Builds factual Birth Context bullets from derived birth context (no mythology). */
+/** Builds minimal ground-truth context for LLM (values only). Deterministic blocks are injected after generation. */
 function buildBirthContextBlock(birthContext: unknown): string {
   if (birthContext == null || typeof birthContext !== "object") return "";
   const c = birthContext as Record<string, unknown>;
@@ -94,9 +151,114 @@ function buildBirthContextBlock(birthContext: unknown): string {
   if (lines.length === 0) return "";
   return `
 ------------------------------------------------------------
-BIRTH CONTEXT — Factual data only; use to ground the report. No mythology.
+GROUND TRUTH (for reference; BOUNDARY CONDITIONS will be inserted separately)
 ------------------------------------------------------------
 ${lines.join("\n")}
+------------------------------------------------------------`;
+}
+
+/** Builds Solar Season + Cosmic Analogue block from birthContext or computed profile. Never invents solar values — uses "unknown" when sunLonDeg/solarSeasonProfile missing. */
+function buildSolarSeasonCosmicBlock(birthContext: unknown): string {
+  const c = birthContext as Record<string, unknown> | undefined;
+  const precomputed = c?.solarSeasonProfile as Record<string, unknown> | undefined;
+  const hasPrecomputed =
+    precomputed &&
+    typeof precomputed.seasonIndex === "number" &&
+    typeof precomputed.archetype === "string" &&
+    typeof precomputed.lonCenterDeg === "number" &&
+    typeof precomputed.solarDeclinationDeg === "number" &&
+    typeof precomputed.seasonalPolarity === "string";
+  const sunLonDeg = c?.sunLonDeg;
+  const hasSunLonDeg = typeof sunLonDeg === "number";
+
+  let solarSection: string;
+  let archetypeForAnalogue: LigsArchetype;
+
+  if (hasPrecomputed) {
+    const entry = getSolarSeasonByIndex(precomputed!.seasonIndex as number);
+    solarSection = `Solar season:
+- seasonIndex: ${precomputed!.seasonIndex}
+- archetype: ${precomputed!.archetype}
+- lonCenterDeg: ${precomputed!.lonCenterDeg}
+- declinationDeg: ${Math.round((precomputed!.solarDeclinationDeg as number) * 100) / 100}
+- polarity: ${precomputed!.seasonalPolarity}
+- anchorType: ${(precomputed!.anchorType as string) ?? entry?.anchorType ?? "none"}`;
+    archetypeForAnalogue = precomputed!.archetype as LigsArchetype;
+  } else if (hasSunLonDeg) {
+    const lat = typeof c?.lat === "number" ? c.lat : 0;
+    const utcTimestamp = typeof c?.utcTimestamp === "string" ? c.utcTimestamp : "";
+    const sun = c?.sun as Record<string, unknown> | undefined;
+    const computed = getSolarSeasonProfile({
+      sunLonDeg: sunLonDeg as number,
+      latitudeDeg: lat,
+      date: utcTimestamp ? new Date(utcTimestamp) : new Date(),
+      sunAltitudeDeg: typeof sun?.sunAltitudeDeg === "number" ? sun.sunAltitudeDeg : undefined,
+      dayLengthMinutes: typeof sun?.dayLengthMinutes === "number" ? sun.dayLengthMinutes : undefined,
+      twilightPhase: typeof sun?.twilightPhase === "string" ? (sun.twilightPhase as "day" | "civil" | "nautical" | "astronomical" | "night") : undefined,
+    });
+    const seasonEntry = getSolarSeasonByIndex(computed.seasonIndex);
+    solarSection = `Solar season:
+- seasonIndex: ${computed.seasonIndex}
+- archetype: ${computed.archetype}
+- lonCenterDeg: ${computed.lonCenterDeg}
+- declinationDeg: ${Math.round(computed.solarDeclinationDeg * 100) / 100}
+- polarity: ${computed.seasonalPolarity}
+- anchorType: ${seasonEntry?.anchorType ?? "none"}`;
+    archetypeForAnalogue = computed.archetype as LigsArchetype;
+  } else {
+    solarSection = `Solar season: unknown (sunLonDeg / solarSeasonProfile not provided — do not invent)`;
+    archetypeForAnalogue = FALLBACK_PRIMARY_ARCHETYPE as LigsArchetype;
+  }
+
+  const analogue = getCosmicAnalogue(archetypeForAnalogue);
+
+  return `
+------------------------------------------------------------
+SOLAR SEASON + COSMIC ANALOGUE (GROUND TRUTH CONTEXT)
+------------------------------------------------------------
+${solarSection}
+
+Cosmic analogue:
+- phenomenon: ${analogue.phenomenon}
+- description: ${analogue.description}
+- light-behavior keywords: ${analogue.lightBehaviorKeywords.join(", ")}
+
+Instruction: Use this context in RAW SIGNAL and ORACLE. FIELD SOLUTION will be inserted separately.
+------------------------------------------------------------`;
+}
+
+/** Build (L) RESOLUTION KEYS preview for prompt — RAW SIGNAL bullets must cite these values. Each bullet ends with [key=value]. */
+function buildResolutionKeysPreview(birthContext: unknown, archetype: string): string {
+  const solarProfile = getSolarProfileFromContext(birthContext ?? {});
+  const cosmicAnalogue = getCosmicAnalogue(archetype as LigsArchetype);
+  const solarLine =
+    solarProfile != null
+      ? `${solarProfile.archetype} (index ${solarProfile.seasonIndex}, ${solarProfile.seasonalPolarity})`
+      : "unknown";
+  return `
+------------------------------------------------------------
+(L) RESOLUTION KEYS — RAW SIGNAL bullets must cite values; each bullet ends with exactly one [key=value]
+------------------------------------------------------------
+Regime:          ${archetype}
+Solar season:    ${solarLine}
+Cosmic analogue: ${cosmicAnalogue.phenomenon}
+Coherence:       (computed after generation)
+
+Vector Zero axes: lateral, vertical, depth (computed after generation)
+
+------------------------------------------------------------
+(L) ALLOWED CITATION KEYS — RAW SIGNAL [key=value] MUST use ONLY these keys
+------------------------------------------------------------
+ENVIRONMENT
+  solar_altitude, solar_azimuth, twilight, sunrise_local, sunset_local, day_length_minutes, moon_phase, moon_illumination_pct, moon_altitude, moon_azimuth
+
+SOLAR STRUCTURE
+  sun_lon_deg, solar_season, solar_declination, solar_polarity, anchor_type
+
+FIELD RESOLUTION
+  regime, cosmic_analogue, vector_zero_coherence, vector_zero_axes_lateral, vector_zero_axes_vertical, vector_zero_axes_depth, primary_wavelength, secondary_wavelength
+
+Each RAW SIGNAL bullet must end with exactly one [key=value] citation. Location/coordinates/timezone/timestamps stay in BOUNDARY but cannot be cited. No astrology-derived keys (sun_sign, moon_sign, rising_sign). If unknown, use "unknown". Inventing keys is FORBIDDEN.
 ------------------------------------------------------------`;
 }
 
@@ -133,6 +295,10 @@ Apply this voice to: (1) the emotional_snippet, and (2) every ORACLE section in 
   let content = REPORT_BASE_PROMPT.replace("{{BIRTH_DATA}}", birthData);
   const ctxBlock = buildBirthContextBlock(birthContext);
   if (ctxBlock) content = content.trim() + ctxBlock;
+  const solarCosmicBlock = buildSolarSeasonCosmicBlock(birthContext ?? {});
+  content = content.trim() + solarCosmicBlock;
+  const resolutionKeysPreview = buildResolutionKeysPreview(birthContext ?? {}, arch);
+  content = content.trim() + resolutionKeysPreview;
   return content.trim() + "\n\n" + voiceBlock.trim();
 }
 
@@ -155,8 +321,26 @@ export async function POST(request: Request) {
       return errorResponse(400, validation.error.message, requestId);
     }
     const { fullName, birthDate, birthTime, birthLocation, email, dryRun: bodyDryRun, archetype } = validation.value;
-    const birthContext = (validation.value as Record<string, unknown>).birthContext;
+    let birthContext = (validation.value as Record<string, unknown>).birthContext as Record<string, unknown> | undefined;
     const idempotencyKey = (validation.value as Record<string, unknown>).idempotencyKey as string | undefined;
+
+    // Upstream computation: always compute birthContext when birthDate + birthLocation + birthTime provided (ensures complete values, no placeholders)
+    if (birthDate && birthLocation && birthTime) {
+      try {
+        const computed = await computeBirthContextForReport(birthDate, birthLocation, birthTime);
+        birthContext = { ...computed, ...(birthContext && { onThisDay: (birthContext as Record<string, unknown>).onThisDay }) };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log("error", "Birth context computation failed", { requestId, error: msg });
+        // Development fallback: use LigsStudio default birth data when compute fails (e.g. geocoding rate limit)
+        if (process.env.NODE_ENV !== "production") {
+          log("warn", "Using LigsStudio fallback birth context", { requestId });
+          birthContext = STUDIO_FALLBACK_BIRTH_CONTEXT;
+        } else {
+          return errorResponse(500, "Birth context computation failed. Please verify birth date, time, and location.", requestId);
+        }
+      }
+    }
 
     // Gate X-Force-Live: only honored when ALLOW_FORCE_LIVE=true (default false)
     const allowForceLive = process.env.ALLOW_FORCE_LIVE === "true";
@@ -198,7 +382,163 @@ export async function POST(request: Request) {
         `Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures.`,
         `Cosmic identity architecture, infrared red #FF3B3B and ultraviolet violet #7A4FFF, spectral imprint, 50-80 words.`,
       ];
-      const fullReport = `[DRY RUN] Full report placeholder for ${fullName}\n\nInitiation: forces at ${birthDate} ${birthTime || "—"} in ${birthLocation}.\nSpectral Origin, Temporal Encoding, Gravitational Patterning, Directional Field, Archetype Revelation, Behavioral Expression, Relational Field, Environmental Resonance, Cosmology Overlay, Integration.\n\n(Set DRY_RUN=0 or remove the env var to generate real reports.)`;
+      const fullReport = `[DRY RUN] Full report placeholder for ${fullName}
+
+1. INITIATION
+
+RAW SIGNAL
+Forces at ${birthDate} ${birthTime} in ${birthLocation}.
+
+CUSTODIAN
+Structural pattern formed at initialization.
+
+ORACLE
+The identity at rest before environmental modulation.
+
+2. SPECTRAL ORIGIN
+
+RAW SIGNAL
+Spectral baseline.
+
+CUSTODIAN
+Biological encoding.
+
+ORACLE
+Baseline coherence.
+
+3. TEMPORAL ENCODING
+
+RAW SIGNAL
+Temporal encoding.
+
+CUSTODIAN
+Circadian modulation.
+
+ORACLE
+Time and structure.
+
+4. GRAVITATIONAL PATTERNING
+
+RAW SIGNAL
+Gravitational field.
+
+CUSTODIAN
+Physiological response.
+
+ORACLE
+Gravity and form.
+
+5. DIRECTIONAL FIELD
+
+RAW SIGNAL
+Directional vectors.
+
+CUSTODIAN
+Spatial encoding.
+
+ORACLE
+Direction and meaning.
+
+6. ARCHETYPE REVELATION
+
+RAW SIGNAL
+Archetype emergence.
+
+CUSTODIAN
+Pattern recognition.
+
+ORACLE
+Archetype and identity.
+
+7. ARCHETYPE MICRO-PROFILES
+
+RAW SIGNAL
+Micro-profile data.
+
+CUSTODIAN
+Profile encoding.
+
+ORACLE
+Profile synthesis.
+
+8. BEHAVIORAL EXPRESSION
+
+RAW SIGNAL
+Behavioral expression.
+
+CUSTODIAN
+Expression pathways.
+
+ORACLE
+Behavior and structure.
+
+9. RELATIONAL FIELD
+
+RAW SIGNAL
+Relational vectors.
+
+CUSTODIAN
+Relational encoding.
+
+ORACLE
+Relation and meaning.
+
+10. ENVIRONMENTAL RESONANCE
+
+RAW SIGNAL
+Environmental resonance.
+
+CUSTODIAN
+Environmental encoding.
+
+ORACLE
+Environment and structure.
+
+11. COSMOLOGY OVERLAY
+
+RAW SIGNAL
+Cosmology overlay.
+
+CUSTODIAN
+Cosmology encoding.
+
+ORACLE
+Cosmology synthesis.
+
+12. IDENTITY FIELD EQUATION
+
+RAW SIGNAL
+Identity field.
+
+CUSTODIAN
+Field encoding.
+
+ORACLE
+Identity equation.
+
+13. LEGACY TRAJECTORY
+
+RAW SIGNAL
+Legacy trajectory.
+
+CUSTODIAN
+Trajectory encoding.
+
+ORACLE
+Legacy and structure.
+
+14. INTEGRATION
+
+RAW SIGNAL
+Integration field.
+
+CUSTODIAN
+Integration pathways.
+
+ORACLE
+Integration synthesis.
+
+(Set DRY_RUN=0 or remove the env var to generate real reports.)`;
       const vectorZero: VectorZero = {
         coherence_score: 0.85,
         primary_wavelength: "580–620 nm",
@@ -216,11 +556,16 @@ export async function POST(request: Request) {
           oracle: "The baseline state is the identity at rest—the structure that remains when no force bends it. This is the default; everything else is variation.",
         },
       };
+      // Inject (L) deterministic blocks before save
+      const fullReportWithBlocks = injectDeterministicBlocksIntoReport(fullReport, {
+        birthContext: birthContext ?? {},
+        vectorZero,
+      });
       // Engine must never return success until saveReportAndConfirm verifies the write.
       const writeResult = await saveReportAndConfirm(
         reportId,
         {
-          full_report: fullReport,
+          full_report: fullReportWithBlocks,
           emotional_snippet: emotionalSnippet,
           image_prompts: imagePrompts,
           vector_zero: vectorZero,
@@ -244,7 +589,7 @@ export async function POST(request: Request) {
           200,
           {
             reportId: unsavedId,
-            full_report: fullReport,
+            full_report: fullReportWithBlocks,
             emotional_snippet: emotionalSnippet,
             image_prompts: imagePrompts,
             vector_zero: vectorZero,
@@ -256,7 +601,7 @@ export async function POST(request: Request) {
       log("info", "saveReportAndConfirm ok", { requestId, reportId });
       const dryPayload = {
         reportId,
-        full_report: fullReport,
+        full_report: fullReportWithBlocks,
         emotional_snippet: emotionalSnippet,
         image_prompts: imagePrompts,
         vector_zero: vectorZero,
@@ -289,7 +634,7 @@ export async function POST(request: Request) {
     const birthData = `
 Full Name: ${fullName}
 Birth Date: ${birthDate}
-Birth Time: ${birthTime || "Unknown"}
+Birth Time: ${birthTime}
 Birth Location: ${birthLocation}
 Email: ${email}
 `.trim();
@@ -338,6 +683,81 @@ Email: ${email}
 
     let fullReport = reportData.full_report ?? "";
     const emotionalSnippet = reportData.emotional_snippet ?? "";
+
+    // HARD INVARIANT: Subject name must appear in INITIATION. Inject deterministically if missing.
+    if (fullName && birthDate && birthLocation && !subjectNamePresentInInitiation(fullReport, { fullName, birthDate, birthLocation })) {
+      const injectResult = injectInitiationAnchor(fullReport, { fullName, birthDate, birthLocation });
+      if (injectResult.ok) {
+        fullReport = injectResult.report;
+        log("info", "Subject name anchored in INITIATION (early injection)", {
+          requestId,
+          repairPath: injectResult.repairPath,
+        });
+      } else {
+        log("error", "Subject name injection failed — INITIATION section not found or no insertion point", {
+          requestId,
+          initiationFound: injectResult.initiationFound,
+          insertionPointFound: injectResult.insertionPointFound,
+          reason: injectResult.reason,
+        });
+        return errorResponse(
+          500,
+          "Report pipeline error: Could not anchor subject name in INITIATION. The report structure may be invalid.",
+          requestId
+        );
+      }
+    }
+
+    // Quality check: INITIATION should reference solar-season / cosmic analogue physics
+    const INITIATION_SOLAR_COSMIC_KEYWORDS = [
+      "declination", "polarity", "anchor", "equinox", "solstice", "crossquarter",
+      "protostar", "pulsar", "lensing", "jets", "accretion", "supernova", "cosmic web",
+    ];
+    const initMatch = fullReport.match(/(?:^|\n)\s*1\.\s*Initiation[\s\S]*?(?=\n\s*2\.\s+Spectral|$)/i);
+    const initiationSection = initMatch ? initMatch[0] : fullReport.slice(0, 1500);
+    const hasKeyword = INITIATION_SOLAR_COSMIC_KEYWORDS.some((kw) =>
+      initiationSection.toLowerCase().includes(kw)
+    );
+    if (!hasKeyword) {
+      log("warn", "INITIATION missing solar-season / cosmic analogue reference", {
+        requestId,
+        initiationPreview: initiationSection.slice(0, 200),
+      });
+    }
+
+    // Three-voice validation: repair sections missing RAW SIGNAL, CUSTODIAN, or ORACLE
+    const voiceIssues = validateThreeVoiceSections(fullReport);
+    if (voiceIssues.length > 0) {
+      log("info", "Three-voice validation: repairing sections", {
+        requestId,
+        sections: voiceIssues.map((i) => i.sectionNum),
+      });
+      try {
+        const repairResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You add missing voice labels (RAW SIGNAL, CUSTODIAN, ORACLE) to report sections. Output valid JSON only with key \"full_report\" (string). Do not change any other content.",
+            },
+            { role: "user", content: buildThreeVoiceRepairPrompt(fullReport, voiceIssues) },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+        });
+        const repairText = repairResponse.choices[0]?.message?.content;
+        if (repairText) {
+          const repaired = JSON.parse(repairText) as { full_report?: string };
+          if (repaired.full_report?.length) fullReport = repaired.full_report;
+        }
+      } catch (e) {
+        log("warn", "Three-voice repair failed", {
+          requestId,
+          message: e instanceof Error ? e.message : String(e),
+        });
+      }
+    }
 
     // Constraint Gate: scan for forbidden terms; run one repair pass if needed
     const initialHits = scanForbidden(fullReport);
@@ -449,6 +869,126 @@ Email: ${email}
       }
     } catch (e) {
       log("warn", "Vector Zero derivation failed, report will not include it", { requestId, message: e instanceof Error ? e.message : String(e) });
+    }
+
+    // Inject (L) deterministic blocks after LLM — BOUNDARY CONDITIONS, FIELD SOLUTION, LIGHT IDENTITY SUMMARY
+    fullReport = injectDeterministicBlocksIntoReport(fullReport, {
+      birthContext: birthContext ?? {},
+      vectorZero: vectorZero ?? undefined,
+    });
+
+    // Report quality validators: run only when deterministic anchors exist
+    const runValidation = hasDeterministicAnchors(fullReport);
+    const canonicalRegime =
+      extractCanonicalRegimeFromReport(fullReport) ??
+      getSolarProfileFromContext(birthContext ?? {})?.archetype ??
+      archetype;
+    const qualityIssues = runValidation
+      ? validateReport(fullReport, {
+          subjectInput: { fullName, birthDate, birthLocation },
+          canonicalRegime,
+        })
+      : [];
+
+    if (qualityIssues.length > 0) {
+      log("info", "Report quality validation: attempting repair", {
+        requestId,
+        issueCount: qualityIssues.length,
+        codes: qualityIssues.map((i) => i.code),
+      });
+      try {
+        const { system: repairSystem, user: repairUser } = buildReportRepairPrompt(
+          fullReport,
+          qualityIssues,
+          { subjectInput: { fullName, birthDate, birthLocation }, canonicalRegime }
+        );
+        const repairResponse = await openai.chat.completions.create({
+          model: "gpt-4o",
+          messages: [
+            { role: "system", content: repairSystem },
+            { role: "user", content: repairUser },
+          ],
+          response_format: { type: "json_object" },
+          temperature: 0.3,
+        });
+        const repairText = repairResponse.choices[0]?.message?.content;
+        if (repairText) {
+          const repaired = JSON.parse(repairText) as { full_report?: string };
+          if (repaired.full_report?.length) {
+            fullReport = repaired.full_report;
+            const afterIssues = validateReport(fullReport, {
+              subjectInput: { fullName, birthDate, birthLocation },
+              canonicalRegime,
+            });
+            if (afterIssues.length > 0) {
+              const hasNameMissing = afterIssues.some((i) => i.code === "SUBJECT_NAME_MISSING");
+              if (hasNameMissing && fullName && birthDate && birthLocation) {
+                const injectResult = injectInitiationAnchor(fullReport, {
+                  fullName,
+                  birthDate,
+                  birthLocation,
+                });
+                if (!injectResult.ok) {
+                  log("error", "Subject name injection failed after repair pass", {
+                    requestId,
+                    initiationFound: injectResult.initiationFound,
+                    insertionPointFound: injectResult.insertionPointFound,
+                    reason: injectResult.reason,
+                  });
+                  return errorResponse(
+                    500,
+                    "Report pipeline error: Could not anchor subject name in INITIATION. The report structure may be invalid.",
+                    requestId
+                  );
+                }
+                fullReport = injectResult.report;
+                const retryIssues = validateReport(fullReport, {
+                  subjectInput: { fullName, birthDate, birthLocation },
+                  canonicalRegime,
+                });
+                if (retryIssues.some((i) => i.code === "SUBJECT_NAME_MISSING")) {
+                  log("error", "Subject name still missing after deterministic injection", {
+                    requestId,
+                    code: "SUBJECT_NAME_MISSING",
+                    repairPath: injectResult.repairPath,
+                  });
+                  return errorResponse(
+                    500,
+                    "Report failed validation: Report must reference the individual's full name in INITIATION.",
+                    requestId
+                  );
+                }
+                afterIssues.length = 0;
+                afterIssues.push(...retryIssues);
+              }
+              if (afterIssues.length > 0) {
+                const top = afterIssues[0]!;
+                log("warn", "Report failed validation after repair", {
+                  requestId,
+                  code: top.code,
+                  message: top.message,
+                });
+                return errorResponse(
+                  500,
+                  `Report failed validation: ${top.message}`,
+                  requestId
+                );
+              }
+            }
+          }
+        }
+      } catch (e) {
+        const top = qualityIssues[0]!;
+        log("warn", "Report quality repair failed", {
+          requestId,
+          error: e instanceof Error ? e.message : String(e),
+        });
+        return errorResponse(
+          500,
+          `Report failed validation: ${top.message}`,
+          requestId
+        );
+      }
     }
 
     const reportId = randomUUID();

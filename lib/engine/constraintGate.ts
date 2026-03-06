@@ -4,6 +4,14 @@
  */
 
 export const FORBIDDEN_PATTERNS: Array<{ key: string; re: RegExp }> = [
+  { key: "light_identity_grid_system", re: /\blight\s+identity\s+grid\s+system\b/i },
+  { key: "may_indicate", re: /\bmay\s+indicate\b/i },
+  { key: "tends_to", re: /\btends\s+to\b/i },
+  { key: "you_tend_to", re: /\byou\s+tend\s+to\b/i },
+  { key: "your_type", re: /\byour\s+type\b/i },
+  { key: "people_like_you", re: /\bpeople\s+like\s+you\b/i },
+  { key: "cognitive", re: /\bcognitive\b/i },
+  { key: "introspection", re: /\bintrospection\b/i },
   { key: "chakra", re: /\bchakra(s)?\b/i },
   { key: "sushumna", re: /\bsushumna\b/i },
   { key: "anahata", re: /\banahata\b/i },

@@ -11,7 +11,7 @@ const ImageSchema = z.object({
 export const GenerateImageRequestSchema = z
   .object({
     profile: z.unknown(),
-    purpose: z.string().min(3).max(100),
+    purpose: z.string().min(3).max(120),
     image: ImageSchema,
     variationKey: z.string().max(200).optional(),
     archetype: LigsArchetypeEnum.optional(),

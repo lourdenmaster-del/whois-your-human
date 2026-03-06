@@ -23,7 +23,7 @@ export default function BeautyCancelPage() {
           </p>
           <div>
             <Link
-              href="/beauty"
+              href="/origin"
               className="inline-block px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/50"
             >
               Try Again

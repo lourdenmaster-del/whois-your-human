@@ -141,6 +141,8 @@ export default function ArchetypeArtifactCard({
   showGlyphOverlay = false,
   /** "square" for 1:1 composed cards (object-contain, no crop); default for 16:9 backgrounds (object-cover). */
   aspectRatio = "video",
+  /** When true, uses registry-dossier styling (smaller radius, no shadow, system controls). */
+  registryVariant = false,
 }) {
   const src = imageUrl || PLACEHOLDER_SVG;
   const defaultScrim = overlayStyle === "highContrast" ? "light" : "dark";
@@ -149,15 +151,18 @@ export default function ArchetypeArtifactCard({
   const aspectClass = isSquare ? "aspect-square" : "aspect-[4/3] sm:aspect-[3/4]";
   const objectClass = isSquare ? "object-contain" : "object-cover";
 
+  const cardClass = registryVariant
+    ? "relative overflow-hidden rounded-lg border border-[var(--artifact-panel-border)] bg-[var(--beauty-cream)] registry-artifact-card"
+    : "relative overflow-hidden rounded-xl border border-[var(--artifact-panel-border)] bg-[var(--beauty-cream)]";
+  const cardStyle = registryVariant ? undefined : { boxShadow: "0 4px 24px rgba(0,0,0,0.08)" };
+
   return (
     <div
-      className={`relative overflow-hidden rounded-xl border border-[var(--artifact-panel-border)] bg-[var(--beauty-cream)] ${className}`}
-      style={{
-        boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-      }}
+      className={`${cardClass} ${className}`}
+      style={cardStyle}
     >
       <div className="flex flex-row">
-        <ArtifactInfoPanel artifacts={artifacts} showDevFields={showDevFields} />
+        <ArtifactInfoPanel artifacts={artifacts} showDevFields={showDevFields} registryVariant={registryVariant} />
         <div className={`relative flex-1 min-w-0 ${aspectClass}`}>
           <img
             src={src}
@@ -172,10 +177,12 @@ export default function ArchetypeArtifactCard({
               className="ignis-glyph-overlay"
             />
           )}
-          <ArchetypeNameOverlay archetype={archetype} scrimVariant={scrimVariant} />
+          <ArchetypeNameOverlay archetype={archetype} scrimVariant={scrimVariant} registryVariant={registryVariant} />
           <button
             type="button"
-            className="absolute top-2 right-2 z-10 px-2 py-1 text-[10px] uppercase tracking-wider rounded bg-black/20 text-white/90 hover:bg-black/30 border border-white/10"
+            className={registryVariant
+              ? "absolute top-2 right-2 z-10 px-1.5 py-0.5 text-[9px] uppercase tracking-wider rounded border border-[#2a2a2e] text-[#9a9aa0] hover:border-[#7A4FFF]/40 hover:text-[#c8c8cc] font-mono bg-[#0a0a0b]/80"
+              : "absolute top-2 right-2 z-10 px-2 py-1 text-[10px] uppercase tracking-wider rounded bg-black/20 text-white/90 hover:bg-black/30 border border-white/10"}
             onClick={() => setScrimVariant((v) => (v === "dark" ? "light" : "dark"))}
             title="Toggle overlay scrim (dark/light) for readability"
           >

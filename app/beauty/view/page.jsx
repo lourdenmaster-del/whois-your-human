@@ -98,15 +98,17 @@ export async function generateMetadata({ searchParams }) {
 
 export default function BeautyViewPage() {
   return (
-    <>
+    <div className="registry-view beauty-theme min-h-screen font-sans">
       <Suspense fallback={
-        <main className="beauty-theme beauty-page min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24" style={{ background: "var(--beauty-cream, #fdf8f5)" }}>
-          <p className="beauty-body beauty-text-muted">Loading…</p>
+        <main className="beauty-page min-h-screen relative flex flex-col items-center justify-center px-6 py-24">
+          <p className="beauty-body beauty-text-muted font-mono text-sm" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Loading registry record…
+          </p>
         </main>
       }>
         <BeautyViewClient />
       </Suspense>
       <LigsFooter />
-    </>
+    </div>
   );
 }

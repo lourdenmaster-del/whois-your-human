@@ -86,6 +86,11 @@ export const MarketingOverlaySpecSchema = z.object({
   styleTokens: StyleTokensSchema,
 
   constraints: ConstraintsSchema,
+
+  /** "brand" = (L) monogram; "archetype" = archetype glyph (e.g. Ignis glyph). */
+  markType: z.enum(["brand", "archetype"]).default("brand"),
+  /** When markType=archetype, which archetype glyph to use (e.g. "Ignispectrum"). */
+  markArchetype: z.string().optional(),
 });
 
 export type MarketingOverlaySpec = z.infer<typeof MarketingOverlaySpecSchema>;

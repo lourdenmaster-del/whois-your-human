@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { setBeautyUnlocked } from "@/lib/landing-storage";
 import { FAKE_PAY } from "@/lib/dry-run-config";
 import { useApiStatus } from "@/hooks/useApiStatus";
@@ -89,7 +89,14 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
   const { disabled: apiDisabled } = useApiStatus();
   const [checkoutError, setCheckoutError] = useState(null);
   const [redirecting, setRedirecting] = useState(false);
-  const imageUrls = (card?.imageUrls ?? card?.images ?? []).slice(0, maxImages);
+  const imageUrls = (card?.imageUrls ?? card?.images ?? []).filter(Boolean).slice(0, maxImages);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development" && card) {
+      const urls = (card?.imageUrls ?? card?.images ?? []).filter(Boolean);
+      console.log("Lightbox images", card.subjectName ?? card.dominantArchetype ?? "unknown", urls);
+    }
+  }, [card]);
   const isBeauty = variant === "beauty";
 
   const handleProceed = async () => {

@@ -44,6 +44,20 @@ export interface BeautyProfileV1 extends BeautyProfile {
   keeperReady?: boolean;
   /** URL to ligs-keepers/{reportId}.json when keeperReady. */
   keeperManifestUrl?: string;
+  /** Solar profile (sunLonDeg, twilightPhase) for triangulation. */
+  solarProfile?: { sunLonDeg: number; twilightPhase: string };
+  /** Physics-derived seasonal light profile for glyph geometry mapping. */
+  solarSeasonProfile?: {
+    seasonIndex: number;
+    archetype: string;
+    lonCenterDeg: number;
+    solarDeclinationDeg: number;
+    declinationAbs: number;
+    seasonalPolarity: "waxing" | "waning";
+    insolationProxy01: number;
+    twilightClass: string;
+    dayLengthNorm01: number | null;
+  };
   timings: {
     totalMs: number;
     engineMs: number;

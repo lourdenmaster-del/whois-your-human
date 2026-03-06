@@ -44,6 +44,7 @@ import {
   type KeeperManifest,
 } from "@/lib/keeper-manifest";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import { getSolarSeasonProfile } from "@/src/ligs/astronomy/solarSeason";
 
 const IMAGE_SLUGS = [
   "vector_zero_beauty_field",
@@ -320,6 +321,27 @@ export async function POST(req: Request) {
       { slug: IMAGE_SLUGS[2], prompt: beautyProfile.imagery_prompts.final_beauty_field },
     ];
 
+    const derived = derivedData as Record<string, unknown> | undefined;
+    const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
+    const lat = typeof derived?.lat === "number" ? derived.lat : 0;
+    const utcTimestamp = typeof derived?.utcTimestamp === "string" ? derived.utcTimestamp : "";
+    const sunCtx = derived?.sun as Record<string, unknown> | undefined;
+    const twilightPhase = (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as
+      | "day"
+      | "civil"
+      | "nautical"
+      | "astronomical"
+      | "night";
+    const solarProfile = { sunLonDeg, twilightPhase };
+    const solarSeasonProfile = getSolarSeasonProfile({
+      sunLonDeg,
+      latitudeDeg: lat,
+      date: utcTimestamp ? new Date(utcTimestamp) : new Date(),
+      sunAltitudeDeg: typeof sunCtx?.sunAltitudeDeg === "number" ? sunCtx.sunAltitudeDeg : undefined,
+      dayLengthMinutes: typeof sunCtx?.dayLengthMinutes === "number" ? sunCtx.dayLengthMinutes : undefined,
+      twilightPhase,
+    });
+
     const payload: BeautyProfileV1 = {
       version: "1.0",
       schemaVersion: SCHEMA_VERSION,
@@ -337,6 +359,8 @@ export async function POST(req: Request) {
         archetypeName,
         useElegantLabels: true,
       }),
+      solarProfile,
+      solarSeasonProfile,
     };
     await saveBeautyProfileV1(reportId, payload, requestId);
 
@@ -349,23 +373,11 @@ export async function POST(req: Request) {
         prompts.final_beauty_field,
       ];
 
-      const derived = derivedData as Record<string, unknown> | undefined;
-      const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
-      const sunCtx = derived?.sun as Record<string, unknown> | undefined;
-      const twilightPhase =
-        (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as
-          | "day"
-          | "civil"
-          | "nautical"
-          | "astronomical"
-          | "night";
-
       const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
         ? archetypeName
         : FALLBACK_PRIMARY_ARCHETYPE) as LigsArchetype;
       const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
       const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
-      const solarProfile = { sunLonDeg, twilightPhase };
 
       if (typeof process !== "undefined" && process.env?.NODE_ENV !== "production") {
         log("info", "triangulation_debug", {
@@ -679,11 +691,6 @@ export async function POST(req: Request) {
           log("info", "marketing_card_saved", { requestId, reportId, url });
 
           // DRY keeper: write to ligs-keepers-dry/ for landing validation without spend
-          const derived = derivedData as Record<string, unknown> | undefined;
-          const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
-          const sunCtx = derived?.sun as Record<string, unknown> | undefined;
-          const twilightPhase =
-            (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as string;
           const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
             ? archetypeName
             : FALLBACK_PRIMARY_ARCHETYPE) as LigsArchetype;

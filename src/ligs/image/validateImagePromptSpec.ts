@@ -49,11 +49,24 @@ const REQUIRED_NEGATIVE_TERMS = [
   "high contrast",
 ];
 
-function checkNegativeHasExclusions(negative: string): ImagePromptSpecIssue[] {
+/** For archetype_background_from_glyph: no "symbols" (glyph is provided); require glyph-specific exclusion */
+const GLYPH_REQUIRED_NEGATIVE_TERMS = [
+  ...REQUIRED_NEGATIVE_TERMS.filter((t) => t !== "symbols"),
+  "no extra symbols besides the provided glyph",
+];
+
+function checkNegativeHasExclusions(
+  negative: string,
+  purpose?: string
+): ImagePromptSpecIssue[] {
   const issues: ImagePromptSpecIssue[] = [];
   const lower = negative.toLowerCase();
+  const terms =
+    purpose === "archetype_background_from_glyph"
+      ? GLYPH_REQUIRED_NEGATIVE_TERMS
+      : REQUIRED_NEGATIVE_TERMS;
 
-  for (const term of REQUIRED_NEGATIVE_TERMS) {
+  for (const term of terms) {
     if (!lower.includes(term)) {
       issues.push({
         rule: "negative_prompt_exclusion",
@@ -87,13 +100,14 @@ function checkPositiveNoDisallowed(positive: string): ImagePromptSpecIssue[] {
 
 function checkConstraints(spec: ImagePromptSpec): ImagePromptSpecIssue[] {
   const issues: ImagePromptSpecIssue[] = [];
+  const isGlyph = spec.purpose === "archetype_background_from_glyph";
 
   const required: (keyof typeof spec.constraints)[] = [
     "no_text",
     "no_logos",
     "no_faces",
     "no_figures",
-    "no_symbols",
+    ...(isGlyph ? [] : (["no_symbols"] as const)),
     "no_astrology",
     "avoid_busy_textures",
   ];
@@ -109,6 +123,14 @@ function checkConstraints(spec: ImagePromptSpec): ImagePromptSpecIssue[] {
     }
   }
 
+  if (isGlyph && spec.constraints.no_symbols === true) {
+    issues.push({
+      rule: "constraints",
+      message: "no_symbols must be false for glyph-conditioned generation (glyph is the provided symbol)",
+      severity: "error",
+    });
+  }
+
   return issues;
 }
 
@@ -118,7 +140,7 @@ export function validateImagePromptSpec(
   const issues: ImagePromptSpecIssue[] = [];
 
   issues.push(...checkConstraints(spec));
-  issues.push(...checkNegativeHasExclusions(spec.prompt.negative));
+  issues.push(...checkNegativeHasExclusions(spec.prompt.negative, spec.purpose));
   issues.push(...checkPositiveNoDisallowed(spec.prompt.positive));
 
   const uniqueByRule = new Map<string, ImagePromptSpecIssue[]>();

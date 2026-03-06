@@ -15,6 +15,13 @@ export {
 } from "./contract";
 
 export {
+  validateArchetype,
+  validateAllArchetypes,
+  allArchetypesValid,
+  type ArchetypeValidationResult,
+} from "./validateArchetypeContract";
+
+export {
   getArchetypeVisualMapShape,
   getArchetypeVoiceAnchorShape,
   getMarketingDescriptor,

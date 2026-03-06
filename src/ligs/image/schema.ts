@@ -29,7 +29,8 @@ const ConstraintsSchema = z.object({
   no_logos: z.literal(true),
   no_faces: z.literal(true),
   no_figures: z.literal(true),
-  no_symbols: z.literal(true),
+  /** false for archetype_background_from_glyph (glyph is the provided symbol); true for other purposes */
+  no_symbols: z.boolean(),
   no_astrology: z.literal(true),
   avoid_busy_textures: z.literal(true),
   safety_notes: z.array(z.string().min(1)).max(20).optional(),

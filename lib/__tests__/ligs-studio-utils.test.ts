@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { pickBackgroundSource, backgroundToInputString } from "../ligs-studio-utils";
+import {
+  pickBackgroundSource,
+  backgroundToInputString,
+  TINY_PNG_B64,
+  getPngDimensionsFromBase64,
+  isPlaceholderPng,
+} from "../ligs-studio-utils";
 
 describe("pickBackgroundSource", () => {
   it("returns { url } from images[0].url", () => {
@@ -8,9 +14,8 @@ describe("pickBackgroundSource", () => {
   });
 
   it("returns { b64 } from images[0].b64", () => {
-    const b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQHwAEBgIApD5fRAAAAABJRU5ErkJggg==";
-    const result = pickBackgroundSource({ images: [{ b64 }] });
-    expect(result).toEqual({ b64 });
+    const result = pickBackgroundSource({ images: [{ b64: TINY_PNG_B64 }] });
+    expect(result).toEqual({ b64: TINY_PNG_B64 });
   });
 
   it("returns { url } when images[0] is a string", () => {
@@ -53,5 +58,30 @@ describe("backgroundToInputString", () => {
   it("returns empty string for null or empty", () => {
     expect(backgroundToInputString(null)).toBe("");
     expect(backgroundToInputString({})).toBe("");
+  });
+});
+
+describe("getPngDimensionsFromBase64", () => {
+  it("returns 1x1 for TINY_PNG_B64", () => {
+    expect(getPngDimensionsFromBase64(TINY_PNG_B64)).toEqual({ width: 1, height: 1 });
+  });
+
+  it("returns null for invalid input", () => {
+    expect(getPngDimensionsFromBase64("")).toBeNull();
+    expect(getPngDimensionsFromBase64("not-valid-base64!!!")).toBeNull();
+  });
+});
+
+describe("isPlaceholderPng", () => {
+  it("returns true for TINY_PNG_B64 and 1x1", () => {
+    expect(isPlaceholderPng(TINY_PNG_B64)).toBe(true);
+  });
+
+  it("returns true for empty string", () => {
+    expect(isPlaceholderPng("")).toBe(true);
+  });
+
+  it("returns true when dimensions < 512", () => {
+    expect(isPlaceholderPng(TINY_PNG_B64, 512)).toBe(true);
   });
 });

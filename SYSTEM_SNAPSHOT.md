@@ -376,6 +376,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑05 (Locked baseline to production)
+
+**Deployment:** Locked baseline shipped to ligs.io. Commit `3a85273`. Origin uses OriginTerminalIntake (terminal flow, WAITLIST_ONLY); Enter redirects to exemplar-Ignispectrum. `/api/beauty/exemplar-Ignispectrum` returns 200 with synthetic exemplar. WHOIS sections, RegistrySummary, Ignis exemplar wiring included. See docs/LIGS-LOCKDOWN-SNAPSHOT.md, docs/PRODUCTION-DEPLOYMENT-VERIFICATION.md.
+
 ## Verification Log – 2026‑03‑04 (Landing locked)
 
 **Landing lock:** `.cursor/rules/landing-lock.mdc` — always-applied rule forbids edits to BeautyLandingClient, LandingPreviews, origin page/layout, and origin styles in globals.css without explicit user approval. No reformatting, refactoring, or auto-fixing. Source files carry `DO NOT REFORMAT OR REFACTOR` comments.

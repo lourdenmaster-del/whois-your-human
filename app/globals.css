@@ -306,6 +306,117 @@ body {
   --artifact-value: #0d0b10;
 }
 
+/* -------------------------------------------------------------------------
+   Registry View — terminal-document hybrid for /beauty/view
+   Unifies with /origin: dark, monospace labels, registry framing.
+   Same world, same system voice. Do not mix with origin-landing styles.
+   ------------------------------------------------------------------------- */
+.registry-view {
+  --registry-bg: #0a0a0b;
+  --registry-panel: #0d0d0f;
+  --registry-border: #2a2a2e;
+  --registry-text: #c8c8cc;
+  --registry-text-muted: #9a9aa0;
+  --registry-text-bright: #e8e8ec;
+  --registry-accent: #7A4FFF;
+  --registry-accent-muted: rgba(122, 79, 255, 0.4);
+  --beauty-cream: #0d0d0f;
+  --artifact-panel-bg: #0d0d0f;
+  --artifact-panel-border: #2a2a2e;
+  --artifact-label: #9a9aa0;
+  --artifact-value: #e8e8ec;
+  --artifact-scrim: rgba(13, 11, 16, 0.7);
+  --artifact-scrim-light: rgba(13, 11, 16, 0.6);
+  background: var(--registry-bg) !important;
+  color: var(--registry-text) !important;
+}
+
+.registry-view .beauty-heading,
+.registry-view .beauty-body,
+.registry-view .beauty-text-inverse {
+  color: var(--registry-text-bright) !important;
+  text-shadow: none;
+}
+
+.registry-view .beauty-text-muted {
+  color: var(--registry-text-muted) !important;
+}
+
+.registry-view .beauty-form-card {
+  background: var(--registry-panel) !important;
+  border: 1px solid var(--registry-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.registry-view .beauty-form-card::before,
+.registry-view .beauty-form-card::after {
+  display: none !important;
+}
+
+.registry-view .beauty-form-card .beauty-body,
+.registry-view .beauty-form-card .beauty-text-inverse,
+.registry-view .beauty-form-card span.beauty-text-inverse,
+.registry-view .beauty-form-card p {
+  color: var(--registry-text-bright) !important;
+  font-size: 0.9375rem !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+}
+
+.registry-view .beauty-form-card .beauty-text-muted,
+.registry-view .beauty-form-card span.beauty-text-muted {
+  color: var(--registry-text-muted) !important;
+  font-size: 0.8125rem !important;
+}
+
+.registry-view .registry-label {
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.15em !important;
+  text-transform: uppercase !important;
+  color: var(--registry-text-muted) !important;
+}
+
+.registry-view a[href="/origin"],
+.registry-view a[href*="/origin"] {
+  color: var(--registry-accent) !important;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.08em !important;
+}
+
+.registry-view a[href="/origin"]:hover,
+.registry-view a[href*="/origin"]:hover {
+  text-decoration: underline;
+}
+
+.registry-view hr {
+  border-color: var(--registry-border) !important;
+}
+
+/* Registry WHOIS block — primary anchor, machine-resolved table */
+.registry-view .registry-whois-block {
+  border-left-width: 3px;
+  border-left-color: var(--registry-accent);
+}
+
+.registry-view .registry-whois-grid dt {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: 10px;
+  color: var(--registry-text-muted);
+}
+
+.registry-view .registry-meta {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  color: var(--registry-text-muted);
+}
+
+.registry-view .registry-ctrl {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+
 /* Report generating overlay — graphic + message */
 @keyframes beauty-loading-spin {
   to {
@@ -502,6 +613,136 @@ body {
 .beauty-theme.beauty-page button[type="submit"] {
   border-radius: 14px;
   box-shadow: 0 4px 14px rgba(255, 59, 59, 0.25);
+}
+
+/* -------------------------------------------------------------------------
+   Registry View — /beauty/view as resolved WHOIS record (terminal-document hybrid)
+   Cohesive with /origin: dark, monospace-led, registry framing, same system voice.
+   ------------------------------------------------------------------------- */
+.registry-view {
+  --registry-bg: #0a0a0b;
+  --registry-panel: #0d0d0f;
+  --registry-border: #2a2a2e;
+  --registry-text: #c8c8cc;
+  --registry-text-muted: #9a9aa0;
+  --registry-text-bright: #e8e8ec;
+  --registry-accent: #7A4FFF;
+  --registry-accent-muted: rgba(122, 79, 255, 0.4);
+  --registry-font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
+}
+
+.registry-view,
+.registry-view.beauty-theme {
+  background: var(--registry-bg) !important;
+  color: var(--registry-text) !important;
+}
+
+.registry-view .beauty-heading,
+.registry-view .beauty-body,
+.registry-view .beauty-text-inverse,
+.registry-view .beauty-text-muted,
+.registry-view h1,
+.registry-view h2,
+.registry-view h3,
+.registry-view p,
+.registry-view span {
+  color: inherit !important;
+  text-shadow: none !important;
+}
+
+.registry-view .beauty-text-muted {
+  color: var(--registry-text-muted) !important;
+}
+
+.registry-view .beauty-text-inverse {
+  color: var(--registry-text-bright) !important;
+}
+
+.registry-view a,
+.registry-view .text-\[\#7A4FFF\] {
+  color: var(--registry-accent) !important;
+}
+
+.registry-view a:hover {
+  text-decoration: underline;
+}
+
+/* Registry panels — dark, bordered, structured */
+.registry-view .registry-panel {
+  background: var(--registry-panel);
+  border: 1px solid var(--registry-border);
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+/* Section labels — monospace, uppercase, system voice */
+.registry-view .registry-label {
+  font-family: var(--registry-font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--registry-text-muted);
+}
+
+/* WHOIS block — strong anchor */
+.registry-view .registry-whois {
+  border-left: 3px solid var(--registry-accent);
+}
+
+/* Form inputs in registry view */
+.registry-view input,
+.registry-view select {
+  background: var(--registry-panel) !important;
+  border: 1px solid var(--registry-border) !important;
+  color: var(--registry-text-bright) !important;
+  border-radius: 6px !important;
+}
+
+.registry-view input::placeholder {
+  color: var(--registry-text-muted) !important;
+}
+
+.registry-view input:focus,
+.registry-view select:focus {
+  outline: none !important;
+  border-color: var(--registry-accent-muted) !important;
+}
+
+/* Buttons — restrained, terminal-style */
+.registry-view button[type="button"],
+.registry-view .registry-btn {
+  background: transparent;
+  border: 1px solid var(--registry-border);
+  color: var(--registry-text);
+  font-family: var(--registry-font-mono);
+  border-radius: 4px;
+}
+
+.registry-view button[type="button"]:hover:not(:disabled),
+.registry-view .registry-btn:hover {
+  border-color: var(--registry-accent-muted);
+  color: var(--registry-text-bright);
+}
+
+.registry-view .registry-btn-primary {
+  background: linear-gradient(135deg, #3a2a6a 0%, #2a1a5a 100%);
+  border: 1px solid var(--registry-accent-muted);
+  color: #f0f0f4;
+}
+
+.registry-view .registry-btn-primary:hover {
+  opacity: 0.95;
+}
+
+/* Artifact panel in registry context */
+.registry-view .artifact-panel-dark {
+  --artifact-panel-bg: var(--registry-panel);
+  --artifact-panel-border: var(--registry-border);
+  --artifact-label: var(--registry-text-muted);
+  --artifact-value: var(--registry-text-bright);
+  --artifact-scrim: rgba(13, 11, 16, 0.7);
+  --artifact-scrim-light: rgba(253, 248, 245, 0.15);
 }
 
 /* ========== ORIGIN LANDING OVERRIDES — MUST COME LAST ==========

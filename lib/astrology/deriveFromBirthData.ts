@@ -38,11 +38,17 @@ export interface DeriveFromBirthDataResult {
   placeName?: string;
 }
 
-async function geocodePlace(
+type GeoCacheEntry = { lat: number; lon: number; displayName?: string };
+const geoCache = new Map<string, GeoCacheEntry>();
+
+export async function geocodePlace(
   place: string
 ): Promise<{ lat: number; lon: number; displayName?: string } | null> {
+  const key = place.trim().toLowerCase();
+  if (!key) return null;
+  const cached = geoCache.get(key);
+  if (cached) return cached;
   const q = encodeURIComponent(place.trim());
-  if (!q) return null;
   const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`;
   const res = await fetch(url, {
     headers: { Accept: "application/json", "User-Agent": "LIGS-BeautyEngine/1.0" },
@@ -54,7 +60,9 @@ async function geocodePlace(
   const lat = parseFloat(first.lat);
   const lon = parseFloat(first.lon);
   if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
-  return { lat, lon, displayName: first.display_name };
+  const entry: GeoCacheEntry = { lat, lon, displayName: first.display_name };
+  geoCache.set(key, entry);
+  return entry;
 }
 
 /**

@@ -31,9 +31,17 @@ export default function BeautyStartPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastFormData, setLastFormData] = useState(null);
+  const [urlFlags, setUrlFlags] = useState({ dryRun: false, testMode: false });
 
-  const dryRun = typeof window !== "undefined" && getDryRunFromUrl();
-  const testModeFromUrl = typeof window !== "undefined" && getTestModeFromUrl();
+  useEffect(() => {
+    setUrlFlags({
+      dryRun: getDryRunFromUrl(),
+      testMode: getTestModeFromUrl(),
+    });
+  }, []);
+
+  const dryRun = urlFlags.dryRun;
+  const testModeFromUrl = urlFlags.testMode;
   const unlocked = isUnlocked || dryRun || TEST_MODE || testModeFromUrl;
 
   useEffect(() => {
@@ -55,7 +63,7 @@ export default function BeautyStartPage() {
   useEffect(() => {
     if (!mounted) return;
     if (!unlocked) {
-      router.replace("/beauty");
+      router.replace("/origin");
     }
   }, [mounted, unlocked, router]);
 
@@ -176,8 +184,8 @@ export default function BeautyStartPage() {
               />
             </div>
             <p className="text-sm beauty-text-muted">
-              <a href="/beauty" className="hover:text-[#7A4FFF] transition-colors">
-                ← Back to /beauty
+              <a href="/origin" className="hover:text-[#7A4FFF] transition-colors">
+                ← Back to /origin
               </a>
             </p>
           </div>

@@ -50,12 +50,12 @@ export default function PreviewCarousel({
         <button
           type="button"
           onClick={prev}
-          className="px-3 py-2 border border-[#7A4FFF]/50 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors shrink-0 rounded-lg"
+          className="px-2.5 py-1.5 border border-[#2a2a2e] text-[#9a9aa0] hover:border-[#7A4FFF]/40 hover:text-[#c8c8cc] transition-colors shrink-0 rounded text-[14px] font-mono"
           aria-label="Previous image"
         >
           ‹
         </button>
-        <div className="relative flex-1 min-w-0 aspect-[4/3] overflow-hidden bg-[#0A0F1C]/10 rounded-2xl">
+        <div className="relative flex-1 min-w-0 aspect-[4/3] overflow-hidden bg-[#0d0d0f] border border-[#2a2a2e] rounded-lg">
           <img
             src={safeUrls[currentSlide] ?? PLACEHOLDER_IMAGE}
             alt={subjectName ? `${labels[currentSlide]} for ${subjectName}` : labels[currentSlide]}
@@ -73,14 +73,14 @@ export default function PreviewCarousel({
         <button
           type="button"
           onClick={next}
-          className="px-3 py-2 border border-[#7A4FFF]/50 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors shrink-0 rounded-lg"
+          className="px-2.5 py-1.5 border border-[#2a2a2e] text-[#9a9aa0] hover:border-[#7A4FFF]/40 hover:text-[#c8c8cc] transition-colors shrink-0 rounded text-[14px] font-mono"
           aria-label="Next image"
         >
           ›
         </button>
       </div>
-      <p className="text-center text-xs beauty-text-muted mt-2 font-light">
-        {labels[currentSlide] ?? `Slide ${currentSlide + 1}`}
+      <p className="text-center text-[10px] font-mono uppercase tracking-wider text-[#9a9aa0] mt-2">
+        {labels[currentSlide] ?? `Artifact ${currentSlide + 1}`}
       </p>
       <div className="flex justify-center gap-1.5 mt-2">
         {safeUrls.map((_, i) => (
@@ -88,7 +88,7 @@ export default function PreviewCarousel({
             key={i}
             type="button"
             onClick={() => setCurrentSlide(i)}
-            className={`w-2 h-2 rounded-full transition-colors ${i === currentSlide ? "bg-[#7A4FFF]" : "bg-[var(--beauty-text-muted)]/30"}`}
+            className={`w-1.5 h-1.5 rounded-sm transition-colors ${i === currentSlide ? "bg-[#7A4FFF]" : "bg-[#2a2a2e]"}`}
             aria-label={`Go to slide ${i + 1}`}
           />
         ))}

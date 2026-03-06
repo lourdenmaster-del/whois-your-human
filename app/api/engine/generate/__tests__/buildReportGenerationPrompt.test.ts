@@ -35,8 +35,8 @@ describe("buildReportGenerationPrompt", () => {
     };
     const prompt = buildReportGenerationPrompt(birthData, "Stabiliora", birthContext);
 
-    expect(prompt).toContain("BIRTH CONTEXT");
-    expect(prompt).toContain("Factual data only");
+    expect(prompt).toContain("GROUND TRUTH");
+    expect(prompt).toContain("BOUNDARY CONDITIONS will be inserted separately");
     expect(prompt).toContain("Location: New York, NY, USA");
     expect(prompt).toContain("40.7128°N");
     expect(prompt).toContain("74.0060°W");
@@ -47,14 +47,13 @@ describe("buildReportGenerationPrompt", () => {
     expect(prompt).toContain("Libra");
   });
 
-  it("omits Birth Context block when birthContext is null/undefined", () => {
+  it("omits Birth Context block (location/coordinates) when birthContext is null/undefined", () => {
     const birthData = "Full Name: Test User\nBirth Date: 1990-01-15\nBirth Location: New York\nEmail: test@example.com";
     const promptWithout = buildReportGenerationPrompt(birthData, "Stabiliora");
-    expect(promptWithout).not.toContain("BIRTH CONTEXT");
-    expect(promptWithout).not.toContain("Factual data only");
+    expect(promptWithout).not.toContain("BOUNDARY CONDITIONS will be inserted separately");
 
     const promptWithNull = buildReportGenerationPrompt(birthData, "Stabiliora", null);
-    expect(promptWithNull).not.toContain("BIRTH CONTEXT");
+    expect(promptWithNull).not.toContain("BOUNDARY CONDITIONS will be inserted separately");
   });
 
   it("includes On this date block only when onThisDay exists", () => {
@@ -139,6 +138,34 @@ describe("buildReportGenerationPrompt", () => {
     expect(prompt).toContain("Waxing Gibbous");
     expect(prompt).toContain("67% illuminated");
     expect(prompt).toContain("below horizon");
+  });
+
+  it("includes Solar Season + Cosmic Analogue block (always appended)", () => {
+    const birthData = "Full Name: Test User\nBirth Date: 1990-01-15\nBirth Location: New York\nEmail: test@example.com";
+    const prompt = buildReportGenerationPrompt(birthData, "Stabiliora");
+    expect(prompt).toContain("SOLAR SEASON + COSMIC ANALOGUE");
+    // Without birthContext/sunLonDeg: solar unknown, never invented
+    expect(prompt).toContain("Solar season: unknown");
+    expect(prompt).toContain("Cosmic analogue:");
+    expect(prompt).toContain("phenomenon:");
+    expect(prompt).toContain("light-behavior keywords:");
+    expect(prompt).toContain("FIELD SOLUTION will be inserted separately");
+  });
+
+  it("includes full solar block when birthContext has sunLonDeg", () => {
+    const birthData = "Full Name: Test User\nBirth Date: 1990-03-15\nBirth Location: New York\nEmail: test@example.com";
+    const birthContext = {
+      sunLonDeg: 354,
+      lat: 40.71,
+      utcTimestamp: "1990-03-15T15:00:00Z",
+    };
+    const prompt = buildReportGenerationPrompt(birthData, "Stabiliora", birthContext);
+    expect(prompt).toContain("seasonIndex:");
+    expect(prompt).toContain("archetype:");
+    expect(prompt).toContain("lonCenterDeg:");
+    expect(prompt).toContain("declinationDeg:");
+    expect(prompt).toContain("polarity:");
+    expect(prompt).not.toContain("Solar season: unknown");
   });
 
   it("includes sun, moon, and onThisDay when birthContext has all three", () => {

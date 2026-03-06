@@ -3,15 +3,16 @@ import { log } from "@/lib/log";
 import { isTestMode } from "@/lib/runtime-mode";
 import { parseComposeRequest } from "@/src/ligs/marketing/api/compose-request-schema";
 import {
-  generateOverlaySpec,
+  buildOverlaySpecWithCopy,
   validateOverlaySpec,
 } from "@/src/ligs/marketing";
 import { GLOBAL_LOGO_PATH } from "@/lib/brand";
-import {
-  createMonogramLogoSvg,
-  composeMarketingCardToBuffer,
-} from "@/lib/marketing/compose-card";
+import { createMonogramLogoSvg } from "@/lib/marketing/compose-card";
+import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import sharp from "sharp";
+
+const MIN_BACKGROUND_DIM = 256;
 
 async function loadBackgroundImage(
   background: { url?: string; b64?: string }
@@ -64,13 +65,20 @@ export async function POST(req: Request) {
     const { profile, background, purpose, templateId, output, variationKey, overlaySpec: providedOverlaySpec } = parsed.data;
     const size = output.size === "1536" ? 1536 : 1024;
 
-    const overlaySpec = providedOverlaySpec ?? (await generateOverlaySpec(profile, {
-      templateId,
-      size: output.size,
-      purpose,
-      variationKey,
-      allowExternalWrites: ALLOW_EXTERNAL_WRITES,
-    }));
+    if (!providedOverlaySpec && (!profile || !purpose)) {
+      return NextResponse.json(
+        {
+          error: "COMPOSE_REQUEST_INVALID",
+          message: "overlaySpec required — or provide profile + purpose for server-side build",
+          requestId,
+        },
+        { status: 400 }
+      );
+    }
+
+    const overlaySpec =
+      providedOverlaySpec ??
+      buildOverlaySpecWithCopy(profile!, { templateId, size: output.size, purpose, variationKey }, undefined);
 
     const overlayValidation = validateOverlaySpec(overlaySpec);
     if (!overlayValidation.pass) {
@@ -103,6 +111,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         requestId,
         dryRun: true,
+        buildOverlaySpec: !providedOverlaySpec,
         overlaySpec,
         overlayValidation: {
           pass: overlayValidation.pass,
@@ -113,6 +122,22 @@ export async function POST(req: Request) {
     }
 
     const backgroundBuffer = await loadBackgroundImage(background);
+    const bgMeta = await sharp(backgroundBuffer).metadata();
+    const bgW = bgMeta.width ?? 0;
+    const bgH = bgMeta.height ?? 0;
+    if (bgW < MIN_BACKGROUND_DIM || bgH < MIN_BACKGROUND_DIM) {
+      return NextResponse.json(
+        {
+          error: "BACKGROUND_TOO_SMALL",
+          message: `Background dimensions ${bgW}x${bgH} below minimum ${MIN_BACKGROUND_DIM}x${MIN_BACKGROUND_DIM}. Generate a real background first.`,
+          requestId,
+        },
+        { status: 400 }
+      );
+    }
+    if (process.env.NODE_ENV !== "production") {
+      console.log("[COMPOSE] background dimensions", bgW, "x", bgH, "requestId:", requestId);
+    }
     const ENABLE_PLACEHOLDER_LOGO = process.env.ENABLE_PLACEHOLDER_LOGO === "true";
 
     let logoBuffer: Buffer | null = null;
@@ -144,16 +169,44 @@ export async function POST(req: Request) {
       logoUsed = "placeholder";
     }
 
-    const pngBuffer = await composeMarketingCardToBuffer(overlaySpec, backgroundBuffer, {
-      size,
-      logoBuffer,
-    });
+    const markType = (overlaySpec as { markType?: string }).markType ?? "brand";
+    let result: Awaited<ReturnType<typeof renderStaticCardOverlay>>;
+    try {
+      result = await renderStaticCardOverlay(overlaySpec, backgroundBuffer, {
+        size,
+        logoBuffer: markType === "brand" ? logoBuffer : null,
+      });
+    } catch (glyphErr: unknown) {
+      const msg = glyphErr instanceof Error ? glyphErr.message : String(glyphErr);
+      log("error", "compose_glyph_failed", { requestId, error: msg });
+      return NextResponse.json(
+        {
+          error: "GLYPH_LOAD_FAILED",
+          message: msg,
+          requestId,
+        },
+        { status: 500 }
+      );
+    }
 
-    const b64 = pngBuffer.toString("base64");
+    const b64 = result.buffer.toString("base64");
+    const composedUrl = `data:image/png;base64,${b64}`;
+    if (process.env.NODE_ENV !== "production" && result.glyphUsed && result.glyphPath) {
+      console.log("[COMPOSE] glyphPath at compose-time:", result.glyphPath);
+    }
     return NextResponse.json({
       requestId,
       dryRun: false,
-      logoUsed,
+      buildOverlaySpec: !providedOverlaySpec,
+      composedUrl,
+      glyphUsed: result.glyphUsed,
+      glyphPath: result.glyphPath ?? null,
+      rasterDims: result.rasterDims ?? null,
+      logoUsed: result.logoUsed,
+      textRendered: result.textRendered,
+      backgroundDims: { width: bgW, height: bgH },
+      outputDims: { width: size, height: size },
+      previewImageUrl: composedUrl,
       overlaySpec,
       overlayValidation: {
         pass: overlayValidation.pass,
@@ -164,7 +217,7 @@ export async function POST(req: Request) {
         b64,
         contentType: "image/png",
       },
-      composedDisplayUrl: `data:image/png;base64,${b64}`,
+      composedDisplayUrl: composedUrl,
       composedBase64: b64,
     });
   } catch (err: unknown) {
