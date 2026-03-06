@@ -37,6 +37,10 @@ export function buildArtifactsFromProfile(profile) {
     return {
       archetype: arch,
       variationKey: backfill.variationKey ?? "—",
+      dateTime: backfill.dateTime ?? "—",
+      location: backfill.location ?? "—",
+      solarAzimuth: backfill.solarAzimuth ?? "—",
+      lightSeasonSegment: backfill.lightSeasonSegment ?? "—",
       solarSeason: backfill.solarSeason ?? "—",
       declination: backfill.declination ?? "—",
       anchor: backfill.anchor ?? "—",

@@ -24,7 +24,26 @@ export interface ExemplarBackfill {
   variationKey: string | null;
   colorFamily: string | null;
   textureBias: string | null;
+  /** Sample birth-context fields for exemplar display (Ignis only). */
+  dateTime?: string | null;
+  location?: string | null;
+  solarAzimuth?: string | null;
+  lightSeasonSegment?: string | null;
 }
+
+/**
+ * LOCKED: Canonical sample dataset for exemplar-Ignispectrum.
+ * Used on the public Ignis sample page (/beauty/view?reportId=exemplar-Ignispectrum).
+ * Do NOT modify without explicit approval. This dataset is stable for public feedback.
+ * Future archetypes may define their own sample datasets; the Ignis branch remains isolated.
+ */
+const IGNIS_SAMPLE_CONTEXT = {
+  subjectName: "Ignispectrum",
+  dateTime: "March 21, 1987 — 10:32 AM",
+  location: "Lisbon, Portugal",
+  solarAzimuth: "182°",
+  lightSeasonSegment: "0–30° (center 15°)",
+};
 
 export interface ExemplarSyntheticSections {
   light_signature: { raw_signal: string; custodian: string; oracle: string };
@@ -61,7 +80,7 @@ export function buildExemplarBackfill(
   const colorFamily = visual?.palette?.length ? visual.palette[0] ?? null : null;
   const textureBias = visual?.texture_level ?? null;
 
-  return {
+  const base: ExemplarBackfill = {
     solarSeason,
     declination,
     anchor,
@@ -70,6 +89,18 @@ export function buildExemplarBackfill(
     colorFamily,
     textureBias,
   };
+
+  if (archetype === "Ignispectrum") {
+    return {
+      ...base,
+      dateTime: IGNIS_SAMPLE_CONTEXT.dateTime,
+      location: IGNIS_SAMPLE_CONTEXT.location,
+      solarAzimuth: IGNIS_SAMPLE_CONTEXT.solarAzimuth,
+      lightSeasonSegment: IGNIS_SAMPLE_CONTEXT.lightSeasonSegment,
+    };
+  }
+
+  return base;
 }
 
 /** Build synthetic three-voice sections for exemplar. */
