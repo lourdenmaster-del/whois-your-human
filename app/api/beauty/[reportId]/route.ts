@@ -1,9 +1,26 @@
+/**
+ * LOCKDOWN: Ignis sample uses IGNIS_V1_ARTIFACTS only (never v2 poster-like).
+ * Sample/exemplar path is locked; exemplar-Ignispectrum → synthetic backfill + v1 assets.
+ */
+
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { rateLimit } from "@/lib/rate-limit";
 import { successResponse } from "@/lib/success-response";
 import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
 import { getImageUrlFromBlob } from "@/lib/report-store";
+import {
+  loadExemplarManifestWithPreferred,
+  loadExemplarManifest,
+  exemplarManifestPath,
+  IGNIS_V1_ARTIFACTS,
+} from "@/lib/exemplar-store";
+import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
+import {
+  buildExemplarBackfill,
+  buildExemplarSyntheticSections,
+  buildExemplarFullReport,
+} from "@/lib/exemplar-synthetic";
 
 const IMAGE_SLUGS = [
   "vector_zero_beauty_field",
@@ -74,6 +91,69 @@ export async function GET(
   }
 
   try {
+    if (reportId.startsWith("exemplar-")) {
+      const archetype = reportId.replace(/^exemplar-/, "");
+      // Ignis: use v1 artifact set only; never v2 (poster-like). Other archetypes: manifest.
+      const isIgnis = archetype === "Ignispectrum";
+      const manifest = isIgnis
+        ? await loadExemplarManifest(exemplarManifestPath(archetype, "v1"))
+        : await loadExemplarManifestWithPreferred(archetype, "v1");
+      if (!manifest || typeof manifest !== "object") {
+        if (!isIgnis) return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
+        // Ignis: use v1 assets even when manifest missing (overlayCopy from descriptor)
+      }
+      const m = (manifest ?? {}) as Record<string, unknown>;
+      const urls = (m.urls as Record<string, string>) ?? {};
+      const exemplarSlots = isIgnis
+        ? [
+            { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.vectorZero },
+            { label: "Light Signature", url: IGNIS_V1_ARTIFACTS.lightSignature },
+            { label: "Final Beauty Field", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
+          ]
+        : [
+            { label: "Vector Zero", url: urls.marketingBackground ?? urls.marketing_background },
+            { label: "Light Signature", url: urls.exemplarCard ?? urls.exemplar_card },
+            { label: "Final Beauty Field", url: urls.shareCard ?? urls.share_card },
+          ];
+      const filteredSlots = exemplarSlots.filter(
+        (s): s is { label: string; url: string } => typeof s.url === "string" && s.url.length > 0
+      );
+      const imageUrls = filteredSlots.map((s) => s.url);
+      const exemplarArtifactLabels = filteredSlots.map((s) => s.label);
+      const exemplarCard = filteredSlots.find((s) => s.label === "Light Signature")?.url;
+      const marketingBg = filteredSlots.find((s) => s.label === "Vector Zero")?.url;
+      const shareCard = filteredSlots.find((s) => s.label === "Final Beauty Field")?.url;
+      const oc = (m.overlayCopy as Record<string, unknown>) ?? {};
+      const overlayCopy = typeof oc === "object" && oc !== null ? (oc as Record<string, string>) : {};
+      const descriptor = getMarketingDescriptor(archetype);
+      const manifestVersion = (m.version as string) ?? undefined;
+      const exemplarBackfill = buildExemplarBackfill(archetype, manifestVersion);
+      const syntheticSections = buildExemplarSyntheticSections(archetype);
+      const fullReport = buildExemplarFullReport(archetype);
+      const synthetic = {
+        reportId,
+        subjectName: archetype,
+        dominantArchetype: archetype,
+        emotionalSnippet: overlayCopy.subhead ?? descriptor?.tagline ?? descriptor?.archetypeLabel ?? archetype,
+        imageUrls,
+        exemplarArtifactLabels: exemplarArtifactLabels.length > 0 ? exemplarArtifactLabels : undefined,
+        marketingCardUrl: exemplarCard ?? undefined,
+        marketingBackgroundUrl: marketingBg ?? undefined,
+        shareCardUrl: shareCard ?? undefined,
+        isExemplar: true,
+        exemplarBackfill,
+        ...(syntheticSections && {
+          light_signature: syntheticSections.light_signature,
+          archetype: syntheticSections.archetype,
+          deviations: syntheticSections.deviations,
+          corrective_vector: syntheticSections.corrective_vector,
+        }),
+        ...(fullReport && { fullReport }),
+      };
+      log("info", "images_loaded", { requestId, reportId, imageCount: imageUrls.length, source: "exemplar" });
+      return successResponse(200, synthetic, requestId);
+    }
+
     const profile = await loadBeautyProfileV1(reportId, requestId);
     const enriched = await enrichProfileImages(profile as unknown as Record<string, unknown>, reportId);
     log("info", "images_loaded", { requestId, reportId, imageCount: (enriched.imageUrls as string[])?.length ?? 0 });

@@ -5,16 +5,26 @@ import { useState } from "react";
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E";
 
-const LABELS = ["Vector Zero", "Light Signature", "Final Beauty"];
+const LABELS = ["Vector Zero", "Light Signature", "Final Beauty Field"];
 
-export default function PreviewCarousel({ imageUrls = [], labels = LABELS, subjectName }) {
+export default function PreviewCarousel({
+  imageUrls = [],
+  labels = LABELS,
+  subjectName,
+  hideEmptySlots = false,
+  /** When true and current slide is Light Signature, layers ignis-glyph-overlay above the image. */
+  glyphOverlayForIgnis = false,
+}) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
   const urls = Array.isArray(imageUrls)
     ? imageUrls
     : [PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGE];
-  const safeUrls = urls.slice(0, 3);
-  while (safeUrls.length < 3) safeUrls.push(PLACEHOLDER_IMAGE);
+  const safeUrls = urls.slice(0, 3).filter((u) => u && typeof u === "string");
+  if (!hideEmptySlots) {
+    while (safeUrls.length < 3) safeUrls.push(PLACEHOLDER_IMAGE);
+  }
+  if (safeUrls.length === 0) safeUrls.push(PLACEHOLDER_IMAGE);
 
   const next = () => setCurrentSlide((s) => (s + 1) % safeUrls.length);
   const prev = () => setCurrentSlide((s) => (s - 1 + safeUrls.length) % safeUrls.length);
@@ -45,12 +55,20 @@ export default function PreviewCarousel({ imageUrls = [], labels = LABELS, subje
         >
           ‹
         </button>
-        <div className="flex-1 min-w-0 aspect-[4/3] overflow-hidden bg-[#0A0F1C]/10 rounded-2xl">
+        <div className="relative flex-1 min-w-0 aspect-[4/3] overflow-hidden bg-[#0A0F1C]/10 rounded-2xl">
           <img
             src={safeUrls[currentSlide] ?? PLACEHOLDER_IMAGE}
             alt={subjectName ? `${labels[currentSlide]} for ${subjectName}` : labels[currentSlide]}
             className="w-full h-full object-cover"
           />
+          {glyphOverlayForIgnis && (labels[currentSlide] ?? LABELS[currentSlide]) === "Light Signature" && (
+            <img
+              src="/glyphs/ignis.svg"
+              alt=""
+              aria-hidden
+              className="ignis-glyph-overlay"
+            />
+          )}
         </div>
         <button
           type="button"

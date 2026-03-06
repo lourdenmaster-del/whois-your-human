@@ -35,9 +35,19 @@ export const IGNIS_CANONICAL_FALLBACK =
   (process.env.EXEMPLAR_IGNIS_CANONICAL_URL || process.env.NEXT_PUBLIC_IGNIS_EXEMPLAR_URL || "").trim() ||
   "/exemplars/ignispectrum.png";
 
+/** Base URL for Ignis v1 exemplar pack (canonical coherent set; v2 has poster-like/garbled assets). */
+const IGNIS_V1_BASE =
+  "https://rne9k1g6lgh8e9is.public.blob.vercel-storage.com/ligs-exemplars/Ignispectrum/v1";
+
 /** Approved Ignis landing image — v1 exemplar_card. Use on /origin (hero + Examples grid) only. No v2, no placeholder. */
-export const IGNIS_LANDING_URL =
-  "https://rne9k1g6lgh8e9is.public.blob.vercel-storage.com/ligs-exemplars/Ignispectrum/v1/exemplar_card.png";
+export const IGNIS_LANDING_URL = `${IGNIS_V1_BASE}/exemplar_card.png`;
+
+/** Canonical Ignis v1 artifact set for sample/exemplar report. Use this coherent set; do not mix with v2. */
+export const IGNIS_V1_ARTIFACTS = {
+  vectorZero: `${IGNIS_V1_BASE}/marketing_background.png`,
+  lightSignature: IGNIS_LANDING_URL,
+  finalBeautyField: `${IGNIS_V1_BASE}/share_card.png`,
+} as const;
 
 /** Resolve version to try: for archetypes in PREFERRED_ARCHETYPE_VERSIONS, prefer that; else use requested. */
 export function getPreferredExemplarVersion(archetype: string, requestedVersion: string): string {
