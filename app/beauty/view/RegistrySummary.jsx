@@ -5,9 +5,7 @@ import { sanitizeForDisplay } from "@/lib/beauty-report-presentation";
 /**
  * Compact registry-level summary: regime, coherence, drift, return.
  * Uses existing profile data only. No engine changes.
- *
- * LOCKDOWN: Renders only for real reports (profile.isExemplar → null). Answers:
- * What regime resolved? What stabilizes/destabilizes? Return to coherence.
+ * Renders for both real reports and exemplars (light_signature, archetype, deviations, corrective_vector, fullReport).
  */
 
 function hasContent(v) {
@@ -38,7 +36,6 @@ function parseKeyMoves(text) {
 
 export default function RegistrySummary({ profile }) {
   if (!profile) return null;
-  if (profile.isExemplar) return null;
 
   const arch = profile.dominantArchetype ?? profile.archetype?.raw_signal?.slice?.(0, 24) ?? "";
   const cv = profile.corrective_vector;

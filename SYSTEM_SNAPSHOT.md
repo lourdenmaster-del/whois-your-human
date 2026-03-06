@@ -64,7 +64,8 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
-| `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses ArchetypeArtifactCard (hero + info panel), PreviewCarousel, EmotionalSnippet, FullReportAccordion, ShareCard. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
+| `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses RegistrySummary, PreviewReportSummary, CosmicTwinRelation, ArchetypeArtifactCard (hero + info panel), PreviewCarousel, SeeMoreFootnote, ShareCard. Report Summary (after Registry Summary, before Field Conditions) shows short interpretation excerpt; "See more: open sample full record →" links to /beauty/sample-report. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
+| `app/beauty/sample-report/page.jsx` | Client | Sample full report page — six interpretive sections from lib/sample-report.ts: INITIATION, COSMIC TWIN RELATION, FIELD CONDITIONS, ARCHETYPE EXPRESSION, DEVIATIONS, RETURN TO COHERENCE. Same registry styling as /beauty/view. "See more: unlock your full identity record" footnotes link to /origin. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`) |
 | `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled |
 
@@ -85,6 +86,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. Previous Light Identity Reports section removed (verify via Vercel Blob dashboard only). |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
 | `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
+| `PreviewReportSummary` | `app/beauty/view/PreviewReportSummary.jsx` | REPORT SUMMARY block — short interpretation excerpt (5–7 lines) after Registry Summary, before Field Conditions. Static Ignispectrum exemplar text; registry styling. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
 | `ArchetypeNameOverlay` | `components/ArchetypeNameOverlay.jsx` | Center band overlay with subtle scrim and blur for artifact hero. |
 | `ArtifactInfoPanel` | `components/ArtifactInfoPanel.jsx` | Left gallery-placard panel with archetype, variationKey, date/location, solar, etc. `showDevFields?: boolean` (default false) hides schemaVersion, engineVersion, and reportId row; reportId visible only when showDevFields=true. |
@@ -109,6 +111,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
 | `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
+| `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Used by `/beauty/sample-report`. Observational, scientific tone. |
 | `lib/runtime-mode.ts` | `isProd`, `isDryRun`, `isTestMode`, `allowExternalWrites`, `allowBlobWrites`, `stripeTestModeRequired` — unified env guard; when `TEST_MODE=1`: dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1` |
 | `lib/dry-run-config.ts` | Client-side `DRY_RUN`, `FAKE_PAY`, `TEST_MODE` from `NEXT_PUBLIC_*` env vars |
 | `lib/preflight.ts` | `runPreflight()` — server-only checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used by `/api/dev/preflight` and `/api/dev/beauty-live-once`. |
@@ -375,6 +378,46 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑05 (Report layer: reuse existing data)
+
+**Preview Report Summary:** Refactored to use profile data (light_signature, archetype, deviations, corrective_vector, fullReport/Key Moves, cosmicAnalogue from buildArtifactsFromProfile). No static exemplar text. **RegistrySummary:** Enabled for exemplars (removed isExemplar guard); now populates from buildExemplarSyntheticSections + buildExemplarFullReport for Ignis sample. **Sample report:** Unchanged; still static `lib/sample-report.ts` (SAMPLE_REPORT_IGNIS).
+
+## Verification Log – 2026‑03‑05 (Report layer: use existing profile data)
+
+**Preview Report Summary:** Refactored to use existing profile data (light_signature, archetype, deviations, corrective_vector, fullReport/Key Moves, cosmicAnalogue from buildArtifactsFromProfile). No static exemplar text. **RegistrySummary:** Enabled for exemplars (removed isExemplar → null); Ignis sample now gets regime, stability, return from synthetic sections. **Sample report:** Unchanged; still powered by lib/sample-report.ts. No new parallel report architecture.
+
+## Verification Log – 2026‑03‑05 (Report layer: use existing profile data)
+
+**Preview Report Summary:** Refactored to use existing profile data (light_signature, archetype, deviations, corrective_vector, fullReport/Key Moves, cosmicAnalogue from buildArtifactsFromProfile). No static exemplar text. **RegistrySummary:** Enabled for exemplars; now renders for both real reports and exemplars. Exemplar Ignis sample gets meaningful summary from buildExemplarSyntheticSections + buildExemplarFullReport. **Sample report:** Unchanged; remains static (lib/sample-report.ts).
+
+## Verification Log – 2026‑03‑05 (Report layer: reuse existing data)
+
+**Preview Report Summary:** Refactored to use profile data (light_signature, archetype, deviations, corrective_vector, fullReport/Key Moves, cosmicAnalogue from buildArtifactsFromProfile). No static exemplar text. **RegistrySummary:** Enabled for exemplars; now renders for both real reports and exemplars. **Sample report:** Unchanged; remains powered by static `lib/sample-report.ts` (SAMPLE_REPORT_IGNIS).
+
+## Verification Log – 2026‑03‑05 (Report layer: reuse existing data)
+
+**Preview Report Summary:** Refactored to use profile data (light_signature, archetype, deviations, corrective_vector, fullReport/Key Moves, cosmicAnalogue from buildArtifactsFromProfile). No static exemplar text. **RegistrySummary:** Enabled for exemplars; now renders for both real reports and exemplars. Exemplar Ignis sample record populates from buildExemplarSyntheticSections + buildExemplarFullReport. **Sample report:** /beauty/sample-report remains static (lib/sample-report.ts). No new parallel report architecture.
+
+## Verification Log – 2026‑03‑05 (Report layer stabilization)
+
+**Preview Report Summary:** Added REPORT SUMMARY block to /beauty/view after Registry Summary, before Field Conditions. 5–7 lines of Ignispectrum exemplar text; calm scientific tone. PreviewReportSummary component. **Sample report:** /beauty/sample-report uses `lib/sample-report.ts` (SAMPLE_REPORT_IGNIS) with six sections: INITIATION, COSMIC TWIN RELATION, FIELD CONDITIONS, ARCHETYPE EXPRESSION, DEVIATIONS, RETURN TO COHERENCE. **Connect preview to sample:** "See more: open sample full record →" footnotes (SeeMoreSampleReport) link to /beauty/sample-report; appear after Report Summary, Cosmic Twin, Field Conditions, Archetype Artifact.
+
+## Verification Log – 2026‑03‑06 (Preview depth: Cosmic Twin + sample report)
+
+**Preview flow:** Added Cosmic Twin Relation block (after Registry Summary, before Field Conditions). Added "See more: open sample full record →" footnotes to Cosmic Twin, Field Conditions, Archetype Artifact; link to `/beauty/sample-report`. New route `/beauty/sample-report`: sample full report with longer interpretive sections; "See more: unlock your full identity record →" footnotes link to `/origin`. Registry styling consistent across preview and sample report.
+
+## Verification Log – 2026‑03‑06 (Preview depth + sample report)
+
+**Cosmic Twin Relation:** New section on /beauty/view after Registry Summary, before Field Conditions. Explains subject–cosmic analogue relationship in registry voice. **See more footnotes:** Preview sections (Cosmic Twin, Field Conditions, Archetype Artifact) link to /beauty/sample-report. **Sample report:** New route /beauty/sample-report with deeper interpretive sections; footnotes link to /origin (unlock flow). CosmicTwinRelation, SeeMoreFootnote (SeeMoreSampleReport, SeeMoreUnlock) components added.
+
+## Verification Log – 2026‑03‑06 (Cosmic Twin Relation + sample report flow)
+
+**Preview extensions:** Added Cosmic Twin Relation summary block to /beauty/view (after Registry Summary, before Field Conditions). Added "See more: open sample full record →" footnotes to Cosmic Twin Relation, Field Conditions & Resolved Identity, and Archetype Artifact sections; links to /beauty/sample-report. New route /beauty/sample-report: sample full report with longer interpretive sections (WHOIS, Registry Summary, Cosmic Twin, Field Conditions, Archetype Expression, Deviations); "See more: unlock your full identity record →" footnotes link to /origin. CosmicTwinRelation, SeeMoreFootnote (SeeMoreSampleReport, SeeMoreUnlock) components added.
+
+## Verification Log – 2026‑03‑06 (Preview depth + sample report)
+
+**Cosmic Twin Relation:** New section on /beauty/view after Registry Summary, before Field Conditions. Explains subject–cosmic analogue relationship in registry voice. **See more footnotes:** Preview sections (Cosmic Twin, Field Conditions, Archetype Artifact) link to /beauty/sample-report. **Sample report:** New route /beauty/sample-report with deeper interpretive sections; footnotes link to /origin (unlock flow). CosmicTwinRelation, SeeMoreFootnote (SeeMoreSampleReport, SeeMoreUnlock) components added.
 
 ## Verification Log – 2026‑03‑05 (Locked baseline to production)
 

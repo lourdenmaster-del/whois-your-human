@@ -15,6 +15,9 @@ import { fetchBlobPreviews } from "@/lib/api-client";
 import PreviewCarousel from "./PreviewCarousel";
 import WhoisReportSections from "./WhoisReportSections";
 import RegistrySummary from "./RegistrySummary";
+import PreviewReportSummary from "./PreviewReportSummary";
+import CosmicTwinRelation from "./CosmicTwinRelation";
+import { SeeMoreSampleReport } from "./SeeMoreFootnote";
 import ShareCard from "./ShareCard";
 import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "@/components/ArchetypeArtifactCard";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
@@ -344,13 +347,34 @@ export default function BeautyViewClient() {
         {/* Registry Summary — compact bridge between WHOIS and interpretation */}
         <RegistrySummary profile={profile} />
 
+        {/* Report Summary — interpretation excerpt from profile data */}
+        <div>
+          <PreviewReportSummary profile={profile} />
+          <div className="mt-2">
+            <SeeMoreSampleReport />
+          </div>
+        </div>
+
+        {/* Cosmic Twin Relation — subject–cosmic analogue relationship */}
+        <div>
+          <CosmicTwinRelation />
+          <div className="mt-2">
+            <SeeMoreSampleReport />
+          </div>
+        </div>
+
         {/* Field Conditions & Resolved Identity — before artifact */}
         {((!profile.isExemplar) || (profile.isExemplar && (profile.light_signature || profile.fullReport))) && (
-          <WhoisReportSections profile={profile} isExemplar={profile.isExemplar} sections="identity" />
+          <div>
+            <WhoisReportSections profile={profile} isExemplar={profile.isExemplar} sections="identity" />
+            <div className="-mt-4">
+              <SeeMoreSampleReport />
+            </div>
+          </div>
         )}
 
         {/* Archetype Artifact (hero + info panel) */}
-        <section className="beauty-form-card p-6">
+        <section className="beauty-form-card p-6 overflow-hidden">
           <h2 className="registry-label mb-4 text-center">
             ARCHETYPE ARTIFACT
           </h2>
@@ -366,6 +390,7 @@ export default function BeautyViewClient() {
             showGlyphOverlay={profile.isExemplar && profile.dominantArchetype === "Ignispectrum"}
             registryVariant
           />
+          <SeeMoreSampleReport />
         </section>
 
         {/* Report interpretation — deviations + Return to Coherence */}
