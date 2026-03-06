@@ -12,7 +12,7 @@ export default function ArchetypeNameOverlay({ archetype, scrimVariant = "dark" 
     <div
       className="absolute left-0 right-0 flex items-center justify-center pointer-events-none"
       style={{
-        top: "42%",
+        top: "20%",
         transform: "translateY(-50%)",
         zIndex: 2,
       }}
