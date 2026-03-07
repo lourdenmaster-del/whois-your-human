@@ -38,7 +38,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ## 0.6 Known limitations (exemplar preview flow)
 
-**Terminal vs dossier archetype mismatch:** Terminal preview archetype may differ from dossier content because only Ignis currently has a full exemplar profile. This is intentional until exemplar assets exist for all 12 archetypes. **Keep the dossier framed as sample content** where needed: footer "Sample record — not a personalized identity resolution.", Status "Sample", CosmicTwinRelation "This preview shows only the surface layer." **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
+**Terminal preview flow:** `/beauty/view` renders only `TerminalResolutionSequence` (exemplar) → `InteractiveReportSequence`. No dossier, no WHOIS grid, no registry cards. **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
 
 ---
 
@@ -70,7 +70,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Terminal-aligned: black bg, origin-terminal box, mono text. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
-| `app/beauty/view/BeautyViewClient.jsx` | Client | **Exemplar preview flow:** When `reportId` starts with `exemplar-`, shows `TerminalResolutionSequence` first, then `InteractiveReportSequence` (6-step stack reveal). No dossier for exemplars. Dossier (RegistrySummary, PreviewReportSummary, CosmicTwinRelation, ArchetypeArtifactCard, PreviewCarousel, ShareCard) only for non-exemplar reports. No SeeMoreSampleReport; no links to /beauty/sample-report. Terminal-aligned: black bg (#0a0a0b), white text. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. Tracks report_fetch, images_loaded, errors. |
+| `app/beauty/view/BeautyViewClient.jsx` | Client | **Terminal preview flow only.** Exemplar: `TerminalResolutionSequence` → `InteractiveReportSequence`. Real report: `InteractiveReportSequence` only. Missing/invalid reportId: simple error state + link to /origin. No dossier, no WHOIS grid, no registry cards. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. Tracks report_fetch, images_loaded, errors. |
 | `app/beauty/sample-report/page.jsx` | Client | **Removed from public flow.** Redirects to /origin on load. Route kept for code safety; no public links lead here. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`). Terminal-aligned: black bg, origin-terminal box, mono text, no LigsFooter. |
 | `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled. Terminal-aligned: black bg, origin-terminal box, mono text. |
@@ -92,15 +92,11 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. Previous Light Identity Reports section removed (verify via Vercel Blob dashboard only). |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
 | `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; `ContinuePrompt` ("Press ENTER or tap to continue"). No API calls. Same black/white terminal look as /origin. |
-| `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
-| `PreviewReportSummary` | `app/beauty/view/PreviewReportSummary.jsx` | REPORT SUMMARY block — short interpretation excerpt (5–7 lines) after Registry Summary, before Field Conditions. Static Ignispectrum exemplar text; registry styling. |
-| `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
+| `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on LigsStudio. |
 | `ArchetypeNameOverlay` | `components/ArchetypeNameOverlay.jsx` | Center band overlay with subtle scrim and blur for artifact hero. |
 | `ArtifactInfoPanel` | `components/ArtifactInfoPanel.jsx` | Left gallery-placard panel with archetype, variationKey, date/location, solar, etc. `showDevFields?: boolean` (default false) hides schemaVersion, engineVersion, and reportId row; reportId visible only when showDevFields=true. |
 | `ArtifactCompare` | `components/ArtifactCompare.jsx` | Two-column Compare Runs wrapper for LigsStudio (previous vs current). |
-| `ShareCard` | `app/beauty/view/ShareCard.jsx` | Compact share card: archetype label, tagline, 3 hit points (getMarketingDescriptor), signature image, (L) brand mark. Copy share link + Download image. Used on /beauty/view. |
 | `EmotionalSnippet` | `app/beauty/view/EmotionalSnippet.jsx` | Renders subject name and emotional snippet quote. |
-| `FullReportAccordion` | `app/beauty/view/FullReportAccordion.jsx` | Collapsible full report section (accordion). |
 | `TestModeLogger` | `components/TestModeLogger.tsx` | Client component; logs "TEST MODE" to console when `NEXT_PUBLIC_TEST_MODE=1` |
 | `LigsFooter` | `components/LigsFooter.jsx` | Footer for landing |
 | `VoiceProfileBuilder` | `components/VoiceProfileBuilder.jsx` | 5-step wizard: archetype, descriptors, banned words, claims policy, channel adapters; builds + validates VoiceProfile; stores in local state |
@@ -117,7 +113,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `saveOriginIntake`, `getOriginIntake`, `clearOriginIntake` — origin terminal intake (birth date/time/location) for /beauty/view local resolution. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
 | `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
-| `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, glyph paths, sample artifact URLs for archetype previews. Used by TerminalResolutionSequence, ArchetypeArtifactCard, PreviewCarousel. |
+| `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, glyph paths, sample artifact URLs for archetype previews. Used by TerminalResolutionSequence, ArchetypeArtifactCard, InteractiveReportSequence. |
 | `lib/report-composition.ts` | Report composition layer: `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Converts phrase-bank fragments into complete sentences. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Used by InteractiveReportSequence. |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
 | `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Previously used by `/beauty/sample-report`; route now redirects to /origin. Observational, scientific tone. |
@@ -387,6 +383,42 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 - [ ] **Dry run:** `DRY_RUN=1` skips OpenAI and returns mock report from `/api/engine`.
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
+
+---
+
+## Verification Log – 2026‑03‑07 (Dossier removal)
+
+**Dossier permanently removed:** `/beauty/view` now renders only the terminal preview flow. Exemplar: `TerminalResolutionSequence` → `InteractiveReportSequence`. Real report: `InteractiveReportSequence` only. Missing/invalid reportId: simple error state + link to /origin. Deleted: RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, PreviewCarousel, ShareCard, ShareCard.test.jsx. No WHOIS grid, no registry cards, no dossier layout. BeautyViewClient simplified; InteractiveReportSequence is the only report surface.
+
+---
+
+## Verification Log – 2026‑03‑07 (Dossier removal)
+
+**Dossier permanently removed:** BeautyViewClient now renders only the terminal preview flow. Exemplar: TerminalResolutionSequence → InteractiveReportSequence. Real report: InteractiveReportSequence only. Missing/invalid reportId: simple error state + link to /origin. Deleted: RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, PreviewCarousel, ShareCard, ShareCard.test.jsx. No WHOIS grid, no registry cards, no dossier layout. ArchetypeArtifactCard retained for LigsStudio.
+
+---
+
+## Verification Log – 2026‑03‑07 (Dossier removal)
+
+**Dossier permanently removed:** BeautyViewClient now renders only the terminal preview flow. Exemplar: TerminalResolutionSequence → InteractiveReportSequence. Real report: InteractiveReportSequence only. Missing/invalid reportId: simple error state + link to /origin. Deleted: RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, PreviewCarousel, ShareCard, ShareCard.test.jsx. No WHOIS grid, no registry cards, no dossier layout.
+
+---
+
+## Verification Log – 2026‑03‑07 (Dossier removal)
+
+**Dossier permanently removed:** BeautyViewClient now renders only the terminal preview flow. Exemplar: TerminalResolutionSequence → InteractiveReportSequence. Real report: InteractiveReportSequence only. Missing/invalid reportId: simple error state + link to /origin. Deleted: RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, PreviewCarousel, ShareCard, ShareCard.test.jsx. No WHOIS grid, no registry cards, no dossier layout.
+
+---
+
+## Verification Log – 2026‑03‑07 (Dossier removal)
+
+**Dossier removed:** BeautyViewClient now renders only the terminal preview flow. Exemplar: TerminalResolutionSequence → InteractiveReportSequence. Real report: InteractiveReportSequence only. Missing/invalid reportId: simple error state + link to /origin. Deleted: RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, PreviewCarousel, ShareCard, ShareCard.test.jsx. No WHOIS grid, no registry cards, no dossier layout.
+
+---
+
+## Verification Log – 2026‑03‑07 (Dossier removal)
+
+**Dossier removed:** BeautyViewClient now renders only the terminal preview flow. Exemplar: TerminalResolutionSequence → InteractiveReportSequence. Real report: InteractiveReportSequence only. Missing/invalid reportId: simple error state + link to /origin. Deleted: RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, PreviewCarousel, ShareCard, ShareCard.test.jsx. No WHOIS grid, no registry cards, no dossier layout.
 
 ---
 
