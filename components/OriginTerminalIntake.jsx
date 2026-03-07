@@ -8,7 +8,7 @@ import {
   submitToBeautyDryRun,
   prepurchaseBeautyDraft,
 } from "@/lib/engine-client";
-import { setBeautyUnlocked, setBeautyDraft, saveLastFormData, isBeautyUnlocked } from "@/lib/landing-storage";
+import { setBeautyUnlocked, setBeautyDraft, saveLastFormData, saveOriginIntake, isBeautyUnlocked } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 
 // LOCKDOWN: WAITLIST_ONLY=1 (default) = terminal-only, no CTA button; Enter → exemplar-Ignispectrum. Set to "0" to re-enable purchase.
@@ -17,13 +17,12 @@ const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 const BOOT_LINES = [
   "(L)IGS SYSTEM INITIALIZING",
   "",
-  "Accessing Human WHOIS Registry...",
-  "Recovering identity field markers...",
-  "Resolving solar environment...",
-  "Archetypal expression forming...",
+  "Initializing Human WHOIS Resolution Engine…",
+  "Loading query interface…",
+  "Preparing identity query…",
   "",
   "SYSTEM READY",
-  "Press ENTER to begin query",
+  "Press ENTER or tap to continue",
 ];
 
 const INTAKE_PROMPTS = {
@@ -37,12 +36,36 @@ const INTAKE_PROMPTS = {
 const PROCESSING_LINES = [
   "Input parameters accepted.",
   "",
-  "Querying solar archive...",
+  "Resolving solar field conditions...",
   "Resolving planetary environment...",
   "Calculating light interaction vectors...",
   "Mapping archetypal structure...",
   "",
   "Identity classification stabilized.",
+];
+
+/** Staggered delays (ms) before each boot line. Index i = delay before showing line i. */
+const BOOT_DELAYS_MS = [
+  0,    // (L)IGS SYSTEM INITIALIZING — immediate
+  350,  // "" — quick
+  600,  // Initializing Human WHOIS Resolution Engine — medium
+  450,  // Loading query interface — shorter
+  850,  // Preparing identity query — longer
+  400,  // "" — short
+  750,  // SYSTEM READY — pause before dramatic
+  500,  // Press ENTER — short beat
+];
+
+/** Staggered delays (ms) before each processing line. Action→[think]→next. Longer dwell for meaningful steps. */
+const PROCESSING_DELAYS_MS = [
+  0,    // Input parameters accepted — immediate
+  500,  // ""
+  900,  // Resolving solar field conditions...
+  1300, // Resolving planetary... — thinking pause
+  1200, // Calculating light interaction... — thinking pause
+  1400, // Mapping archetypal structure... — thinking pause
+  700,  // "" — breathe
+  800,  // Identity classification stabilized — pause before reveal
 ];
 
 function getDryRunFromUrl() {
@@ -59,6 +82,7 @@ export default function OriginTerminalIntake() {
   const ctaSubmittingRef = useRef(false);
   const redirectFiredRef = useRef(false);
   const countdownTimerRef = useRef(null);
+  const formDataRef = useRef({});
 
   const [phase, setPhase] = useState("boot");
   const [bootIndex, setBootIndex] = useState(0);
@@ -91,6 +115,10 @@ export default function OriginTerminalIntake() {
     setLines((prev) => [...prev, { text, type }]);
   }, []);
 
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
   const redirectNow = useCallback(() => {
     if (redirectFiredRef.current) return;
     redirectFiredRef.current = true;
@@ -99,6 +127,7 @@ export default function OriginTerminalIntake() {
       countdownTimerRef.current = null;
     }
     setCountdownRemaining(null);
+    saveOriginIntake(formDataRef.current ?? {});
     router.push("/beauty/view?reportId=exemplar-Ignispectrum");
   }, [router]);
 
@@ -141,17 +170,18 @@ export default function OriginTerminalIntake() {
     startRedirectCountdown();
   }, [phase, countdownRemaining, startRedirectCountdown]);
 
-  // Boot sequence
+  // Boot sequence — staggered timing: quick steps, longer for resolution work, pause before SYSTEM READY
   useEffect(() => {
     if (phase !== "boot") return;
     if (bootIndex >= BOOT_LINES.length) {
       setPhase("waiting_enter");
       return;
     }
+    const delay = BOOT_DELAYS_MS[bootIndex] ?? 500;
     const t = setTimeout(() => {
       addLine(BOOT_LINES[bootIndex]);
       setBootIndex((i) => i + 1);
-    }, bootIndex === 0 ? 0 : 500);
+    }, delay);
     return () => clearTimeout(t);
   }, [phase, bootIndex, addLine]);
 
@@ -299,10 +329,11 @@ export default function OriginTerminalIntake() {
       }
       return;
     }
+    const delay = PROCESSING_DELAYS_MS[processingIndex] ?? 550;
     const t = setTimeout(() => {
       addLine(PROCESSING_LINES[processingIndex]);
       setProcessingIndex((i) => i + 1);
-    }, 400);
+    }, delay);
     return () => clearTimeout(t);
   }, [phase, processingIndex, archetypePreviewShown, addLine]);
 
@@ -323,17 +354,22 @@ export default function OriginTerminalIntake() {
     fetch("/api/waitlist", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, source: "origin-terminal" }),
+      body: JSON.stringify({
+        email,
+        source: "origin-terminal",
+        birthDate: formData.birthDate || undefined,
+      }),
     })
       .then(async (res) => {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         return { ok: res.ok, data };
       })
-      .then(({ ok }) => {
+      .then(({ ok, data }) => {
         if (cancelled) return;
         if (ok) {
-          addLine("Email accepted.");
-          addLine("Sample identity record resolved.");
+          addLine("Contact node recorded.");
+          addLine("Early registry status confirmed.");
+          if (data?.confirmationSent) addLine("Registry confirmation transmitted.");
         } else {
           addLine("Identity query logged.");
           addLine("Sample identity artifacts available.");
@@ -373,15 +409,20 @@ export default function OriginTerminalIntake() {
         const res = await fetch("/api/waitlist", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: payload.email.trim().toLowerCase(), source: "origin-terminal" }),
+          body: JSON.stringify({
+            email: payload.email.trim().toLowerCase(),
+            source: "origin-terminal",
+            birthDate: payload.birthDate || undefined,
+          }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setCtaError(data?.error ?? "Something went wrong. Try again.");
           return;
         }
-        addLine("Email accepted.");
-        addLine("Sample identity record resolved.");
+        addLine("Contact node recorded.");
+        addLine("Early registry status confirmed.");
+        if (data?.confirmationSent) addLine("Registry confirmation transmitted.");
         addLine("Opening registry preview in 3…");
         setCtaVisible(false);
         setPhase("completeAwaitingEnterRedirect");
@@ -449,20 +490,23 @@ export default function OriginTerminalIntake() {
   }, [formData, unlocked, dryRun, router, addLine]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
-      <div className="w-full max-w-2xl">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b] overflow-x-hidden">
+      <div className="w-full max-w-2xl min-w-0 overflow-hidden">
         <div
           className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden"
           style={{
             boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
           }}
         >
-          <div className="px-4 py-2 border-b border-[#2a2a2e] flex items-center gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#3a3a3e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#3a3a3e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#3a3a3e]" />
-            <span className="ml-2 text-[10px] uppercase tracking-widest text-[#6b6b70] font-mono">
-              (L)IGS Human WHOIS Registry
+          <div
+            className="px-4 py-2.5 border-b border-[#2a2a2e] flex items-center gap-2"
+            style={{ backgroundColor: "rgba(0,0,0,0.2)" }}
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <span className="ml-2 text-[10px] uppercase tracking-widest font-mono" style={{ color: "#a8a8b0" }}>
+              (L)IGS Human WHOIS Resolution Engine
             </span>
           </div>
 
@@ -489,7 +533,14 @@ export default function OriginTerminalIntake() {
             ))}
 
             {(phase === "waiting_enter" || (phase === "intake" && currentField) || phase === "completeAwaitingEnterRedirect") && (
-              <div className="flex items-center gap-1 mt-1">
+              <div
+                className={`flex items-center gap-1 mt-1 min-h-[44px] ${phase === "completeAwaitingEnterRedirect" ? "cursor-pointer touch-manipulation" : ""}`}
+                onClick={phase === "completeAwaitingEnterRedirect" ? redirectNow : undefined}
+                onKeyDown={phase === "completeAwaitingEnterRedirect" ? (e) => { if (e.key === "Enter") { e.preventDefault(); redirectNow(); } } : undefined}
+                role={phase === "completeAwaitingEnterRedirect" ? "button" : undefined}
+                tabIndex={phase === "completeAwaitingEnterRedirect" ? 0 : undefined}
+                aria-label={phase === "completeAwaitingEnterRedirect" ? "Tap to open preview now" : undefined}
+              >
                 <span className="text-[#7a7a80]">&gt;</span>
                 <input
                   ref={inputRef}
@@ -538,10 +589,10 @@ export default function OriginTerminalIntake() {
         </div>
 
         <p
-          className="mt-4 text-center text-[10px] uppercase tracking-widest text-[#4a4a50] font-mono"
-          style={{ fontFamily: "inherit" }}
+          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+          style={{ fontFamily: "inherit", color: "#8a8a90" }}
         >
-          (L)IGS — Human WHOIS Registry
+          (L)IGS — Human WHOIS Resolution Engine
         </p>
       </div>
     </div>

@@ -5,6 +5,7 @@ import ArchetypeNameOverlay from "./ArchetypeNameOverlay";
 import ArtifactInfoPanel from "./ArtifactInfoPanel";
 import { getSolarSeasonProfile, getSolarSeasonByIndex } from "@/src/ligs/astronomy/solarSeason";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
+import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 
 const PLACEHOLDER_SVG =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E";
@@ -161,22 +162,26 @@ export default function ArchetypeArtifactCard({
       className={`${cardClass} ${className}`}
       style={cardStyle}
     >
-      <div className="flex flex-row">
+      <div className="flex flex-col sm:flex-row w-full min-w-0 overflow-hidden">
         <ArtifactInfoPanel artifacts={artifacts} showDevFields={showDevFields} registryVariant={registryVariant} />
-        <div className={`relative flex-1 min-w-0 ${aspectClass}`}>
+        <div className={`relative flex-1 min-w-0 w-full ${aspectClass}`}>
           <img
             src={src}
             alt={imageAlt}
             className={`w-full h-full ${objectClass}`}
           />
-          {showGlyphOverlay && (
-            <img
-              src="/glyphs/ignis.svg"
-              alt=""
-              aria-hidden
-              className="ignis-glyph-overlay"
-            />
-          )}
+          {showGlyphOverlay && (() => {
+            const config = getArchetypePreviewConfig(archetype);
+            if (!config.hasGlyph) return null;
+            return (
+              <img
+                src={config.glyphPath}
+                alt=""
+                aria-hidden
+                className="archetype-glyph-overlay"
+              />
+            );
+          })()}
           <ArchetypeNameOverlay archetype={archetype} scrimVariant={scrimVariant} registryVariant={registryVariant} />
           <button
             type="button"

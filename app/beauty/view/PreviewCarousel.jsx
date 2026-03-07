@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E";
@@ -12,8 +13,10 @@ export default function PreviewCarousel({
   labels = LABELS,
   subjectName,
   hideEmptySlots = false,
-  /** When true and current slide is Light Signature, layers ignis-glyph-overlay above the image. */
+  /** When true and current slide is Light Signature, layers ignis-glyph-overlay above the image. (Backward compat: treat as glyphOverlayArchetype="Ignispectrum") */
   glyphOverlayForIgnis = false,
+  /** When set, use getArchetypePreviewConfig to get glyph and show on Light Signature slide. */
+  glyphOverlayArchetype = undefined,
 }) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [touchStart, setTouchStart] = useState(null);
@@ -28,6 +31,10 @@ export default function PreviewCarousel({
 
   const next = () => setCurrentSlide((s) => (s + 1) % safeUrls.length);
   const prev = () => setCurrentSlide((s) => (s - 1 + safeUrls.length) % safeUrls.length);
+
+  const effectiveGlyphArchetype = glyphOverlayArchetype ?? (glyphOverlayForIgnis ? "Ignispectrum" : null);
+  const glyphConfig = effectiveGlyphArchetype ? getArchetypePreviewConfig(effectiveGlyphArchetype) : null;
+  const showGlyphOnLightSignature = glyphConfig?.hasGlyph && (labels[currentSlide] ?? LABELS[currentSlide]) === "Light Signature";
 
   const handleTouchStart = (e) =>
     setTouchStart(e.touches[0] ? e.touches[0].clientX : null);
@@ -61,12 +68,12 @@ export default function PreviewCarousel({
             alt={subjectName ? `${labels[currentSlide]} for ${subjectName}` : labels[currentSlide]}
             className="w-full h-full object-cover"
           />
-          {glyphOverlayForIgnis && (labels[currentSlide] ?? LABELS[currentSlide]) === "Light Signature" && (
+          {showGlyphOnLightSignature && (
             <img
-              src="/glyphs/ignis.svg"
+              src={glyphConfig.glyphPath}
               alt=""
               aria-hidden
-              className="ignis-glyph-overlay"
+              className="archetype-glyph-overlay"
             />
           )}
         </div>

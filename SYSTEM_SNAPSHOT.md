@@ -36,6 +36,12 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
+## 0.6 Known limitations (exemplar preview flow)
+
+**Terminal vs dossier archetype mismatch:** Terminal preview archetype may differ from dossier content because only Ignis currently has a full exemplar profile. This is intentional until exemplar assets exist for all 12 archetypes. **Keep the dossier framed as sample content** where needed: footer "Sample record — not a personalized identity resolution.", Status "Sample", SeeMoreSampleReport "open sample full record", CosmicTwinRelation "This preview shows only the surface layer."
+
+---
+
 ## 1. Front-end architecture
 
 ### 1.1 App structure (App Router)
@@ -64,8 +70,8 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
-| `app/beauty/view/BeautyViewClient.jsx` | Client | Fetches `/api/beauty/[reportId]`; uses RegistrySummary, PreviewReportSummary, CosmicTwinRelation, ArchetypeArtifactCard (hero + info panel), PreviewCarousel, SeeMoreFootnote, ShareCard. Report Summary (after Registry Summary, before Field Conditions) shows short interpretation excerpt; "See more: open sample full record →" links to /beauty/sample-report. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
-| `app/beauty/sample-report/page.jsx` | Client | Sample full report page — six interpretive sections from lib/sample-report.ts: INITIATION, COSMIC TWIN RELATION, FIELD CONDITIONS, ARCHETYPE EXPRESSION, DEVIATIONS, RETURN TO COHERENCE. Same registry styling as /beauty/view. "See more: unlock your full identity record" footnotes link to /origin. |
+| `app/beauty/view/BeautyViewClient.jsx` | Client | **Exemplar preview flow:** When `reportId` starts with `exemplar-`, shows `TerminalResolutionSequence` first (local solar-season + archetype resolution from `getOriginIntake`, no API). Sequence: timed line reveals → personal archetype snippet → sample artifact thumbnail → auto-advance to dossier. Fetches `/api/beauty/[reportId]` in parallel; dossier revealed after sequence completes. Uses RegistrySummary, PreviewReportSummary, CosmicTwinRelation, ArchetypeArtifactCard (hero + info panel), PreviewCarousel, SeeMoreFootnote, ShareCard. Report Summary (after Registry Summary, before Field Conditions) shows short interpretation excerpt; "See more: open sample full record →" links to /beauty/sample-report. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
+| `app/beauty/sample-report/page.jsx` | Client | Sample full report page — six interpretive sections from lib/sample-report.ts: INITIATION, COSMIC TWIN RELATION, FIELD CONDITIONS, ARCHETYPE EXPRESSION, DEVIATIONS, RETURN TO COHERENCE. Same registry styling as /beauty/view. Top bar + bottom: "← Return to preview dossier" → /beauty/view?reportId=exemplar-Ignispectrum; "← Back to Origin" → /origin. "See more: unlock your full identity record" footnotes link to /origin. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`) |
 | `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled |
 
@@ -85,6 +91,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `StaticButton` | `components/StaticButton.jsx` | Disabled placeholder button when `lastFormData` is missing (e.g. user arrived via URL). Label "Preview & Pay to Unlock"; tooltip "Generate a report first to unlock". |
 | `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. Previous Light Identity Reports section removed (verify via Vercel Blob dashboard only). |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
+| `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; auto-advance to dossier. No API calls. Same black/white terminal look as /origin. |
 | `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
 | `PreviewReportSummary` | `app/beauty/view/PreviewReportSummary.jsx` | REPORT SUMMARY block — short interpretation excerpt (5–7 lines) after Registry Summary, before Field Conditions. Static Ignispectrum exemplar text; registry styling. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
@@ -107,9 +114,10 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/engine-client.js` | `buildEnginePayload`, `submitToEngine`, `submitToBeautyDryRun(formData)` → POST `/api/beauty/dry-run`; `submitToEve`, `submitToBeautySubmit` |
 | `lib/unwrap-response.ts` | Unwrap API JSON; throw with `error` / `code` on non-OK |
 | `lib/analytics.js` | `track(event, reportId?)` → POST `/api/analytics/event` |
-| `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
+| `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `saveOriginIntake`, `getOriginIntake`, `clearOriginIntake` — origin terminal intake (birth date/time/location) for /beauty/view local resolution. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
 | `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
+| `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, glyph paths, sample artifact URLs for archetype previews. Used by TerminalResolutionSequence, ArchetypeArtifactCard, PreviewCarousel. |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
 | `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Used by `/beauty/sample-report`. Observational, scientific tone. |
 | `lib/runtime-mode.ts` | `isProd`, `isDryRun`, `isTestMode`, `allowExternalWrites`, `allowBlobWrites`, `stripeTestModeRequired` — unified env guard; when `TEST_MODE=1`: dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1` |
@@ -121,6 +129,8 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/astronomy/computeSunMoonContext.ts` | `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — Sun/Moon horizontal coords, twilight phase, sunrise/sunset, day length, moon phase/illumination. Uses astronomy-engine only (no external APIs). beauty/submit attaches sun + moon to birthContext; engine buildBirthContextBlock injects concise Sun/Moon section. |
 | `lib/engine/constraintGate.ts` | `scanForbidden(text)` — scans full_report for forbidden terms (chakra, kabbalah, sacred geometry, etc.); `redactForbidden(text, keys)` — replaces matches with [removed]. Engine/generate runs one repair OpenAI pass when hits > 0; re-scan; if hits remain, redacts in dev. |
 | `lib/idempotency-store.ts` | Blob-backed idempotency at `ligs-runs/{route}/{idempotencyKey}.json`. `getIdempotentResult`, `setIdempotentResult`, `isValidIdempotencyKey`, `deriveIdempotencyKey` (deterministic sub-keys for marketing/share replays). Routes: engine-generate, engine, marketing-generate, image-generate. In-memory fallback when no Blob. |
+| `lib/waitlist-store.ts` | Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. `insertWaitlistEntry(payload)` → `{ ok, alreadyRegistered? }`; uses `head()` before `put()` for duplicate check. Payload: email, created_at, source, preview_archetype?, solar_season?. Used by `/api/waitlist`. |
+| `lib/email-waitlist-confirmation.ts` | `sendWaitlistConfirmation(email)` — LIGS-voice confirmation via Resend or SendGrid. Subject: "Your identity query has been logged". Uses `RESEND_API_KEY` or `SENDGRID_API_KEY`, `EMAIL_FROM`. Used by `/api/waitlist` for new signups only. |
 
 ### 1.5 Voice Profile (LIGS)
 
@@ -193,7 +203,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/waitlist` | Zero-dependency email capture. Body: `{ email: string, source?: string, ref?: string }`. Validates email (required, trimmed, lowercased, basic regex); rejects 400 if invalid. Rate limit: 5 req/60s per IP+UA (in-memory; resets on cold start). Writes to Vercel Blob at `ligs-waitlist/{ISO_TIMESTAMP}_{RANDOM}.json`. Returns `{ ok: true }` or 429 when rate limited. Does NOT trigger image gen, Stripe, or engine. Does NOT use LIGS_API_OFF kill switch. Requires `BLOB_READ_WRITE_TOKEN`. Emails masked in production logs. |
+| POST | `/api/waitlist` | Email capture with duplicate check and confirmation. Body: `{ email: string, source?: string, birthDate?: string, archetype_preview?: string, solar_season?: string }`. When `birthDate` (YYYY-MM-DD) provided, computes `archetype_preview` and `solar_season` server-side via `approximateSunLongitudeFromDate` + `getPrimaryArchetypeFromSolarLongitude`. Validates email; rate limit 5 req/60s per IP+UA. Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. Duplicate → 200 `{ ok: true, alreadyRegistered: true }` (no confirmation resend). New signup → `insertWaitlistEntry` → `sendWaitlistConfirmation` (Resend or SendGrid) → 200 `{ ok: true }`. Requires `BLOB_READ_WRITE_TOKEN`. One of `RESEND_API_KEY` or `SENDGRID_API_KEY` for confirmation. |
 
 ### 2.4 Stripe
 
@@ -278,9 +288,9 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
 | `STRIPE_SECRET_KEY` | `/api/stripe/create-checkout-session`, `/api/stripe/webhook` | Stripe API |
 | `STRIPE_WEBHOOK_SECRET` | `/api/stripe/webhook` | Webhook signature verification |
-| `RESEND_API_KEY` | `/api/email/send-beauty-profile` | Resend (preferred if set) |
-| `SENDGRID_API_KEY` | `/api/email/send-beauty-profile` | SendGrid fallback |
-| `EMAIL_FROM` | `/api/email/send-beauty-profile` | From address (default `Beauty <onboarding@resend.dev>`) |
+| `RESEND_API_KEY` | `/api/email/send-beauty-profile`, `lib/email-waitlist-confirmation` | Resend (preferred if set) |
+| `SENDGRID_API_KEY` | `/api/email/send-beauty-profile`, `lib/email-waitlist-confirmation` | SendGrid fallback |
+| `EMAIL_FROM` | `/api/email/send-beauty-profile`, `lib/email-waitlist-confirmation` | From address (default `Beauty`/`LIGS <onboarding@resend.dev>`) |
 | `NODE_ENV` | Report 404 debug, engine quota detail, form dev defaults, `/api/dev/live-once` 403 guard | Development vs production behavior |
 | `DEBUG_PROMPT_AUDIT` | `/api/engine/generate` | `"1"` = log PROMPT_AUDIT (hasHardConstraints, hasForbiddenList, hasBirthContext, head) before OpenAI call |
 | `DEBUG_PERSISTENCE` | `/api/engine/generate` | `"1"` = when Blob write fails, return 200 with UNSAVED reportId and full_report (dev fallback) |
@@ -290,7 +300,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 - `OPENAI_API_KEY`
 - `BLOB_READ_WRITE_TOKEN` (required for Beauty flow and persisted reports)
 - `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (for paid Beauty)
-- One of `RESEND_API_KEY` or `SENDGRID_API_KEY` (for post-purchase email)
+- One of `RESEND_API_KEY` or `SENDGRID_API_KEY` (for post-purchase email and waitlist confirmation)
 
 ---
 
@@ -378,6 +388,62 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑07 (Preview + email flow lockdown)
+
+**Mobile/phone stabilization:** OriginTerminalIntake — tap-to-continue row (completeAwaitingEnterRedirect) with min-h-[44px], cursor-pointer, onClick=redirectNow; overflow-x-hidden, min-w-0 on container. TerminalResolutionSequence — touch-manipulation on continue control; overflow-x-hidden, min-w-0. Sample report — min-h-[44px], touch-manipulation on nav links. No layout or copy changes.
+
+## Verification Log – 2026‑03‑07 (Waitlist email confirmation)
+
+**Waitlist email capture and confirmation:** `lib/waitlist-store.ts` — Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`; `insertWaitlistEntry` with duplicate check via `head()` before `put()`. Stored fields: email, created_at, source, preview_archetype?, solar_season?. `lib/email-waitlist-confirmation.ts` — `sendWaitlistConfirmation` via Resend or SendGrid; LIGS-voice body. **API:** POST `/api/waitlist` accepts `birthDate`; computes `preview_archetype` and `solar_season` from `approximateSunLongitudeFromDate` + `getPrimaryArchetypeFromSolarLongitude`. Duplicate → 200 `{ ok: true, alreadyRegistered: true }` (no resend). New → confirmation (fire-and-forget) → 200 `{ ok: true, confirmationSent: true }`. **OriginTerminalIntake:** passes `birthDate`; success messages "Contact node recorded.", "Early registry status confirmed.", "Registry confirmation transmitted." (when confirmationSent).
+
+## Verification Log – 2026‑03‑07 (Archetype preview refactor)
+
+**Archetype preview config:** Added `lib/archetype-preview-config.js` with `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, and `buildPlaceholderSvg(displayName)`. Ignispectrum: displayName "IGNISPECTRUM", glyphPath "/glyphs/ignis.svg", sampleArtifactUrl from `IGNIS_LANDING_URL`. Unknown archetypes: displayName = archetype.toUpperCase(), glyphPath/sampleArtifactUrl null, hasGlyph/hasSampleArtifact false. **TerminalResolutionSequence:** Uses config for thumbnail (sampleArtifactUrl || buildPlaceholderSvg), glyph (only when hasGlyph), label (config.displayName). **ArchetypeArtifactCard:** showGlyphOverlay + getArchetypePreviewConfig for archetype-specific glyph. **PreviewCarousel:** glyphOverlayArchetype prop; glyphOverlayForIgnis backward compat. **BeautyViewClient:** glyphOverlayArchetype={profile.isExemplar ? profile.dominantArchetype : null}; showGlyphOverlay when isExemplar && config.hasGlyph. **globals.css:** .archetype-glyph-overlay (same rules as .ignis-glyph-overlay). Ignis unchanged.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake` (birth date) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS` for local resolution. Timed line reveals; 3–5 archetype snippet lines from `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank`; Ignis exemplar thumbnail; auto-advance to dossier (no Enter). No pre-purchase engine/API hit. Same black/white terminal styling as /origin.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS` for local resolution. Snippet from `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank`. Sample artifact: Ignis v1 exemplar_card (only client-side asset). Auto-advances to dossier after ~2.2s. No pre-purchase engine/API hit. `lib/landing-storage`: `saveOriginIntake`/`getOriginIntake` persist intake from /origin.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `reportId` starts with `exemplar-`, BeautyViewClient shows TerminalResolutionSequence first. Sequence: (L)IGS SYSTEM CONTINUING SESSION → Retrieving local/cosmic metadata → Resolving solar season/archetype → Your cosmic metadata begins in [season] → This resolves into [archetype] → 3–5 archetype snippet lines (from getMarketingDescriptor, getCosmicAnalogue, getArchetypePhraseBank) → sample artifact thumbnail → auto-advance to dossier. Uses getOriginIntake (birthDate) → approximateSunLongitudeFromDate → getPrimaryArchetypeFromSolarLongitude. No pre-purchase engine/API hit. Profile fetch runs in parallel; dossier revealed after sequence completes.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake()` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS` for local resolution. No API calls. Timed line reveals, 3–5 archetype snippet lines from `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank`, sample artifact thumbnail (Ignis v1), auto-advance to dossier. Reuses existing lib/ mappings; no new engine/API hit before purchase.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake()` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS` for local resolution. No API calls. Timed line reveals, 3–5 archetype snippet lines from `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank`, sample artifact thumbnail (Ignis v1), auto-advance to dossier. Reuses existing lib mappings; no new engine/API hit before purchase.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake()` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS` for local resolution. No API calls. Timed line reveals (Retrieving local/cosmic metadata, Resolving solar season/archetype) → personal archetype snippet (3–5 lines from `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank`) → sample artifact thumbnail → auto-advance to dossier after 2.2s. Same black/white terminal look as /origin. `lib/landing-storage`: `saveOriginIntake` / `getOriginIntake` persist intake from OriginTerminalIntake.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake()` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS` for local resolution. No API calls. Timed line reveals, 3–5 archetype snippet lines from `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank`, sample artifact thumbnail (Ignis v1), auto-advance to dossier. Same black/white terminal look as /origin. `lib/landing-storage.js`: `saveOriginIntake` / `getOriginIntake` for intake passed from origin.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `reportId` starts with `exemplar-`, BeautyViewClient shows TerminalResolutionSequence first. Uses `getOriginIntake()` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → SOLAR_SEASONS, getMarketingDescriptor, getCosmicAnalogue, getArchetypePhraseBank. No API calls before purchase. Timed line reveals → personal archetype snippet (3–5 lines) → sample artifact thumbnail → auto-advance to dossier. Same black/white terminal look as /origin. TerminalResolutionSequence component added.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Exemplar preview flow:** When `reportId` starts with `exemplar-`, BeautyViewClient shows TerminalResolutionSequence first. Uses `getOriginIntake` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → SOLAR_SEASONS, getMarketingDescriptor, getCosmicAnalogue, getArchetypePhraseBank. No API calls. Timed line reveals → personal archetype snippet (3–5 lines) → sample artifact thumbnail → auto-advance to dossier. Same black/white terminal look as /origin. TerminalResolutionSequence component added.
+
+## Verification Log – 2026‑03‑07 (Terminal resolution preview)
+
+**Terminal resolution sequence:** When `/beauty/view?reportId=exemplar-*`, shows `TerminalResolutionSequence` first (continuation of /origin). Uses `getOriginIntake` (birthDate) → `approximateSunLongitudeFromDate` → `getPrimaryArchetypeFromSolarLongitude` → `SOLAR_SEASONS`, `getMarketingDescriptor`, `getCosmicAnalogue`, `getArchetypePhraseBank` for 3–5 archetype snippet lines. Timed line reveals, sample artifact thumbnail (Ignis v1), auto-advance to dossier. No pre-purchase engine/API hit. Same black/white terminal look as /origin.
+
+## Verification Log – 2026‑03‑06 (Sample report navigation)
+
+**Sample report:** Added "← Return to preview dossier" navigation (top + bottom) linking to `/beauty/view?reportId=exemplar-Ignispectrum`. Kept "← Back to Origin" as secondary. Registry-ctrl styling; flex layout for mobile/desktop. Preview dossier → sample report flow unchanged (SeeMoreSampleReport).
 
 ## Verification Log – 2026‑03‑05 (Report layer: reuse existing data)
 

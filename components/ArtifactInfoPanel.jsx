@@ -54,11 +54,9 @@ export default function ArtifactInfoPanel({ artifacts = {}, showDevFields = fals
 
   return (
     <div
-      className="flex flex-col p-4 w-full min-w-[140px] max-w-[180px]"
+      className="flex flex-col p-4 w-full min-w-0 sm:min-w-[140px] sm:max-w-[180px] shrink-0 sm:shrink-0 border-b sm:border-b-0 sm:border-r border-[var(--artifact-panel-border)]"
       style={{
         backgroundColor: "var(--artifact-panel-bg)",
-        borderRight: "1px solid var(--artifact-panel-border)",
-        borderBottom: "1px solid var(--artifact-panel-border)",
       }}
     >
       {showRow(archetype) && <ROW label="Archetype" value={archetype} registryVariant={registryVariant} />}

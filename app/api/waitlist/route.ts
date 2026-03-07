@@ -1,23 +1,22 @@
 /**
- * Waitlist signup — zero-dependency capture using Vercel Blob.
- * Persists each signup as a JSON file under ligs-waitlist/.
- * Does NOT trigger image generation, Stripe, or engine calls.
+ * Waitlist signup — Blob-backed with duplicate check and confirmation email.
+ * Path: ligs-waitlist/entries/{sha256(email).slice(0,32)}.json
  *
  * POST /api/waitlist
- * Body: { email: string, source?: string, ref?: string }
+ * Body: { email: string, source?: string, birthDate?: string, preview_archetype?: string, solar_season?: string }
  *
- * Test with curl:
- *   curl -X POST http://localhost:3000/api/waitlist \
- *     -H "Content-Type: application/json" \
- *     -d '{"email":"test@example.com","source":"beauty"}'
+ * When birthDate (YYYY-MM-DD) is provided, preview_archetype and solar_season are computed server-side.
+ * Duplicate emails return 200 { ok: true, alreadyRegistered: true } — no confirmation resend.
+ * New signups receive confirmation email via Resend or SendGrid.
  */
 
-import { put } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { checkRateLimit, getRateLimitKey } from "@/lib/waitlist-rate-limit";
-
-const BLOB_PREFIX = "ligs-waitlist/";
+import { insertWaitlistEntry } from "@/lib/waitlist-store";
+import { sendWaitlistConfirmation } from "@/lib/email-waitlist-confirmation";
+import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
+import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
+import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
 
 /** Simple email validation — basic regex, keep it minimal. */
 function isValidEmail(email: string): boolean {
@@ -64,7 +63,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { email?: string; source?: string; ref?: string };
+  let body: {
+    email?: string;
+    source?: string;
+    birthDate?: string;
+    preview_archetype?: string;
+    solar_season?: string;
+  };
   try {
     body = await req.json();
   } catch {
@@ -90,32 +95,43 @@ export async function POST(req: NextRequest) {
   }
 
   const source = typeof body.source === "string" ? body.source.slice(0, 64) : "beauty";
-  const ref = typeof body.ref === "string" ? body.ref.slice(0, 256) : undefined;
 
-  const userAgent = req.headers.get("user-agent") ?? undefined;
-  const forwarded = req.headers.get("x-forwarded-for");
-  const realIp = req.headers.get("x-real-ip");
-  const ipHint = (forwarded ?? realIp ?? "").split(",")[0]?.trim() || undefined;
+  let preview_archetype = typeof body.preview_archetype === "string" ? body.preview_archetype.slice(0, 64) : undefined;
+  let solar_season = typeof body.solar_season === "string" ? body.solar_season.slice(0, 64) : undefined;
 
-  const iso = new Date().toISOString().replace(/:/g, "-");
-  const random = randomBytes(6).toString("hex");
-  const pathname = `${BLOB_PREFIX}${iso}_${random}.json`;
-
-  const payload = {
-    email,
-    createdAt: new Date().toISOString(),
-    source,
-    ...(ref && { ref }),
-    ...(userAgent && { userAgent }),
-    ...(ipHint && { ipHint }),
-  };
+  if (typeof body.birthDate === "string" && body.birthDate.trim()) {
+    const lon = approximateSunLongitudeFromDate(body.birthDate.trim());
+    if (lon != null) {
+      const archetype = getPrimaryArchetypeFromSolarLongitude(lon);
+      preview_archetype = archetype;
+      const seasonIndex = Math.min(Math.floor(lon / 30), 11);
+      const entry = SOLAR_SEASONS[seasonIndex];
+      solar_season = entry ? `${entry.archetype} (${entry.anchorType})` : archetype;
+    }
+  }
 
   try {
-    await put(pathname, JSON.stringify(payload, null, 0), {
-      access: "public",
-      addRandomSuffix: false,
-      contentType: "application/json",
+    const result = await insertWaitlistEntry({
+      email,
+      source,
+      ...(preview_archetype && { preview_archetype }),
+      ...(solar_season && { solar_season }),
     });
+
+    if (result.alreadyRegistered) {
+      return NextResponse.json({ ok: true, alreadyRegistered: true });
+    }
+
+    sendWaitlistConfirmation(email).catch((err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (process.env.NODE_ENV === "development") {
+        console.error("[waitlist] Confirmation email failed:", msg);
+      } else {
+        console.error("[waitlist] Confirmation email failed:", maskEmail(email), msg.slice(0, 80));
+      }
+    });
+
+    return NextResponse.json({ ok: true, confirmationSent: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (process.env.NODE_ENV === "development") {
@@ -128,6 +144,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ ok: true });
 }

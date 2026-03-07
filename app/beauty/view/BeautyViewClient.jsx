@@ -20,7 +20,9 @@ import CosmicTwinRelation from "./CosmicTwinRelation";
 import { SeeMoreSampleReport } from "./SeeMoreFootnote";
 import ShareCard from "./ShareCard";
 import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "@/components/ArchetypeArtifactCard";
+import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
+import TerminalResolutionSequence from "./TerminalResolutionSequence";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -67,6 +69,7 @@ export default function BeautyViewClient() {
   const [previewsLoading, setPreviewsLoading] = useState(false);
   const [selectedPreviewId, setSelectedPreviewId] = useState("");
   const [manualReportId, setManualReportId] = useState("");
+  const [terminalComplete, setTerminalComplete] = useState(false);
 
   useEffect(() => {
     setUrlChecked(true);
@@ -75,7 +78,18 @@ export default function BeautyViewClient() {
     } else {
       setProfile(null);
       setError("");
+      if (reportId.startsWith("exemplar-")) {
+        setTerminalComplete(false);
+      }
     }
+  }, [reportId]);
+
+  useEffect(() => {
+    if (!reportId?.startsWith?.("exemplar-")) setTerminalComplete(false);
+  }, [reportId]);
+
+  useEffect(() => {
+    if (!reportId?.startsWith?.("exemplar-")) setTerminalComplete(false);
   }, [reportId]);
 
   const loadProfile = useCallback(async () => {
@@ -147,6 +161,16 @@ export default function BeautyViewClient() {
       // ignore
     }
   }, [shareUrl, reportId]);
+
+  const isExemplarPreview = reportId?.startsWith?.("exemplar-");
+  const handleTerminalComplete = useCallback(() => setTerminalComplete(true), []);
+
+  // Exemplar preview: terminal resolution sequence first, then dossier
+  if (isExemplarPreview && !terminalComplete) {
+    return (
+      <TerminalResolutionSequence onComplete={handleTerminalComplete} />
+    );
+  }
 
   // No reportId — Select report UI
   if (!urlChecked || (!reportId && !loading)) {
@@ -387,7 +411,7 @@ export default function BeautyViewClient() {
             archetype={profile.dominantArchetype}
             artifacts={buildArtifactsFromProfile(profile)}
             imageAlt={`Light Signature for ${heading}`}
-            showGlyphOverlay={profile.isExemplar && profile.dominantArchetype === "Ignispectrum"}
+            showGlyphOverlay={profile.isExemplar && getArchetypePreviewConfig(profile.dominantArchetype).hasGlyph}
             registryVariant
           />
           <SeeMoreSampleReport />
@@ -408,7 +432,7 @@ export default function BeautyViewClient() {
             subjectName={heading}
             labels={profile.isExemplar ? (profile.exemplarArtifactLabels ?? ["Vector Zero", "Light Signature", "Final Beauty Field"]) : undefined}
             hideEmptySlots={profile.isExemplar}
-            glyphOverlayForIgnis={profile.isExemplar && profile.dominantArchetype === "Ignispectrum"}
+            glyphOverlayArchetype={profile.isExemplar ? profile.dominantArchetype : null}
           />
         </section>
 
