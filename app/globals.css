@@ -163,6 +163,29 @@ body {
   filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.25));
 }
 
+/* Artifact staged reveal — opacity + slight translateY, calm terminal feel */
+.artifact-reveal-layer {
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.45s ease-out, transform 0.45s ease-out;
+}
+.artifact-reveal-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Phase 2 artifact resolution — one frame, evolving content */
+.artifact-resolution-frame {
+  transition: opacity 0.4s ease-out, border-color 0.4s ease-out;
+}
+.artifact-resolution-faint {
+  opacity: 0.5;
+  border-color: rgba(42, 42, 46, 0.6);
+}
+.artifact-resolution-glyph-solo {
+  width: 55% !important;
+}
+
 /* Archetype glyph overlay — same rules as ignis-glyph-overlay; used for any archetype with glyph. */
 .archetype-glyph-overlay {
   position: absolute;
@@ -428,6 +451,38 @@ body {
 
 .registry-view .registry-ctrl {
   font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+
+/* -------------------------------------------------------------------------
+   Ignis-authored report surface — terminal-continuous, sharp, catalytic
+   Overrides registry tokens when viewing Ignis reports/exemplars.
+   ------------------------------------------------------------------------- */
+.ignis-report-surface.registry-view {
+  --registry-accent: #b8956b;
+  --registry-accent-muted: rgba(184, 149, 107, 0.35);
+  --registry-border: #2e2b28;
+}
+
+.ignis-report-surface a[href="/origin"],
+.ignis-report-surface a[href*="/origin"] {
+  color: var(--registry-accent) !important;
+}
+
+.ignis-report-surface a.registry-ctrl:hover {
+  border-color: var(--registry-accent-muted) !important;
+}
+
+/* Ignis section grammar — sharper, more authored */
+.ignis-report-surface .report-section {
+  border-left-width: 2px !important;
+  border-left-color: var(--registry-accent-muted) !important;
+  border-radius: 6px !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02), 0 2px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+.ignis-report-surface .registry-whois-block.report-section {
+  border-left-width: 2px !important;
+  border-left-color: var(--registry-accent) !important;
 }
 
 /* Report generating overlay — graphic + message */

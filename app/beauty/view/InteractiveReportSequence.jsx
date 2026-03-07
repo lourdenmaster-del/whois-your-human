@@ -30,8 +30,10 @@ function buildIgnisSteps(profile) {
   const arch = profile?.dominantArchetype ?? "Ignispectrum";
   const config = getArchetypePreviewConfig(arch);
 
-  const imageUrl = profile?.imageUrls?.[1] ?? profile?.imageUrls?.[0] ?? profile?.imageUrls?.[2];
-  const thumbnailSrc = config.sampleArtifactUrl || (imageUrl ?? buildPlaceholderSvg(config.displayName));
+  const baselineImage = profile?.imageUrls?.[0];
+  const lightSignatureImage = profile?.imageUrls?.[1];
+  const finalArtifactImage = profile?.imageUrls?.[2];
+  const bestImage = lightSignatureImage ?? baselineImage ?? finalArtifactImage ?? config.sampleArtifactUrl ?? buildPlaceholderSvg(config.displayName);
 
   const openingLines = composeArchetypeOpening(profile);
   const summaryLines = composeArchetypeSummary(profile);
@@ -69,7 +71,10 @@ function buildIgnisSteps(profile) {
       title: "ARTIFACT REVEAL",
       lines: ["Sample identity artifact."],
       hasImage: true,
-      imageSrc: thumbnailSrc,
+      imageSrc: bestImage,
+      baselineImage,
+      lightSignatureImage,
+      finalArtifactImage,
       glyphPath: config.hasGlyph ? config.glyphPath : null,
       displayName: config.displayName,
     },
