@@ -38,7 +38,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ## 0.6 Known limitations (exemplar preview flow)
 
-**Terminal vs dossier archetype mismatch:** Terminal preview archetype may differ from dossier content because only Ignis currently has a full exemplar profile. This is intentional until exemplar assets exist for all 12 archetypes. **Keep the dossier framed as sample content** where needed: footer "Sample record — not a personalized identity resolution.", Status "Sample", SeeMoreSampleReport "open sample full record", CosmicTwinRelation "This preview shows only the surface layer."
+**Terminal vs dossier archetype mismatch:** Terminal preview archetype may differ from dossier content because only Ignis currently has a full exemplar profile. This is intentional until exemplar assets exist for all 12 archetypes. **Keep the dossier framed as sample content** where needed: footer "Sample record — not a personalized identity resolution.", Status "Sample", CosmicTwinRelation "This preview shows only the surface layer." **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
 
 ---
 
@@ -68,12 +68,12 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent (page-level bg set per route) |
 | `app/beauty/page.jsx` | Server | Renders `BeautyLandingClient` only. Single Beauty landing. |
 | `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
-| `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
+| `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Terminal-aligned: black bg, origin-terminal box, mono text. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
-| `app/beauty/view/BeautyViewClient.jsx` | Client | **Exemplar preview flow:** When `reportId` starts with `exemplar-`, shows `TerminalResolutionSequence` first (local solar-season + archetype resolution from `getOriginIntake`, no API). Sequence: timed line reveals → personal archetype snippet → sample artifact thumbnail → auto-advance to dossier. Fetches `/api/beauty/[reportId]` in parallel; dossier revealed after sequence completes. Uses RegistrySummary, PreviewReportSummary, CosmicTwinRelation, ArchetypeArtifactCard (hero + info panel), PreviewCarousel, SeeMoreFootnote, ShareCard. Report Summary (after Registry Summary, before Field Conditions) shows short interpretation excerpt; "See more: open sample full record →" links to /beauty/sample-report. When `profile.marketingCardUrl` exists, renders Marketing Card section. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. "No report selected" / "Report not found" errors; Paid/View Only notice; Back button. Tracks report_fetch, images_loaded, errors. |
-| `app/beauty/sample-report/page.jsx` | Client | Sample full report page — six interpretive sections from lib/sample-report.ts: INITIATION, COSMIC TWIN RELATION, FIELD CONDITIONS, ARCHETYPE EXPRESSION, DEVIATIONS, RETURN TO COHERENCE. Same registry styling as /beauty/view. Top bar + bottom: "← Return to preview dossier" → /beauty/view?reportId=exemplar-Ignispectrum; "← Back to Origin" → /origin. "See more: unlock your full identity record" footnotes link to /origin. |
-| `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`) |
-| `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled |
+| `app/beauty/view/BeautyViewClient.jsx` | Client | **Exemplar preview flow:** When `reportId` starts with `exemplar-`, shows `TerminalResolutionSequence` first, then `InteractiveReportSequence` (6-step stack reveal). No dossier for exemplars. Dossier (RegistrySummary, PreviewReportSummary, CosmicTwinRelation, ArchetypeArtifactCard, PreviewCarousel, ShareCard) only for non-exemplar reports. No SeeMoreSampleReport; no links to /beauty/sample-report. Terminal-aligned: black bg (#0a0a0b), white text. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. Tracks report_fetch, images_loaded, errors. |
+| `app/beauty/sample-report/page.jsx` | Client | **Removed from public flow.** Redirects to /origin on load. Route kept for code safety; no public links lead here. |
+| `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`). Terminal-aligned: black bg, origin-terminal box, mono text, no LigsFooter. |
+| `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled. Terminal-aligned: black bg, origin-terminal box, mono text. |
 
 **Other:**
 
@@ -91,7 +91,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `StaticButton` | `components/StaticButton.jsx` | Disabled placeholder button when `lastFormData` is missing (e.g. user arrived via URL). Label "Preview & Pay to Unlock"; tooltip "Generate a report first to unlock". |
 | `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. Previous Light Identity Reports section removed (verify via Vercel Blob dashboard only). |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
-| `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; auto-advance to dossier. No API calls. Same black/white terminal look as /origin. |
+| `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; `ContinuePrompt` ("Press ENTER or tap to continue"). No API calls. Same black/white terminal look as /origin. |
 | `PreviewCarousel` | `app/beauty/view/PreviewCarousel.jsx` | Carousel for Beauty Profile images: prev/next, swipe, labels (Vector Zero, Light Signature, Final Beauty). Placeholder when images missing. |
 | `PreviewReportSummary` | `app/beauty/view/PreviewReportSummary.jsx` | REPORT SUMMARY block — short interpretation excerpt (5–7 lines) after Registry Summary, before Field Conditions. Static Ignispectrum exemplar text; registry styling. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on /beauty/view and LigsStudio. |
@@ -118,8 +118,9 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
 | `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
 | `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, glyph paths, sample artifact URLs for archetype previews. Used by TerminalResolutionSequence, ArchetypeArtifactCard, PreviewCarousel. |
+| `lib/report-composition.ts` | Report composition layer: `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Converts phrase-bank fragments into complete sentences. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Used by InteractiveReportSequence. |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
-| `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Used by `/beauty/sample-report`. Observational, scientific tone. |
+| `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Previously used by `/beauty/sample-report`; route now redirects to /origin. Observational, scientific tone. |
 | `lib/runtime-mode.ts` | `isProd`, `isDryRun`, `isTestMode`, `allowExternalWrites`, `allowBlobWrites`, `stripeTestModeRequired` — unified env guard; when `TEST_MODE=1`: dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1` |
 | `lib/dry-run-config.ts` | Client-side `DRY_RUN`, `FAKE_PAY`, `TEST_MODE` from `NEXT_PUBLIC_*` env vars |
 | `lib/preflight.ts` | `runPreflight()` — server-only checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used by `/api/dev/preflight` and `/api/dev/beauty-live-once`. |
@@ -388,6 +389,30 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑07 (Report composition layer)
+
+**Report composition:** Added `lib/report-composition.ts` with `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Each returns 1–2 complete sentences. Rules: no repetition of archetype resolution; cosmic analogue appears only in TerminalResolutionSequence; phrase-bank fragments converted to full sentences; Key Moves lists converted to readable practice phrases; no generic fallbacks. InteractiveReportSequence uses composition layer; ARCHETYPE RESOLVED step uses non-repeating "The registry classifies this identity within the X regime."
+
+## Verification Log – 2026‑03‑07 (Report composition layer)
+
+**Report composition:** Added `lib/report-composition.ts` with `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Converts phrase-bank fragments into complete sentences. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Key Moves lists converted to readable practice sentences. No generic fallbacks. InteractiveReportSequence uses composition layer; step 1 uses non-repeating "The registry classifies this identity within the X regime."
+
+## Verification Log – 2026‑03‑07 (Report composition layer)
+
+**Report composition:** Added `lib/report-composition.ts` with `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Converts phrase-bank fragments into complete sentences. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Key Moves lists converted to readable practice sentences. No generic fallbacks. InteractiveReportSequence uses composition layer; step 1 uses non-repeating "The registry classifies this identity within the X regime."
+
+## Verification Log – 2026‑03‑07 (Interactive Report Sequence)
+
+**Exemplar flow:** After TerminalResolutionSequence completes, exemplar previews show `InteractiveReportSequence` instead of the dossier. 6-step stack reveal: ARCHETYPE RESOLVED → ARCHETYPE SUMMARY → LIGHT EXPRESSION → COSMIC TWIN RELATION → ARTIFACT REVEAL → RETURN TO COHERENCE. Enter/tap to continue (canonical: "Press ENTER or tap to continue"); last step shows "Return to Origin" only. Components: `InteractiveReportSequence`, `ReportStep`, `ContinuePrompt`. `buildIgnisSteps(profile)` tightened: summary (hit + phenomenon/behavioral), light expression (oracle/custodian/emotionalSnippet/behavioral), cosmic twin (phenomenon-specific), return (key moves/cv/resetMove). Dossier bypassed for exemplar flow.
+
+**Hard alignment pass (2026-03-07):** `/origin` is design law. Removed `/beauty/sample-report` from public flow (redirects to /origin). Standardized continue prompts to "Press ENTER or tap to continue" across OriginTerminalIntake, TerminalResolutionSequence (uses ContinuePrompt component), InteractiveReportSequence. Aligned BeautyViewClient surfaces (select report, loading, error, dossier) to terminal: black bg #0a0a0b, white text, same spacing. Removed SeeMoreSampleReport from dossier.
+
+**Cleanup + alignment (2026-03-07):** Deleted `SeeMoreFootnote.jsx` (SeeMoreSampleReport, SeeMoreUnlock) — dead code after sample-report removal. `/beauty/start`, `/beauty/success`, `/beauty/cancel` already terminal-aligned: black bg #0a0a0b, origin-terminal box, mono text, terminal footer. LigsFooter removed from success/cancel. No public links to /beauty/sample-report.
+
+## Verification Log – 2026‑03‑07 (Ignis-authored report surface)
+
+**Minimum viable refactor:** When `profile.dominantArchetype === "Ignispectrum"` or `profile.isExemplar`, dossier main gets `ignis-report-surface` class. **Shell:** Overrides `--registry-accent` (#b8956b), `--registry-accent-muted`, `--registry-border` (#2e2b28); links to origin use accent. **Section grammar:** `.report-section` on WHOIS block, RegistrySummary, PreviewReportSummary, CosmicTwinRelation, WhoisReportSections, Archetype Artifact, Identity Artifacts. Ignis overrides: 2px left border, muted accent, 6px radius, lighter shadow. WHOIS block keeps full accent on left edge. No copy changes; data flow unchanged.
 
 ## Verification Log – 2026‑03‑07 (Preview + email flow lockdown)
 

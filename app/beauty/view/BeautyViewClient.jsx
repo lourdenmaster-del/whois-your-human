@@ -17,12 +17,12 @@ import WhoisReportSections from "./WhoisReportSections";
 import RegistrySummary from "./RegistrySummary";
 import PreviewReportSummary from "./PreviewReportSummary";
 import CosmicTwinRelation from "./CosmicTwinRelation";
-import { SeeMoreSampleReport } from "./SeeMoreFootnote";
 import ShareCard from "./ShareCard";
 import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "@/components/ArchetypeArtifactCard";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import TerminalResolutionSequence from "./TerminalResolutionSequence";
+import InteractiveReportSequence from "./InteractiveReportSequence";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -165,17 +165,23 @@ export default function BeautyViewClient() {
   const isExemplarPreview = reportId?.startsWith?.("exemplar-");
   const handleTerminalComplete = useCallback(() => setTerminalComplete(true), []);
 
-  // Exemplar preview: terminal resolution sequence first, then dossier
+  // Exemplar preview: terminal resolution sequence first, then interactive report sequence (NOT dossier)
   if (isExemplarPreview && !terminalComplete) {
     return (
       <TerminalResolutionSequence onComplete={handleTerminalComplete} />
     );
   }
 
-  // No reportId — Select report UI
+  if (isExemplarPreview && terminalComplete) {
+    return (
+      <InteractiveReportSequence profile={profile} reportId={reportId} />
+    );
+  }
+
+  // No reportId — Select report UI (terminal-aligned)
   if (!urlChecked || (!reportId && !loading)) {
     return (
-      <main className="beauty-theme registry-view min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+      <main className="beauty-theme registry-view min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
         <div className="max-w-md w-full registry-panel rounded-lg border border-[#2a2a2e] px-8 py-12 text-center space-y-6 bg-[#0d0d0f]">
           <h1 className="registry-label text-center mb-2">Query record</h1>
           <p className="beauty-body text-[#c8c8cc] text-sm">Select a report to view</p>
@@ -235,10 +241,10 @@ export default function BeautyViewClient() {
     );
   }
 
-  // Loading
+  // Loading (terminal-aligned)
   if (loading) {
     return (
-      <main className="min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center">
+      <main className="min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center bg-[#0a0a0b]">
         <div className="max-w-2xl mx-auto w-full beauty-form-card rounded-lg px-8 py-16 text-center">
           <p className="beauty-body beauty-text-muted font-mono text-sm" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
             Loading registry record…
@@ -248,10 +254,10 @@ export default function BeautyViewClient() {
     );
   }
 
-  // Error (and not dryRun 404)
+  // Error (and not dryRun 404) (terminal-aligned)
   if (error) {
     return (
-      <main className="min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center">
+      <main className="min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 flex flex-col items-center justify-center bg-[#0a0a0b]">
         <div className="max-w-md mx-auto w-full beauty-form-card rounded-lg px-8 py-12 text-center space-y-6">
           <p className="beauty-body text-lg beauty-text-inverse font-normal">{error}</p>
           <button
@@ -269,10 +275,10 @@ export default function BeautyViewClient() {
     );
   }
 
-  // No profile (shouldn't normally hit if we have DRY_RUN)
+  // No profile (shouldn't normally hit if we have DRY_RUN) (terminal-aligned)
   if (!profile) {
     return (
-      <main className="min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+      <main className="min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
         <div className="max-w-md w-full beauty-form-card rounded-lg px-8 py-12 text-center space-y-6">
           <p className="beauty-body text-lg beauty-text-inverse font-normal">Report not found.</p>
           <Link
@@ -289,7 +295,7 @@ export default function BeautyViewClient() {
   const hasMajorFields = profile.light_signature != null || profile.vector_zero != null || profile.fullReport || profile.isExemplar;
   if (!hasMajorFields && profile.reportId !== "dry-run-preview") {
     return (
-      <main className="min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
+      <main className="min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
         <div className="max-w-md w-full beauty-form-card rounded-lg px-8 py-12 text-center space-y-6">
           <p className="beauty-body text-lg beauty-text-inverse font-normal">Report not found.</p>
           <Link href="/origin" className="beauty-body font-semibold text-[#7A4FFF] hover:underline inline-block">
@@ -302,6 +308,7 @@ export default function BeautyViewClient() {
 
   const heading = profile.subjectName || "Your Light Identity Report";
   const artifacts = buildArtifactsFromProfile(profile);
+  const isIgnisSurface = profile.dominantArchetype === "Ignispectrum" || profile.isExemplar;
 
   function hasValue(v) {
     return v != null && v !== "" && String(v).trim() !== "" && v !== "—";
@@ -321,7 +328,9 @@ export default function BeautyViewClient() {
   ].filter((f) => hasValue(f.value));
 
   return (
-    <main className="beauty-theme registry-view min-h-screen font-sans relative px-5 sm:px-8 lg:px-12 py-16 sm:py-20">
+    <main
+      className={`beauty-theme registry-view min-h-screen font-sans relative px-5 sm:px-8 lg:px-12 py-16 sm:py-20 bg-[#0a0a0b] ${isIgnisSurface ? "ignis-report-surface" : ""}`}
+    >
       <div className="max-w-[600px] mx-auto space-y-8">
         {/* Top bar: nav + record metadata */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -338,7 +347,7 @@ export default function BeautyViewClient() {
         </div>
 
         {/* Record header: resolved query + subject + snippet */}
-        <header className="space-y-4 pb-6 border-b border-[#2a2a2e]">
+        <header className={`space-y-4 pb-6 border-b ${isIgnisSurface ? "border-[var(--registry-border)]" : "border-[#2a2a2e]"}`}>
           <p className="registry-label">Query resolved</p>
           <h1 className="text-xl sm:text-2xl font-semibold text-[#e8e8ec] tracking-tight" style={{ fontFamily: "var(--font-beauty-serif), Georgia, serif" }}>
             {heading}
@@ -351,7 +360,7 @@ export default function BeautyViewClient() {
         </header>
 
         {/* HUMAN WHOIS RECORD — primary anchor */}
-        <section className="registry-whois-block beauty-form-card p-5 sm:p-6 border-l-[3px] border-[#7A4FFF]">
+        <section className="registry-whois-block beauty-form-card report-section p-5 sm:p-6 border-l-[3px] border-[#7A4FFF]">
           <div className="flex items-baseline justify-between gap-4 mb-4">
             <h2 className="registry-label">Human WHOIS Record</h2>
             <span className="registry-label text-[9px]">LIGS Identity Network</span>
@@ -374,31 +383,22 @@ export default function BeautyViewClient() {
         {/* Report Summary — interpretation excerpt from profile data */}
         <div>
           <PreviewReportSummary profile={profile} />
-          <div className="mt-2">
-            <SeeMoreSampleReport />
-          </div>
         </div>
 
         {/* Cosmic Twin Relation — subject–cosmic analogue relationship */}
         <div>
           <CosmicTwinRelation />
-          <div className="mt-2">
-            <SeeMoreSampleReport />
-          </div>
         </div>
 
         {/* Field Conditions & Resolved Identity — before artifact */}
         {((!profile.isExemplar) || (profile.isExemplar && (profile.light_signature || profile.fullReport))) && (
           <div>
             <WhoisReportSections profile={profile} isExemplar={profile.isExemplar} sections="identity" />
-            <div className="-mt-4">
-              <SeeMoreSampleReport />
-            </div>
           </div>
         )}
 
         {/* Archetype Artifact (hero + info panel) */}
-        <section className="beauty-form-card p-6 overflow-hidden">
+        <section className="beauty-form-card report-section p-6 overflow-hidden">
           <h2 className="registry-label mb-4 text-center">
             ARCHETYPE ARTIFACT
           </h2>
@@ -414,7 +414,6 @@ export default function BeautyViewClient() {
             showGlyphOverlay={profile.isExemplar && getArchetypePreviewConfig(profile.dominantArchetype).hasGlyph}
             registryVariant
           />
-          <SeeMoreSampleReport />
         </section>
 
         {/* Report interpretation — deviations + Return to Coherence */}
@@ -423,7 +422,7 @@ export default function BeautyViewClient() {
         )}
 
         {/* Identity Artifacts */}
-        <section className="beauty-form-card p-6">
+        <section className="beauty-form-card report-section p-6">
           <h2 className="registry-label mb-4 text-center">
             REGISTERED IDENTITY ARTIFACTS
           </h2>

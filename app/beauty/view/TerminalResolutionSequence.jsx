@@ -3,7 +3,7 @@
 /**
  * Terminal-style resolution sequence for /beauty/view.
  * Continuation of /origin: uses saved intake to resolve solar season + archetype locally,
- * shows timed lines, then waits for user to press ENTER or tap to open the dossier.
+ * shows timed lines, then waits for user to press ENTER or tap to continue.
  * No API calls. Same black/white terminal look as /origin.
  *
  * Reuses: getOriginIntake, approximateSunLongitudeFromDate, getPrimaryArchetypeFromSolarLongitude,
@@ -11,6 +11,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import Link from "next/link";
 import { getOriginIntake } from "@/lib/landing-storage";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
@@ -19,6 +20,7 @@ import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import { getArchetypePhraseBank } from "@/src/ligs/voice/archetypePhraseBank";
 import { getArchetypePreviewConfig, buildPlaceholderSvg } from "@/lib/archetype-preview-config";
+import ContinuePrompt from "./ContinuePrompt";
 
 const FALLBACK_ARCHETYPE = "Ignispectrum";
 
@@ -102,6 +104,10 @@ export default function TerminalResolutionSequence({ onComplete }) {
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "auto" });
     });
   }, []);
+
+  const handleContinue = useCallback(() => {
+    onComplete?.();
+  }, [onComplete]);
 
   useEffect(() => {
     scrollToBottom();
@@ -187,22 +193,29 @@ export default function TerminalResolutionSequence({ onComplete }) {
       addLine("");
       addLine("Sample identity artifacts available.");
       addLine("");
-      addLine("Press ENTER or tap to open full dossier.");
+      addLine("Press ENTER or tap to continue.");
       setPhase("await_continue");
     }, delay);
   }, [phase, lineIndex, resolved, contentDone, addLine]);
 
-  // Focus continue prompt when awaiting
+  // Focus continue prompt when awaiting; document keydown fallback so Enter works even if focus fails
   useEffect(() => {
-    if (phase === "await_continue") {
-      const id = requestAnimationFrame(() => continueRef.current?.focus());
-      return () => cancelAnimationFrame(id);
-    }
+    if (phase !== "await_continue") return;
+    const id = requestAnimationFrame(() => continueRef.current?.focus());
+    return () => cancelAnimationFrame(id);
   }, [phase]);
 
-  const handleContinue = useCallback(() => {
-    onComplete?.();
-  }, [onComplete]);
+  useEffect(() => {
+    if (phase !== "await_continue") return;
+    const onKeyDown = (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.target?.closest?.("a[href]")) return;
+      e.preventDefault();
+      onComplete?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [phase, onComplete]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b] overflow-x-hidden">
@@ -289,39 +302,31 @@ export default function TerminalResolutionSequence({ onComplete }) {
             })()}
 
             {phase === "await_continue" && (
-              <div
+              <ContinuePrompt
                 ref={continueRef}
-                tabIndex={0}
-                role="button"
-                onClick={handleContinue}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    handleContinue();
-                  }
-                }}
-                className="flex items-center gap-1 mt-2 py-2 px-0 cursor-pointer touch-manipulation outline-none focus:outline-none focus-visible:ring-1 focus-visible:ring-[#7A4FFF]/50 focus-visible:ring-offset-1 focus-visible:ring-offset-[#0d0d0f] rounded min-h-[44px]"
-                style={{ color: "#9a9aa0" }}
-                aria-label="Press Enter or tap to open full dossier"
-              >
-                <span className="text-[#7a7a80]">&gt;</span>
-                <span className="flex-1">_</span>
-                <span
-                  className="inline-block w-2 h-4 bg-[#7a7a80] animate-pulse"
-                  style={{ animationDuration: "1s" }}
-                  aria-hidden
-                />
-              </div>
+                onContinue={handleContinue}
+                ariaLabel="Press Enter or tap to continue"
+              />
             )}
           </div>
         </div>
 
-        <p
-          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
-          style={{ fontFamily: "inherit", color: "#8a8a90" }}
-        >
-          (L)IGS — Human WHOIS Resolution Engine
-        </p>
+        <div className="mt-4 pt-3 border-t border-[#2a2a2e]/80 space-y-2">
+          <p className="text-center">
+            <Link
+              href="/origin"
+              className="registry-ctrl text-[11px] font-medium text-[#9a9aa0] hover:text-[#7A4FFF] hover:underline touch-manipulation"
+            >
+              ← Return to Origin
+            </Link>
+          </p>
+          <p
+            className="text-center text-[10px] uppercase tracking-widest font-mono"
+            style={{ fontFamily: "inherit", color: "#8a8a90" }}
+          >
+            (L)IGS — Human WHOIS Resolution Engine
+          </p>
+        </div>
       </div>
     </div>
   );
