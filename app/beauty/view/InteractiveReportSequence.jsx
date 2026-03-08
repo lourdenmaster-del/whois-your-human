@@ -75,7 +75,7 @@ function buildIgnisSteps(profile) {
       baselineImage,
       lightSignatureImage,
       finalArtifactImage,
-      glyphPath: config.hasGlyph ? config.glyphPath : null,
+      archetypeImagePath: config.hasArchetypeVisual ? config.archetypeStaticImagePath : null,
       displayName: config.displayName,
     },
     {

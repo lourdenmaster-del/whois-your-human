@@ -1,8 +1,8 @@
 /**
  * Ignis landing image resolution.
  * Use ONLY marketing_background (raw DALL·E field). Never exemplar_card or share_card (both are
- * the same composed card: glyph + headline/subhead/CTA + (L) logo — wrong for landing).
- * Glyph is rendered as a live overlay via /glyphs/ignis.svg.
+ * the same composed card: archetype image + headline/subhead/CTA + (L) logo — wrong for landing).
+ * Archetype visual is rendered as overlay via public/arc-static-images/ignispectrum-static1.png.
  */
 
 /** URL is invalid for Ignis landing: static placeholder or composed card look. */

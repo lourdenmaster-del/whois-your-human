@@ -191,16 +191,16 @@ export async function POST(req: Request) {
 
     const b64 = result.buffer.toString("base64");
     const composedUrl = `data:image/png;base64,${b64}`;
-    if (process.env.NODE_ENV !== "production" && result.glyphUsed && result.glyphPath) {
-      console.log("[COMPOSE] glyphPath at compose-time:", result.glyphPath);
+    if (process.env.NODE_ENV !== "production" && result.archetypeVisualUsed && result.archetypeImagePath) {
+      console.log("[COMPOSE] archetypeImagePath at compose-time:", result.archetypeImagePath);
     }
     return NextResponse.json({
       requestId,
       dryRun: false,
       buildOverlaySpec: !providedOverlaySpec,
       composedUrl,
-      glyphUsed: result.glyphUsed,
-      glyphPath: result.glyphPath ?? null,
+      glyphUsed: result.archetypeVisualUsed,
+      glyphPath: result.archetypeImagePath ?? result.glyphPath ?? null,
       rasterDims: result.rasterDims ?? null,
       logoUsed: result.logoUsed,
       textRendered: result.textRendered,

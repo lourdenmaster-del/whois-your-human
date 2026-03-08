@@ -6,8 +6,9 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
-import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import { LIGS_ARCHETYPES } from "@/lib/archetypes";
 import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
+import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 import PreviewCardModal from "./PreviewCardModal";
 
 /** Neutral placeholder block when no image available (avoids broken img). */
@@ -28,7 +29,7 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
   const showPlaceholder = !imageUrl || imgError;
   const isHighlighted = highlightArchetype && archetype === highlightArchetype;
   const reduceOpacity = staticGrid && !isHighlighted;
-  const isIgnis = archetype === "Ignispectrum";
+  const archetypeImagePath = getArchetypePreviewConfig(archetype).archetypeStaticImagePath;
 
   const handleError = useCallback(() => setImgError(true), []);
 
@@ -60,12 +61,12 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
               className="relative z-[1] w-full h-full object-cover"
               onError={handleError}
             />
-            {isIgnis && (
+            {archetypeImagePath && (
               <img
-                src="/glyphs/ignis.svg"
+                src={archetypeImagePath}
                 alt=""
                 aria-hidden
-                className="ignis-glyph-overlay"
+                className="archetype-static-image-overlay"
               />
             )}
           </>

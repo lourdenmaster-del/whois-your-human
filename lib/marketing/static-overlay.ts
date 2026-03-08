@@ -6,21 +6,17 @@
 
 import sharp from "sharp";
 import { getLogoStyleWithDefaults, type MarketingOverlaySpec } from "@/src/ligs/marketing";
+import { getArchetypeStaticImagePath } from "@/lib/archetype-static-images";
 
-const ARCHETYPE_GLYPH_PATHS: Record<string, string> = {
-  Ignispectrum: "glyphs/ignis.svg",
-};
-
-const GLYPH_CONFIG = {
+const ARCHETYPE_IMAGE_CONFIG = {
   centerX: 0.5,
   centerY: 0.56,
   sizePct: 0.32,
-  fillColor: "#FAF8F5",
   opacity: 0.9,
   glowOpacity: 0.1,
 } as const;
 
-const GLYPH_DEBUG_OUTLINE = process.env.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true" || process.env.NODE_ENV === "development";
+const ARCHETYPE_DEBUG_OUTLINE = process.env.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true" || process.env.NODE_ENV === "development";
 
 const CORNER_CONFIG = { paddingPct: 0.06, widthPct: 0.13, boxOpacity: 0.08, insetPct: 0.005 } as const;
 
@@ -55,75 +51,47 @@ function createMonogramSvg(spec: MarketingOverlaySpec): Buffer {
   return Buffer.from(svg);
 }
 
-/**
- * Strip background rects from glyph SVG - glyph must be glyph-only with transparent background.
- */
-function stripBackgroundRects(svgContent: string): string {
-  return svgContent.replace(/<rect[\s\S]*?\/>/gi, "").replace(/<rect[\s\S]*?<\/rect>/gi, "");
-}
-
-/** Load glyph SVG. For markType=archetype this is MANDATORY - throws on failure.
- * Rasterizes with: viewBox respected, contain fit, centered, transparent bg, fill #FAF8F5 @ 0.9 opacity.
- */
-async function loadGlyphOverlay(
+/** Load archetype static image for overlay. Throws on failure. */
+async function loadArchetypeImageOverlay(
   markArchetype: string,
   size: number
-): Promise<{ buffer: Buffer; rasterDims: { w: number; h: number }; glyphPath: string }> {
-  const glyphRel = ARCHETYPE_GLYPH_PATHS[markArchetype];
-  if (!glyphRel) throw new Error(`No glyph path for archetype: ${markArchetype}`);
+): Promise<{ buffer: Buffer; rasterDims: { w: number; h: number }; archetypeImagePath: string }> {
+  const imagePath = getArchetypeStaticImagePath(markArchetype);
+  if (!imagePath) throw new Error(`No static image for archetype: ${markArchetype}`);
   const fs = await import("node:fs/promises");
   const { join } = await import("path");
-  const path = join(process.cwd(), "public", glyphRel);
-  const svgBuf = await fs.readFile(path, "utf8");
-
-  if (process.env.NODE_ENV !== "production") {
-    const body = svgBuf.replace(/<svg[^>]*>|<\/svg>|<!--[\s\S]*?-->/gi, "").trim();
-    const circleCount = (body.match(/<circle[\s\S]*?>/gi) || []).length;
-    const polygonCount = (body.match(/<polygon[\s\S]*?>/gi) || []).length;
-    const hasSignature = body.includes("ring + center dot + 3 triangles") || body.includes("3 triangles") || body.includes("canonical archetype glyph") || body.includes("Archetype geometry");
-    const validGeometry = (circleCount >= 2 && polygonCount >= 3) || hasSignature;
-    if (!validGeometry) {
-      throw new Error(
-        `WRONG GLYPH FILE: expected canonical ignis geometry (2 circles + 3 triangles). ` +
-          `Got ${circleCount} circles, ${polygonCount} polygons. ` +
-          `File: ${glyphRel}`
-      );
-    }
-  }
-
-  const cfg = GLYPH_CONFIG;
-  const glyphW = Math.round(size * cfg.sizePct);
+  const fullPath = join(process.cwd(), "public", imagePath.startsWith("/") ? imagePath.slice(1) : imagePath);
+  const pngBuf = await fs.readFile(fullPath);
+  const cfg = ARCHETYPE_IMAGE_CONFIG;
+  const imgW = Math.round(size * cfg.sizePct);
   const cx = size * cfg.centerX;
   const cy = size * cfg.centerY;
-  const tx = Math.round(cx - glyphW / 2);
-  const ty = Math.round(cy - glyphW / 2);
-  /** Canonical glyph viewBox is 0 0 1000 1000 — DO NOT MODIFY. */
-  const scale = glyphW / 1000;
-  let innerSvg = svgBuf
-    .replace(/<svg[^>]*>|<\/svg>|<!--[^]*?-->/g, "")
-    .trim();
-  innerSvg = stripBackgroundRects(innerSvg);
-  innerSvg = innerSvg.replace(/fill="(?!none)[^"]*"|fill='(?!none')[^']*'/g, `fill="${cfg.fillColor}"`).replace(/stroke="currentColor"/g, `stroke="${cfg.fillColor}"`).trim();
-  const glowR = Math.max(size * 0.28, glyphW * 1.2);
-  let svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+  const tx = Math.round(cx - imgW / 2);
+  const ty = Math.round(cy - imgW / 2);
+  const resized = await sharp(pngBuf).resize(imgW, imgW).png().toBuffer();
+  const b64 = resized.toString("base64");
+  const glowR = Math.max(size * 0.28, imgW * 1.2);
+  let svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
     <defs><radialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="rgba(255,180,100,${cfg.glowOpacity})"/>
       <stop offset="100%" stop-color="transparent"/>
     </radialGradient></defs>
     <circle cx="${cx}" cy="${cy}" r="${glowR}" fill="url(#heroGlow)"/>
-    <g transform="translate(${tx},${ty}) scale(${scale})" opacity="${cfg.opacity}">${innerSvg}</g>`;
-  if (GLYPH_DEBUG_OUTLINE) {
-    svg += `<rect x="${tx}" y="${ty}" width="${glyphW}" height="${glyphW}" fill="none" stroke="magenta" stroke-width="1"/>`;
+    <image href="data:image/png;base64,${b64}" x="${tx}" y="${ty}" width="${imgW}" height="${imgW}" opacity="${cfg.opacity}"/>`;
+  if (ARCHETYPE_DEBUG_OUTLINE) {
+    svg += `<rect x="${tx}" y="${ty}" width="${imgW}" height="${imgW}" fill="none" stroke="magenta" stroke-width="1"/>`;
   }
   svg += "</svg>";
-  return { buffer: Buffer.from(svg), rasterDims: { w: glyphW, h: glyphW }, glyphPath: glyphRel };
+  return { buffer: Buffer.from(svg), rasterDims: { w: imgW, h: imgW }, archetypeImagePath: imagePath };
 }
 
 export interface RenderStaticCardOverlayResult {
   buffer: Buffer;
-  glyphUsed: boolean;
+  archetypeVisualUsed: boolean;
   logoUsed: "brand" | "archetype" | "none";
   textRendered: boolean;
+  /** Path to archetype static image when markType=archetype. Kept as glyphPath for API backward compat. */
+  archetypeImagePath?: string;
   glyphPath?: string;
   rasterDims?: { w: number; h: number };
 }
@@ -131,11 +99,11 @@ export interface RenderStaticCardOverlayResult {
 /**
  * ONE canonical overlay. Fixed layer order:
  * 1) background
- * 2) glyph anchor (when markType=archetype - MANDATORY, throws on load failure)
+ * 2) archetype image anchor (when markType=archetype - MANDATORY, throws on load failure)
  * 3) headline + subhead (fill #fff, opacity 1)
  * 4) CTA chip
  * 5) corner mark (brand logo or archetype monogram)
- * 6) signature glow behind glyph (Ignis only, drawn with corner for archetype)
+ * 6) signature glow behind archetype image (Ignis only, drawn with corner for archetype)
  */
 export async function renderStaticCardOverlay(
   spec: MarketingOverlaySpec,
@@ -153,15 +121,15 @@ export async function renderStaticCardOverlay(
     .resize(size, size)
     .extract({ left: 0, top: 0, width: size, height: size });
 
-  let glyphUsed = false;
-  let glyphPath: string | undefined;
+  let archetypeVisualUsed = false;
+  let archetypeImagePath: string | undefined;
   let rasterDims: { w: number; h: number } | undefined;
   if (markType === "archetype" && markArchetype) {
-    const glyphResult = await loadGlyphOverlay(markArchetype, size);
-    glyphUsed = true;
-    glyphPath = glyphResult.glyphPath;
-    rasterDims = glyphResult.rasterDims;
-    img = img.composite([{ input: glyphResult.buffer, left: 0, top: 0 }]);
+    const overlayResult = await loadArchetypeImageOverlay(markArchetype, size);
+    archetypeVisualUsed = true;
+    archetypeImagePath = overlayResult.archetypeImagePath;
+    rasterDims = overlayResult.rasterDims;
+    img = img.composite([{ input: overlayResult.buffer, left: 0, top: 0 }]);
   }
 
   const tb = spec.placement.textBlock.box;
@@ -211,12 +179,12 @@ export async function renderStaticCardOverlay(
 
   if (markType === "archetype") {
     logoUsed = "archetype";
-    if (markArchetype === "Ignispectrum") {
+    if (markArchetype) {
       const labelX = paddingPx;
       const labelY = paddingPx + 20;
       const labelSvg = Buffer.from(
         `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-          <text x="${labelX}" y="${labelY}" font-size="14" font-weight="500" fill="rgba(255,255,255,0.6)">Ignispectrum</text>
+          <text x="${labelX}" y="${labelY}" font-size="14" font-weight="500" fill="rgba(255,255,255,0.6)">${escapeXml(markArchetype)}</text>
         </svg>`
       );
       img = img.composite([{ input: labelSvg, left: 0, top: 0 }]);
@@ -281,5 +249,13 @@ export async function renderStaticCardOverlay(
   }
 
   const buffer = await img.png().toBuffer();
-  return { buffer, glyphUsed, logoUsed, textRendered, glyphPath, rasterDims };
+  return {
+    buffer,
+    archetypeVisualUsed,
+    logoUsed,
+    textRendered,
+    archetypeImagePath,
+    glyphPath: archetypeImagePath,
+    rasterDims,
+  };
 }

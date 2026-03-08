@@ -385,7 +385,7 @@ export async function POST(req: Request) {
           providerChoice: {
             marketing_background: arch === "Ignispectrum" ? "dall-e-3 (field-first, center void)" : "dall-e-3 (no referenceImage)",
             share_card: arch === "Ignispectrum" ? "compose (same as exemplar_card, coherence)" : "dall-e-3 (no referenceImage)",
-            exemplar_card: "compose (glyph from public/glyphs/ignis.svg when markType=archetype)",
+            exemplar_card: "compose (archetype image from public/arc-static-images/ when markType=archetype)",
           },
           prompts: {
             marketing_background: {

@@ -2,7 +2,7 @@
 
 /**
  * Beauty view — terminal preview flow only.
- * Exemplar: TerminalResolutionSequence → InteractiveReportSequence.
+ * Exemplar: PreviewRevealSequence (top-loaded, profile-driven) → InteractiveReportSequence.
  * Real report: InteractiveReportSequence.
  * Missing/invalid reportId: simple error state + link to /origin.
  */
@@ -13,7 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { track } from "@/lib/analytics";
 import { unwrapResponse } from "@/lib/unwrap-response";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
-import TerminalResolutionSequence from "./TerminalResolutionSequence";
+import PreviewRevealSequence from "./PreviewRevealSequence";
 import InteractiveReportSequence from "./InteractiveReportSequence";
 
 function getDryRunFromUrl() {
@@ -135,12 +135,36 @@ export default function BeautyViewClient() {
   const isExemplarPreview = reportId?.startsWith?.("exemplar-");
   const handleTerminalComplete = useCallback(() => setTerminalComplete(true), []);
 
-  // Exemplar: Terminal → Interactive
-  if (isExemplarPreview && !terminalComplete) {
-    return <TerminalResolutionSequence onComplete={handleTerminalComplete} />;
-  }
-
-  if (isExemplarPreview && terminalComplete) {
+  // Exemplar: wait for profile, then PreviewRevealSequence (top-loaded) → InteractiveReportSequence
+  if (isExemplarPreview) {
+    if (loading) {
+      return (
+        <main className="min-h-screen font-sans flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
+          <p className="font-mono text-sm text-[#9a9aa0]" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Loading registry record…
+          </p>
+        </main>
+      );
+    }
+    if (error) {
+      return (
+        <ErrorState
+          message={error}
+          onRetry={loadProfile}
+          showRetry
+        />
+      );
+    }
+    if (!profile) {
+      return (
+        <ErrorState
+          message="Report not found."
+        />
+      );
+    }
+    if (!terminalComplete) {
+      return <PreviewRevealSequence profile={profile} onComplete={handleTerminalComplete} />;
+    }
     return <InteractiveReportSequence profile={profile} reportId={reportId} />;
   }
 

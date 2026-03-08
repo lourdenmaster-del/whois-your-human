@@ -23,6 +23,7 @@ import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "./ArchetypeArt
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { PROOF_ONLY } from "@/lib/dry-run-config";
 import { buildImagePromptSpec } from "@/src/ligs/image/buildImagePromptSpec";
+import { getArchetypeStaticImagePath } from "@/lib/archetype-static-images";
 
 /** Client-side placeholder generators (zero network, canvas-based). */
 function createDryBackgroundPlaceholder(archetypeName: string, size = 1024): string {
@@ -65,8 +66,6 @@ function wrapText(text: string, maxCharsPerLine: number, maxLines: number): stri
   return lines.slice(0, maxLines);
 }
 
-const GLYPH_PATHS: Record<string, string> = { Ignispectrum: "/glyphs/ignis.svg" };
-
 /** Canonical Ignis proof copy for "Render Proof Card (FREE)". */
 const PROOF_COPY = {
   headline: "Ignispectrum",
@@ -83,7 +82,7 @@ export interface ProofCardResult {
 
 /**
  * Render Proof Card (FREE) — ZERO external calls.
- * Uses placeholder gradient, square_card_v1 overlay, Ignis glyph.
+ * Uses placeholder gradient, square_card_v1 overlay, Ignis archetype static image.
  * HARD FAIL if markType=archetype and glyph cannot load (no silent skip).
  */
 function renderProofCardFree(size: number): Promise<ProofCardResult> {
@@ -123,42 +122,42 @@ function renderProofCardFree(size: number): Promise<ProofCardResult> {
       "Ignispectrum"
     );
 
-    const glyphPath = GLYPH_PATHS.Ignispectrum;
-    if (!glyphPath) {
-      reject(new Error("GLYPH_LOAD_FAILED: No glyph path for Ignispectrum"));
+    const archetypeImagePath = getArchetypeStaticImagePath("Ignispectrum");
+    if (!archetypeImagePath) {
+      reject(new Error("ARCHETYPE_IMAGE_LOAD_FAILED: No static image for Ignispectrum"));
       return;
     }
 
-    const glyphImg = new Image();
-    glyphImg.crossOrigin = "anonymous";
-    glyphImg.onload = () => {
-      const glyphPct = 0.32;
+    const archetypeImg = new Image();
+    archetypeImg.crossOrigin = "anonymous";
+    archetypeImg.onload = () => {
+      const imgPct = 0.32;
       const centerX = 0.5;
       const centerY = 0.56;
-      const glyphW = size * glyphPct;
-      const tx = size * centerX - glyphW / 2;
-      const ty = size * centerY - glyphW / 2;
+      const imgW = size * imgPct;
+      const tx = size * centerX - imgW / 2;
+      const ty = size * centerY - imgW / 2;
       ctx.globalAlpha = 0.9;
-      ctx.drawImage(glyphImg, tx, ty, glyphW, glyphW);
+      ctx.drawImage(archetypeImg, tx, ty, imgW, imgW);
       ctx.globalAlpha = 1;
       if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true") {
         ctx.strokeStyle = "magenta";
         ctx.lineWidth = 1;
-        ctx.strokeRect(tx, ty, glyphW, glyphW);
+        ctx.strokeRect(tx, ty, imgW, imgW);
       }
       drawTextAndRest(ctx, spec, size, canvas, (url) => {
         resolve({
           imageDataUrl: url,
           glyphUsed: true,
-          glyphPath,
+          glyphPath: archetypeImagePath,
           outputDims: { width: size, height: size },
         });
       });
     };
-    glyphImg.onerror = () => {
-      reject(new Error(`GLYPH_LOAD_FAILED: ${glyphPath} could not be loaded or rasterized. No silent fallback.`));
+    archetypeImg.onerror = () => {
+      reject(new Error(`ARCHETYPE_IMAGE_LOAD_FAILED: ${archetypeImagePath} could not be loaded. No silent fallback.`));
     };
-    glyphImg.src = glyphPath;
+    archetypeImg.src = archetypeImagePath;
   });
 }
 
@@ -183,30 +182,35 @@ function renderDryComposeFromSpec(
 
       const markType = (spec as { markType?: string }).markType ?? "brand";
       const markArchetype = (spec as { markArchetype?: string }).markArchetype;
-      if (markType === "archetype" && markArchetype && GLYPH_PATHS[markArchetype]) {
-        const glyphImg = new Image();
-        glyphImg.crossOrigin = "anonymous";
-        glyphImg.onload = () => {
-          const glyphPct = 0.32;
-          const centerX = 0.5;
-          const centerY = 0.56;
-          const glyphW = size * glyphPct;
-          const tx = size * centerX - glyphW / 2;
-          const ty = size * centerY - glyphW / 2;
-          ctx.globalAlpha = 0.9;
-          ctx.drawImage(glyphImg, tx, ty, glyphW, glyphW);
-          ctx.globalAlpha = 1;
-          if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true") {
-            ctx.strokeStyle = "magenta";
-            ctx.lineWidth = 1;
-            ctx.strokeRect(tx, ty, glyphW, glyphW);
-          }
+      if (markType === "archetype" && markArchetype) {
+        const archetypeImagePath = getArchetypeStaticImagePath(markArchetype);
+        if (archetypeImagePath) {
+          const archetypeImg = new Image();
+          archetypeImg.crossOrigin = "anonymous";
+          archetypeImg.onload = () => {
+            const imgPct = 0.32;
+            const centerX = 0.5;
+            const centerY = 0.56;
+            const imgW = size * imgPct;
+            const tx = size * centerX - imgW / 2;
+            const ty = size * centerY - imgW / 2;
+            ctx.globalAlpha = 0.9;
+            ctx.drawImage(archetypeImg, tx, ty, imgW, imgW);
+            ctx.globalAlpha = 1;
+            if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_GLYPH_DEBUG_OUTLINE === "true") {
+              ctx.strokeStyle = "magenta";
+              ctx.lineWidth = 1;
+              ctx.strokeRect(tx, ty, imgW, imgW);
+            }
+            drawTextAndRest(ctx, spec, size, canvas, resolve);
+          };
+          archetypeImg.onerror = () => {
+            drawTextAndRest(ctx, spec, size, canvas, resolve);
+          };
+          archetypeImg.src = archetypeImagePath;
+        } else {
           drawTextAndRest(ctx, spec, size, canvas, resolve);
-        };
-        glyphImg.onerror = () => {
-          drawTextAndRest(ctx, spec, size, canvas, resolve);
-        };
-        glyphImg.src = GLYPH_PATHS[markArchetype];
+        }
       } else {
         drawTextAndRest(ctx, spec, size, canvas, resolve);
       }
@@ -1638,11 +1642,11 @@ export default function LigsStudio() {
         <p className="text-xs font-semibold text-indigo-900 uppercase tracking-wide mb-2">How to drive</p>
         <ol className="text-sm text-indigo-900 space-y-1 list-decimal list-inside">
           <li><strong>Generate Background</strong> — DALL·E 3 creates the field (for Ignis: center void + radiating energy)</li>
-          <li><strong>Compose Marketing Card</strong> — Adds glyph anchor + headline/subhead/CTA over the background</li>
+          <li><strong>Compose Marketing Card</strong> — Adds archetype image anchor + headline/subhead/CTA over the background</li>
           <li><strong>Save</strong> — Exemplar Card (landing), Share Card, or Marketing Background</li>
         </ol>
         <p className="text-xs text-indigo-800 mt-2">
-          <strong>Where do I add glyph?</strong> For Ignispectrum, the glyph is added automatically in Compose. Set <code className="bg-indigo-100 px-1 rounded">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses <code className="bg-indigo-100 px-1 rounded">public/glyphs/ignis.svg</code> and places it in the center void. No manual glyph step.
+          <strong>Where do I add archetype visual?</strong> For Ignispectrum, the archetype image is added automatically in Compose. Set <code className="bg-indigo-100 px-1 rounded">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses <code className="bg-indigo-100 px-1 rounded">public/arc-static-images/ignispectrum-static1.png</code> and places it in the center void. No manual step.
         </p>
       </div>
       <div className="mb-4 p-3 rounded border border-gray-300 bg-gray-50 space-y-2">
@@ -1746,12 +1750,12 @@ export default function LigsStudio() {
       )}
       {((profile as { ligs?: { primary_archetype?: string } })?.ligs?.primary_archetype === "Ignispectrum") && (
         <div className="mb-4 p-4 rounded border-2 border-violet-300 bg-violet-50">
-          <p className="text-xs font-semibold text-violet-800 uppercase tracking-wide mb-1">Ignis: Glyph Anchor (Field-First)</p>
-          <p className="text-[11px] text-violet-700 mb-2">Compose automatically adds this glyph when archetype = Ignispectrum. Source: <code className="bg-violet-100 px-0.5 rounded">public/glyphs/ignis.svg</code>. Generate Background creates the field; Compose places the glyph in the center void.</p>
+          <p className="text-xs font-semibold text-violet-800 uppercase tracking-wide mb-1">Ignis: Archetype Anchor (Field-First)</p>
+          <p className="text-[11px] text-violet-700 mb-2">Compose automatically adds this archetype image when archetype = Ignispectrum. Source: <code className="bg-violet-100 px-0.5 rounded">public/arc-static-images/ignispectrum-static1.png</code>. Generate Background creates the field; Compose places the archetype visual in the center void.</p>
           <div className="inline-block p-2 rounded border border-violet-200 bg-white">
             <img
-              src="/glyphs/ignis.svg"
-              alt="Ignis glyph (anchored in compose)"
+              src={getArchetypeStaticImagePath("Ignispectrum") ?? "/arc-static-images/ignispectrum-static1.png"}
+              alt="Ignis archetype (anchored in compose)"
               className="max-w-[200px] max-h-[200px] object-contain"
             />
           </div>
@@ -1759,7 +1763,7 @@ export default function LigsStudio() {
       )}
       {PROOF_ONLY && (
         <div className="mb-4 p-3 rounded border-2 border-red-400 bg-red-50 text-red-900">
-          <p className="text-sm font-semibold">PROOF ONLY: All live calls blocked. No DALL·E, no background generation, no compose API. Use &quot;Render Proof Card (FREE)&quot; to verify glyph + overlay locally.</p>
+          <p className="text-sm font-semibold">PROOF ONLY: All live calls blocked. No DALL·E, no background generation, no compose API. Use &quot;Render Proof Card (FREE)&quot; to verify archetype image + overlay locally.</p>
         </div>
       )}
       <div className="mb-4 p-4 rounded border-2 border-teal-300 bg-teal-50 space-y-3">
@@ -1849,14 +1853,14 @@ export default function LigsStudio() {
       {(effectiveDryRun || PROOF_ONLY) && (
         <div className="mb-4 p-4 rounded border-2 border-slate-400 bg-slate-50 space-y-3">
           <p className="text-xs font-semibold text-slate-800 uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>
-          <p className="text-xs text-slate-700">Candidate files: <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code>, <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code></p>
+          <p className="text-xs text-slate-700">Candidate files: <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code> (canonical), <code className="bg-slate-200 px-1 rounded">public/icons/ignis_icon.svg</code> (UI icon)</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className="px-2 py-1 text-xs rounded bg-slate-300 hover:bg-slate-400"
               onClick={async () => {
                 const base = typeof window !== "undefined" ? window.location.origin : "";
-                for (const n of ["ignis", "ignis_mark"]) {
+                for (const n of ["ignis", "ignis_icon"]) {
                   const r = await fetch(`${base}/api/dev/glyph-debug?name=${n}`);
                   const d = await r.json();
                   console.log(`[GLYPH-DEBUG] ${n}:`, d);
@@ -1865,7 +1869,7 @@ export default function LigsStudio() {
             >
               Print all to console
             </button>
-            {["ignis", "ignis_mark"].map((n) => (
+            {["ignis", "ignis_icon"].map((n) => (
               <button
                 key={n}
                 type="button"
@@ -1911,13 +1915,13 @@ export default function LigsStudio() {
       {(effectiveDryRun || PROOF_ONLY) && (
         <div className="mb-4 p-4 rounded border-2 border-emerald-600 bg-emerald-50 space-y-3">
           <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide">PROOF OVERLAY (FREE)</p>
-          <p className="text-xs text-emerald-900">Zero external calls. Placeholder background + Ignis glyph + headline/subhead/CTA.</p>
+          <p className="text-xs text-emerald-900">Zero external calls. Placeholder background + Ignis archetype image + headline/subhead/CTA.</p>
           <button
             type="button"
             className="px-4 py-2 rounded bg-emerald-600 text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700"
             disabled={proofLoading}
             onClick={runRenderProofCardFree}
-            title="No API calls. Renders square card with glyph + Ignispectrum copy locally."
+            title="No API calls. Renders square card with archetype image + Ignispectrum copy locally."
           >
             {proofLoading ? "…" : "Render Proof Card (FREE)"}
           </button>
@@ -2561,7 +2565,7 @@ export default function LigsStudio() {
               className="px-3 py-2 rounded bg-emerald-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700"
               disabled={!canRun || loading}
               onClick={runPreviewOverlayFree}
-              title="No API calls. Renders overlay (glyph + text + CTA) on background. Use before Live compose."
+              title="No API calls. Renders overlay (archetype image + text + CTA) on background. Use before Live compose."
             >
               {loading ? "…" : "Preview Overlay (FREE)"}
             </button>

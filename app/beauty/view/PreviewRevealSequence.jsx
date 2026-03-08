@@ -4,7 +4,7 @@
  * Top-loaded exemplar reveal sequence. Profile-driven, one continuous terminal-led flow.
  * Fixed cinematic scene: one text slot, one hero window, one bottom prompt.
  * Direct continuation of /origin: same terminal shell, same vibe.
- * 5-phase flow: glyph → archetype expression → final artifact.
+ * 5-phase flow: archetype image → archetype expression → final artifact.
  */
 
 import { useState, useEffect, useRef } from "react";
@@ -22,35 +22,23 @@ const PHASE_DELAYS_MS = {
 };
 
 const PHASE_TEXT = {
-  1: "Resolving archetype glyph...",
-  2: "This is the symbol of your archetype.\nIt is not arbitrary.\nIt speaks the physics of you.",
-  3: "This is a visual representation\nof how your physics expresses into reality.",
+  1: "Resolving archetype signature...",
+  2: "Archetype signature identified.",
+  3: "This is a visual representation of how your archetype expresses.",
   4: "Sample share card ready for inspection...",
   5: "LIGHT IDENTITY ARTIFACT — RESOLVED",
 };
 
-/** Post-reveal teaser: same font/text style as /origin. Archetype-specific. */
-const TEASER_CONFIG = {
-  Ignispectrum: {
-    civilizationFunction: "Initiation",
-    environments: "Founders • Explorers • Early-stage innovators",
-  },
-};
-
 function getTeaserForArchetype(archetype) {
-  const key = archetype?.trim?.();
-  return (
-    TEASER_CONFIG[key] ?? {
-      civilizationFunction: "—",
-      environments: "—",
-    }
-  );
+  const config = getArchetypePreviewConfig(archetype);
+  return config.teaser ?? { civilizationFunction: "—", environments: "—" };
 }
 
 export default function PreviewRevealSequence({ profile, onComplete }) {
   const arch = profile?.dominantArchetype ?? "Ignispectrum";
+  const isLocked = !!profile?.isLockedPreview;
   const config = getArchetypePreviewConfig(arch);
-  const glyphPath = config.hasGlyph ? config.glyphPath : null;
+  const archetypeImagePath = config.hasArchetypeVisual ? config.archetypeStaticImagePath : null;
   const displayName = config.displayName ?? "ARCHETYPE";
   const vectorZeroImage = profile?.imageUrls?.[0];
   const lightSignatureImage = profile?.imageUrls?.[1];
@@ -156,17 +144,16 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                 {/* Phase 1: empty, fading to white */}
                 {phase === 1 && <div className="absolute inset-0" aria-hidden />}
 
-                {/* Phase 2: glyph on white, fade in → hold → fade out */}
-                {phase === 2 && glyphPath && (
+                {/* Phase 2: archetype image on white, fade in → hold → fade out */}
+                {phase === 2 && archetypeImagePath && (
                   <div
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none preview-glyph-on-white preview-glyph-phase2-sequence"
-                    style={{ color: "#1a1a1e" }}
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none preview-archetype-on-white preview-archetype-phase2-sequence"
                   >
                     <img
-                      src={glyphPath}
+                      src={archetypeImagePath}
                       alt=""
                       aria-hidden
-                      className="preview-glyph-phase2-img"
+                      className="preview-archetype-phase2-img"
                     />
                   </div>
                 )}
@@ -180,13 +167,45 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                       aria-hidden
                       className="w-full h-full object-cover block min-h-[180px]"
                     />
+                    {isLocked && (
+                      <div
+                        className="locked-blur-overlay"
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: "50%",
+                          transform: "translate(-50%, -50%)",
+                          width: "72%",
+                          height: "44%",
+                          maxWidth: "95%",
+                          maxHeight: "95%",
+                          borderRadius: "9999px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 10,
+                          backdropFilter: "blur(10px)",
+                          WebkitBackdropFilter: "blur(10px)",
+                          background: "rgba(0,0,0,0.18)",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                        }}
+                      >
+                        <span
+                          className="text-xs sm:text-sm font-medium tracking-widest uppercase"
+                          style={{ color: "rgba(255,255,255,0.9)", letterSpacing: "0.2em" }}
+                        >
+                          Unlocking
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Phase 4: clear / empty */}
                 {phase === 4 && <div className="absolute inset-0" aria-hidden />}
 
-                {/* Phase 5: final artifact — base image + glyph overlay + label (same as ReportStep artifact look) */}
+                {/* Phase 5: final artifact — base image + archetype overlay + label (same as ReportStep artifact look) */}
                 {phase === 5 && (
                   <div className="absolute inset-0 preview-final-artifact-reveal">
                     <img
@@ -194,12 +213,44 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                       alt="Light Identity Artifact"
                       className="w-full h-full object-cover block min-h-[180px]"
                     />
-                    {glyphPath && (
+                    {archetypeImagePath && !isLocked && (
                       <div
                         className="absolute inset-0 flex items-center justify-center pointer-events-none"
                         style={{ zIndex: 20 }}
                       >
-                        <img src={glyphPath} alt="" aria-hidden className="archetype-glyph-overlay" />
+                        <img src={archetypeImagePath} alt="" aria-hidden className="archetype-static-image-overlay" />
+                      </div>
+                    )}
+                    {isLocked && (
+                      <div
+                        className="locked-blur-overlay"
+                        style={{
+                          position: "absolute",
+                          left: "50%",
+                          top: "50%",
+                          transform: "translate(-50%, -50%)",
+                          width: "72%",
+                          height: "44%",
+                          maxWidth: "95%",
+                          maxHeight: "95%",
+                          borderRadius: "9999px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          zIndex: 15,
+                          backdropFilter: "blur(10px)",
+                          WebkitBackdropFilter: "blur(10px)",
+                          background: "rgba(0,0,0,0.18)",
+                          border: "1px solid rgba(255,255,255,0.12)",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                        }}
+                      >
+                        <span
+                          className="text-xs sm:text-sm font-medium tracking-widest uppercase"
+                          style={{ color: "rgba(255,255,255,0.9)", letterSpacing: "0.2em" }}
+                        >
+                          Unlocking
+                        </span>
                       </div>
                     )}
                     <div
@@ -224,8 +275,8 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
               </div>
             </div>
 
-            {/* Post-reveal teaser — same font/text style as /origin */}
-            {awaitContinue && (
+            {/* Civilization function teaser — directly under artifact, registry-style. Only when phase 5 resolved. */}
+            {awaitContinue && phase === 5 && (
               <>
                 <div
                   className="mt-3 pt-3 border-t border-[#2a2a2e]/40 space-y-1.5"
@@ -233,20 +284,25 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                     fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace",
                     fontSize: "11px",
                     lineHeight: 1.6,
+                    color: "#c8c8cc",
                   }}
                 >
                   <div>
                     <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>ARCHETYPE</span>
                     <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{displayName}</div>
                   </div>
-                  <div>
-                    <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>CIVILIZATION FUNCTION</span>
-                    <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.civilizationFunction}</div>
-                  </div>
-                  <div>
-                    <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>COMMON HUMAN ENVIRONMENTS</span>
-                    <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.environments}</div>
-                  </div>
+                  {teaser?.civilizationFunction && teaser.civilizationFunction !== "—" && (
+                    <div>
+                      <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>CIVILIZATION FUNCTION</span>
+                      <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.civilizationFunction}</div>
+                    </div>
+                  )}
+                  {teaser?.environments && teaser.environments !== "—" && (
+                    <div>
+                      <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>COMMON HUMAN ENVIRONMENTS</span>
+                      <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.environments}</div>
+                    </div>
+                  )}
                 </div>
                 <div className="pt-2 border-t border-[#2a2a2e]/40 mt-3">
                 <p

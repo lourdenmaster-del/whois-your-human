@@ -271,12 +271,12 @@ export default function TerminalResolutionSequence({ onComplete }) {
                       alt="Sample identity artifact"
                       className="w-full h-full object-cover block"
                     />
-                    {config.hasGlyph && (
+                    {config.hasArchetypeVisual && (
                       <img
-                        src={config.glyphPath}
+                        src={config.archetypeStaticImagePath}
                         alt=""
                         aria-hidden
-                        className="archetype-glyph-overlay"
+                        className="archetype-static-image-overlay"
                       />
                     )}
                     <div

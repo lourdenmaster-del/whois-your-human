@@ -8,28 +8,32 @@ const STAGE_DELAY_MS = 900;
 
 /**
  * Five-stage artifact resolution sequence. One identity artifact resolving into coherence.
- * Stage 1: Resolving archetype... (status line, faint container)
- * Stage 2: Glyph emphasis + copy (skip if no glyph)
- * Stage 3: Baseline image + copy (skip if no baseline)
- * Stage 4: Light Signature image + copy (skip if no lightSig)
- * Stage 5: Final artifact + glyph overlay + label + completion
+ * Single-frame assembly: ONE base image, overlays added. No image swapping.
+ * Stage 1: Resolving archetype... (faint frame)
+ * Stage 2: Archetype image emphasis on dark (skip if no image)
+ * Stage 3: ONE base image revealed
+ * Stage 4: Archetype overlay on same base image (skip if no image)
+ * Stage 5: Label overlay + completion
  */
 function ArtifactReveal({
   imageSrc,
   baselineImage,
   lightSignatureImage,
   finalArtifactImage,
-  glyphPath,
+  archetypeImagePath,
   displayName,
 }) {
+  // ONE base image for stages 3–5. Prefer Light Signature (best for final assembled look).
+  const baseImage = lightSignatureImage ?? finalArtifactImage ?? baselineImage ?? imageSrc;
+
   const enabledStages = useMemo(() => {
     const stages = [1];
-    if (glyphPath) stages.push(2);
-    if (baselineImage) stages.push(3);
-    if (lightSignatureImage) stages.push(4);
+    if (archetypeImagePath) stages.push(2);
+    stages.push(3);
+    if (archetypeImagePath) stages.push(4);
     stages.push(5);
     return stages;
-  }, [glyphPath, baselineImage, lightSignatureImage]);
+  }, [archetypeImagePath]);
 
   const [stageIndex, setStageIndex] = useState(0);
   const currentStage = enabledStages[stageIndex] ?? enabledStages[enabledStages.length - 1];
@@ -40,26 +44,18 @@ function ArtifactReveal({
     return () => clearTimeout(t);
   }, [stageIndex, enabledStages.length]);
 
-  const finalImage = finalArtifactImage ?? lightSignatureImage ?? baselineImage ?? imageSrc;
-  const showImage = currentStage >= 3;
-  const imageSrcForStage =
-    currentStage === 3
-      ? baselineImage ?? lightSignatureImage ?? finalArtifactImage ?? imageSrc
-      : currentStage === 4
-        ? lightSignatureImage ?? baselineImage ?? finalArtifactImage ?? imageSrc
-        : finalImage;
-
   const stageCopy = {
     1: "Resolving archetype...",
     2: "This symbol represents the physics that most reflects you.",
-    3: "This is how your physics expresses in nature.",
-    4: "This is your Light Signature — the light environment imprinted upon you at birth.",
+    3: "This is a visual representation of your unique physics.",
+    4: "We call it your Light Signature, imprinted upon you at birth.",
     5: "LIGHT IDENTITY ARTIFACT COMPLETE",
   };
 
   const copy = currentStage === 1 ? null : stageCopy[currentStage];
-  const showGlyphOnly = currentStage === 2 && glyphPath;
-  const showGlyphOverlay = currentStage === 5 && glyphPath;
+  const showArchetypeOnly = currentStage === 2 && archetypeImagePath;
+  const showBaseImage = currentStage >= 3 && baseImage;
+  const showArchetypeOverlay = currentStage >= 4 && archetypeImagePath;
   const showLabel = currentStage === 5 && displayName;
 
   return (
@@ -75,29 +71,28 @@ function ArtifactReveal({
               Resolving archetype...
             </p>
           </div>
-        ) : showGlyphOnly ? (
+        ) : showArchetypeOnly ? (
           <div
             className="absolute inset-0 flex items-center justify-center pointer-events-none artifact-reveal-layer artifact-reveal-visible"
             style={{ zIndex: 5 }}
           >
-            <img src={glyphPath} alt="" aria-hidden className="archetype-glyph-overlay artifact-resolution-glyph-solo" />
+            <img src={archetypeImagePath} alt="" aria-hidden className="archetype-static-image-overlay artifact-resolution-archetype-solo" />
           </div>
         ) : (
           <>
-            {showImage && imageSrcForStage && (
+            {showBaseImage && (
               <img
-                key={currentStage}
-                src={imageSrcForStage}
+                src={baseImage}
                 alt="Identity artifact"
                 className="w-full h-full object-cover block artifact-reveal-layer artifact-reveal-visible min-h-[120px]"
               />
             )}
-            {showGlyphOverlay && (
+            {showArchetypeOverlay && (
               <div
                 className="absolute inset-0 flex items-center justify-center pointer-events-none artifact-reveal-layer artifact-reveal-visible"
                 style={{ zIndex: 20 }}
               >
-                <img src={glyphPath} alt="" aria-hidden className="archetype-glyph-overlay" />
+                <img src={archetypeImagePath} alt="" aria-hidden className="archetype-static-image-overlay" />
               </div>
             )}
             {showLabel && (
@@ -136,7 +131,7 @@ function ArtifactReveal({
 
 /**
  * Single step in the interactive report sequence.
- * Renders title, body lines, optional image/glyph, and continue prompt.
+ * Renders title, body lines, optional image/archetype visual, and continue prompt.
  * Accepts step object from buildIgnisSteps.
  */
 export default function ReportStep({
@@ -153,13 +148,13 @@ export default function ReportStep({
     baselineImage,
     lightSignatureImage,
     finalArtifactImage,
-    glyphPath,
+    archetypeImagePath,
     displayName,
   } = step;
 
   const hasArtifactAssets =
     hasImage &&
-    (imageSrc || baselineImage || lightSignatureImage || finalArtifactImage || glyphPath);
+    (imageSrc || baselineImage || lightSignatureImage || finalArtifactImage || archetypeImagePath);
 
   return (
     <div className="space-y-3 mb-6 last:mb-0">
@@ -188,7 +183,7 @@ export default function ReportStep({
           baselineImage={baselineImage}
           lightSignatureImage={lightSignatureImage}
           finalArtifactImage={finalArtifactImage}
-          glyphPath={glyphPath}
+          archetypeImagePath={archetypeImagePath}
           displayName={displayName}
         />
       )}

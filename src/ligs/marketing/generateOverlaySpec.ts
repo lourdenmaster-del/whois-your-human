@@ -1,6 +1,7 @@
 import type { VoiceProfile, LigsArchetype } from "../voice/schema";
 import type { MarketingOverlaySpec } from "./schema";
 import { getTemplate } from "./templates";
+import { hasArchetypeStaticImage } from "@/lib/archetype-static-images";
 import { buildOverlayPromptPack, toOverlaySystemPrompt } from "./buildOverlayPromptPack";
 import { getDefaultOverlayCopy } from "@/lib/marketing/defaultOverlayCopy";
 
@@ -206,8 +207,8 @@ export function buildOverlaySpecWithCopy(
       noGuarantees: profile.claims_policy.before_after_promises === "prohibited",
     },
 
-    markType: arch === "Ignispectrum" ? ("archetype" as const) : ("brand" as const),
-    markArchetype: arch === "Ignispectrum" ? "Ignispectrum" : undefined,
+    markType: hasArchetypeStaticImage(arch) ? ("archetype" as const) : ("brand" as const),
+    markArchetype: hasArchetypeStaticImage(arch) ? arch : undefined,
   };
 }
 
@@ -278,7 +279,7 @@ export async function generateOverlaySpec(
       noGuarantees: profile.claims_policy.before_after_promises === "prohibited",
     },
 
-    markType: arch === "Ignispectrum" ? ("archetype" as const) : ("brand" as const),
-    markArchetype: arch === "Ignispectrum" ? "Ignispectrum" : undefined,
+    markType: hasArchetypeStaticImage(arch) ? ("archetype" as const) : ("brand" as const),
+    markArchetype: hasArchetypeStaticImage(arch) ? arch : undefined,
   };
 }

@@ -8,6 +8,7 @@ import {
   getLogoStyleWithDefaults,
   type MarketingOverlaySpec,
 } from "@/src/ligs/marketing";
+import { getArchetypeStaticImagePath } from "@/lib/archetype-static-images";
 
 function escapeXml(s: string): string {
   return s
@@ -57,30 +58,19 @@ export function createMonogramLogoSvg(spec: MarketingOverlaySpec): Buffer {
   return Buffer.from(svg);
 }
 
-/** Archetype → glyph path (relative to public/). */
-const ARCHETYPE_GLYPH_PATHS: Record<string, string> = {
-  Ignispectrum: "glyphs/ignis.svg",
-};
-
-/** Hero glyph config: CENTER ANCHOR (Ignis). Glyph in center void, not as corner logo. */
-const HERO_GLYPH_CONFIG = {
-  /** centerX = 0.5, centerY = 0.56 (slightly below midline). */
+/** Hero archetype image config: center anchor. */
+const HERO_ARCHETYPE_CONFIG = {
   centerX: 0.5,
   centerY: 0.56,
-  /** Glyph size as fraction of card width (~28–34%, matches void). */
   sizePct: 0.31,
-  fillColor: "#ffffff",
-  opacity: 0.92,
-  /** Optional subtle glow behind glyph. */
+  opacity: 0.85,
   glowOpacity: 0.12,
 } as const;
 
 const COMPOSE_DEBUG = process.env.COMPOSE_DEBUG === "1" || process.env.COMPOSE_DEBUG === "true";
 
-/** Create hero overlay SVG: centered glyph anchor (Ignis only). Glyph fits in reserved void; subtle glow behind.
- * FIELD-FIRST: background has center void; glyph is placed deterministically in compose.
- * On failure: throws 500 in dev, logs in prod (no silent transparent return). */
-async function createHeroGlyphOverlay(
+/** Create hero overlay: centered archetype static image. On missing: returns null. */
+async function createHeroArchetypeOverlay(
   spec: MarketingOverlaySpec,
   size: number,
   _backgroundPurpose?: string
@@ -89,30 +79,24 @@ async function createHeroGlyphOverlay(
   const markArchetype = (spec as { markArchetype?: string }).markArchetype;
   if (markType !== "archetype" || !markArchetype) return null;
 
-  const glyphRel = ARCHETYPE_GLYPH_PATHS[markArchetype];
-  if (!glyphRel) return null;
+  const imagePath = getArchetypeStaticImagePath(markArchetype);
+  if (!imagePath) return null;
 
   const fs = await import("node:fs/promises");
   const { join } = await import("path");
-  const path = join(process.cwd(), "public", glyphRel);
+  const fullPath = join(process.cwd(), "public", imagePath.startsWith("/") ? imagePath.slice(1) : imagePath);
   try {
-    const svgBuf = await fs.readFile(path, "utf8");
-    const cfg = HERO_GLYPH_CONFIG;
-    const glyphW = size * cfg.sizePct;
+    const pngBuf = await fs.readFile(fullPath);
+    const cfg = HERO_ARCHETYPE_CONFIG;
+    const imgW = Math.round(size * cfg.sizePct);
     const cx = size * cfg.centerX;
     const cy = size * cfg.centerY;
-    const tx = cx - glyphW / 2;
-    const ty = cy - glyphW / 2;
-    /** Canonical glyph viewBox is 0 0 1000 1000 — DO NOT MODIFY. */
-    const scale = glyphW / 1000;
-    const fill = cfg.fillColor;
-    const innerSvg = svgBuf
-      .replace(/<svg[^>]*>|<\/svg>|<!--[^]*?-->/g, "")
-      .replace(/fill="(?!none)[^"]*"/g, `fill="${fill}"`)
-      .replace(/stroke="currentColor"/g, `stroke="${fill}"`)
-      .trim();
-    const glowR = Math.max(size * 0.28, glyphW * 1.2);
-    const svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+    const tx = Math.round(cx - imgW / 2);
+    const ty = Math.round(cy - imgW / 2);
+    const resized = await sharp(pngBuf).resize(imgW, imgW).png().toBuffer();
+    const b64 = resized.toString("base64");
+    const glowR = Math.max(size * 0.28, imgW * 1.2);
+    const svg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
       <defs>
         <radialGradient id="heroGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stop-color="rgba(255,180,100,${cfg.glowOpacity})"/>
@@ -121,22 +105,22 @@ async function createHeroGlyphOverlay(
         </radialGradient>
       </defs>
       <circle cx="${cx}" cy="${cy}" r="${glowR}" fill="url(#heroGlow)"/>
-      <g transform="translate(${tx},${ty}) scale(${scale})" opacity="${cfg.opacity}">${innerSvg}</g>
+      <image href="data:image/png;base64,${b64}" x="${tx}" y="${ty}" width="${imgW}" height="${imgW}" opacity="${cfg.opacity}"/>
     </svg>`;
     return Buffer.from(svg);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (process.env.NODE_ENV !== "production") {
-      throw new Error(`Glyph load/rasterize failed (markType=archetype, ${markArchetype}): ${msg}`);
+      throw new Error(`Archetype image load failed (markType=archetype, ${markArchetype}): ${msg}`);
     }
     if (typeof console !== "undefined" && console.error) {
-      console.error("[COMPOSE] glyph load failed", { markArchetype, path: glyphRel, error: msg });
+      console.error("[COMPOSE] archetype image load failed", { markArchetype, path: imagePath, error: msg });
     }
     return null;
   }
 }
 
-/** Resolve mark buffer: archetype glyph when markType=archetype, else logoBuffer or monogram. */
+/** Resolve mark buffer: archetype static image when markType=archetype, else logoBuffer or monogram. */
 async function resolveMarkBuffer(
   spec: MarketingOverlaySpec,
   logoBuffer: Buffer | null
@@ -145,18 +129,14 @@ async function resolveMarkBuffer(
   const markArchetype = (spec as { markArchetype?: string }).markArchetype;
 
   if (markType === "archetype" && markArchetype) {
-    const glyphRel = ARCHETYPE_GLYPH_PATHS[markArchetype];
-    if (glyphRel) {
+    const imagePath = getArchetypeStaticImagePath(markArchetype);
+    if (imagePath) {
       const fs = await import("node:fs/promises");
       const { join } = await import("path");
-      const path = join(process.cwd(), "public", glyphRel);
+      const fullPath = join(process.cwd(), "public", imagePath.startsWith("/") ? imagePath.slice(1) : imagePath);
       try {
-        const svgBuf = await fs.readFile(path, "utf8");
-        const filledSvg = svgBuf.replace('fill="currentColor"', 'fill="#ffffff"');
-        return sharp(Buffer.from(filledSvg))
-          .resize(256, 256)
-          .png()
-          .toBuffer();
+        const pngBuf = await fs.readFile(fullPath);
+        return sharp(pngBuf).resize(256, 256).png().toBuffer();
       } catch {
         // fall through to logoBuffer or monogram
       }
@@ -375,7 +355,7 @@ function buildTextOverlaySvg(
 
 /**
  * Compose exemplar card: marketing_background + overlay copy + CTA + global logo (bottom-left, topmost).
- * Layering: background → glyphAnchor → headline/subhead → CTA → cornerMark.
+ * Layering: background → archetypeAnchor → headline/subhead → CTA → cornerMark.
  * Optionally populates options.meta with { glyphUsed, textRendered }.
  */
 export async function composeExemplarCardToBuffer(
@@ -394,14 +374,14 @@ export async function composeExemplarCardToBuffer(
   const markType = (spec as { markType?: string }).markType ?? "brand";
 
   if (COMPOSE_DEBUG) {
-    console.log("[COMPOSE DEBUG] layer order: background → glyphAnchor → headline/subhead → CTA → cornerMark");
+    console.log("[COMPOSE DEBUG] layer order: background → archetypeAnchor → headline/subhead → CTA → cornerMark");
   }
 
   let img = sharp(backgroundBuffer)
     .resize(size, size)
     .extract({ left: 0, top: 0, width: size, height: size });
 
-  const heroOverlay = await createHeroGlyphOverlay(spec, size, options.backgroundPurpose);
+  const heroOverlay = await createHeroArchetypeOverlay(spec, size, options.backgroundPurpose);
   const glyphUsed = heroOverlay != null;
   if (options.meta) options.meta.glyphUsed = glyphUsed;
   if (heroOverlay) {

@@ -12,6 +12,7 @@ import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
+import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 
@@ -236,6 +237,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
   const mutedClass = "beauty-text-muted";
 
   const ignisDescriptor = getMarketingDescriptor(IGNIS_ARCHETYPE);
+  const ignisArchetypeImagePath = getArchetypePreviewConfig(IGNIS_ARCHETYPE).archetypeStaticImagePath;
 
   return (
     <div className="origin-landing relative min-h-screen">
@@ -316,12 +318,14 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
                   alt=""
                   className="relative z-[1] w-full h-full object-cover"
                 />
-                <img
-                  src="/glyphs/ignis.svg"
-                  alt=""
-                  aria-hidden
-                  className="ignis-glyph-overlay"
-                />
+                {ignisArchetypeImagePath && (
+                  <img
+                    src={ignisArchetypeImagePath}
+                    alt=""
+                    aria-hidden
+                    className="archetype-static-image-overlay"
+                  />
+                )}
               </div>
               <p className="mt-3 text-xs uppercase tracking-widest text-[#7A4FFF] font-medium">
                 {IGNIS_ARCHETYPE}

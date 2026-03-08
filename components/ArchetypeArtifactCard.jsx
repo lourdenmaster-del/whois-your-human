@@ -138,8 +138,8 @@ export default function ArchetypeArtifactCard({
   imageAlt = "Archetype artifact",
   overlayStyle = undefined,
   showDevFields = false,
-  /** When true, layers ignis-glyph-overlay (existing overlay system) above the image. */
-  showGlyphOverlay = false,
+  /** When true, layers archetype static image overlay above the image. */
+  showArchetypeOverlay = false,
   /** "square" for 1:1 composed cards (object-contain, no crop); default for 16:9 backgrounds (object-cover). */
   aspectRatio = "video",
   /** When true, uses registry-dossier styling (smaller radius, no shadow, system controls). */
@@ -170,15 +170,15 @@ export default function ArchetypeArtifactCard({
             alt={imageAlt}
             className={`w-full h-full ${objectClass}`}
           />
-          {showGlyphOverlay && (() => {
+          {showArchetypeOverlay && (() => {
             const config = getArchetypePreviewConfig(archetype);
-            if (!config.hasGlyph) return null;
+            if (!config.hasArchetypeVisual) return null;
             return (
               <img
-                src={config.glyphPath}
+                src={config.archetypeStaticImagePath}
                 alt=""
                 aria-hidden
-                className="archetype-glyph-overlay"
+                className="archetype-static-image-overlay"
               />
             );
           })()}

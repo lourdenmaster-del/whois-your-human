@@ -150,17 +150,25 @@ body {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* Ignis glyph overlay — floats above Ignis card image. SVG stays transparent. */
-.ignis-glyph-overlay {
+/* Archetype static image overlay — atmospheric; floats above card image. */
+.archetype-static-image-overlay {
   position: absolute;
   inset: 0;
   margin: auto;
-  width: 40%;
+  width: 45%;
+  max-height: 70%;
   height: auto;
+  object-fit: contain;
   pointer-events: none;
   z-index: 20;
-  opacity: 0.38;
-  filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.25));
+  opacity: 0.52;
+  mix-blend-mode: soft-light;
+  filter: drop-shadow(0 0 24px rgba(255, 255, 255, 0.12));
+  animation: archetype-overlay-fade-in 0.6s ease-out forwards;
+}
+@keyframes archetype-overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 0.52; }
 }
 
 /* Artifact staged reveal — opacity + slight translateY, calm terminal feel */
@@ -182,8 +190,14 @@ body {
   opacity: 0.5;
   border-color: rgba(42, 42, 46, 0.6);
 }
-.artifact-resolution-glyph-solo {
+.artifact-resolution-archetype-solo {
   width: 55% !important;
+  opacity: 0.72;
+  animation: archetype-solo-fade-in 0.5s ease-out forwards;
+}
+@keyframes archetype-solo-fade-in {
+  from { opacity: 0; }
+  to { opacity: 0.72; }
 }
 
 /* -------------------------------------------------------------------------
@@ -204,8 +218,8 @@ body {
   to { background-color: #ffffff; }
 }
 
-/* Phase 2: glyph dark on white — in / hold / out over 3500ms */
-.preview-glyph-on-white {
+/* Phase 2: archetype image on white — in / hold / out over 3500ms */
+.preview-archetype-on-white {
   position: absolute;
   inset: 0;
   margin: auto;
@@ -215,16 +229,15 @@ body {
   align-items: center;
   justify-content: center;
 }
-.preview-glyph-phase2-img {
+.preview-archetype-phase2-img {
   width: 100%;
   height: auto;
-  /* Dark on white: force dark glyph for contrast */
-  filter: brightness(0);
+  opacity: 0.9;
 }
-.preview-glyph-phase2-sequence {
-  animation: preview-glyph-phase2 3.5s ease-in-out forwards;
+.preview-archetype-phase2-sequence {
+  animation: preview-archetype-phase2 3.5s ease-in-out forwards;
 }
-@keyframes preview-glyph-phase2 {
+@keyframes preview-archetype-phase2 {
   0% { opacity: 0; }
   23% { opacity: 1; }
   77% { opacity: 1; }
@@ -253,18 +266,7 @@ body {
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* Archetype glyph overlay — same rules as ignis-glyph-overlay; used for any archetype with glyph. */
-.archetype-glyph-overlay {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 40%;
-  height: auto;
-  pointer-events: none;
-  z-index: 20;
-  opacity: 0.38;
-  filter: drop-shadow(0 0 16px rgba(255, 255, 255, 0.25));
-}
+/* Legacy alias — use archetype-static-image-overlay */
 
 /* Hero panel — logo watermark behind text; text uses --text-on-dark */
 .hero-panel {
