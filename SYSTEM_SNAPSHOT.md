@@ -38,7 +38,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ## 0.6 Known limitations (exemplar preview flow)
 
-**Terminal preview flow:** `/beauty/view` renders only `TerminalResolutionSequence` (exemplar) → `InteractiveReportSequence`. No dossier, no WHOIS grid, no registry cards. **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
+**Terminal preview flow:** `/beauty/view` renders `PreviewRevealSequence` (exemplar, profile-driven, top-loaded) → `InteractiveReportSequence`. No dossier, no WHOIS grid, no registry cards. **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
 
 ---
 
@@ -70,7 +70,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
 | `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Terminal-aligned: black bg, origin-terminal box, mono text. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
 | `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
-| `app/beauty/view/BeautyViewClient.jsx` | Client | **Terminal preview flow only.** Exemplar: `TerminalResolutionSequence` → `InteractiveReportSequence`. Real report: `InteractiveReportSequence` only. Missing/invalid reportId: simple error state + link to /origin. No dossier, no WHOIS grid, no registry cards. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. Tracks report_fetch, images_loaded, errors. |
+| `app/beauty/view/BeautyViewClient.jsx` | Client | **Terminal preview flow only.** Exemplar: waits for profile, then `PreviewRevealSequence` (top-loaded, 8-phase reveal) → `InteractiveReportSequence`. Real report: `InteractiveReportSequence` only. Missing/invalid reportId: simple error state + link to /origin. No dossier, no WHOIS grid, no registry cards. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. Tracks report_fetch, images_loaded, errors. |
 | `app/beauty/sample-report/page.jsx` | Client | **Removed from public flow.** Redirects to /origin on load. Route kept for code safety; no public links lead here. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`). Terminal-aligned: black bg, origin-terminal box, mono text, no LigsFooter. |
 | `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled. Terminal-aligned: black bg, origin-terminal box, mono text. |
@@ -91,7 +91,8 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `StaticButton` | `components/StaticButton.jsx` | Disabled placeholder button when `lastFormData` is missing (e.g. user arrived via URL). Label "Preview & Pay to Unlock"; tooltip "Generate a report first to unlock". |
 | `LandingPreviews` | `components/LandingPreviews.jsx` | Renders **Examples**: 12 archetype slots in `LIGS_ARCHETYPES` order; data from GET `/api/exemplars?version=v1` or fallback `/exemplars/{archetype}.png`. Props: `staticGrid` (non-interactive, no links, non-Ignis opacity 0.6, "Unlocking Soon"), `highlightArchetype` (full opacity in static mode). When `staticGrid`: no click handlers, no modal, no "View report"/"Open Artifact" links. Previous Light Identity Reports section removed (verify via Vercel Blob dashboard only). |
 | `PreviewCardModal` | `components/PreviewCardModal.jsx` | Modal with image carousel (Vector Zero, Light Signature, Final Beauty), emotional snippet, Stripe checkout button. Touch swipe support. |
-| `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; `ContinuePrompt` ("Press ENTER or tap to continue"). No API calls. Same black/white terminal look as /origin. |
+| `PreviewRevealSequence` | `app/beauty/view/PreviewRevealSequence.jsx` | **Exemplar only.** Profile-driven, top-loaded 5-phase terminal reveal: glyph → archetype expression → final artifact. When `profile.isLockedPreview` (non-Ignis exemplars), phases 3 and 5 show pill-shaped "Unlocking" blur overlay. Replaces TerminalResolutionSequence for exemplar when profile is ready. |
+| `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; `ContinuePrompt` ("Press ENTER or tap to continue"). No API calls. Same black/white terminal look as /origin. **Not used for exemplar** (PreviewRevealSequence used instead). |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on LigsStudio. |
 | `ArchetypeNameOverlay` | `components/ArchetypeNameOverlay.jsx` | Center band overlay with subtle scrim and blur for artifact hero. |
 | `ArtifactInfoPanel` | `components/ArtifactInfoPanel.jsx` | Left gallery-placard panel with archetype, variationKey, date/location, solar, etc. `showDevFields?: boolean` (default false) hides schemaVersion, engineVersion, and reportId row; reportId visible only when showDevFields=true. |
@@ -111,9 +112,11 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/unwrap-response.ts` | Unwrap API JSON; throw with `error` / `code` on non-OK |
 | `lib/analytics.js` | `track(event, reportId?)` → POST `/api/analytics/event` |
 | `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `saveOriginIntake`, `getOriginIntake`, `clearOriginIntake` — origin terminal intake (birth date/time/location) for /beauty/view local resolution. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
+| `lib/archetypes.js` | Canonical `LIGS_ARCHETYPES` — 12 archetypes in solar-season order. Single source for lib/ and components (resolveArchetypeFromDate, API beauty route, LandingPreviews, archetype-preview-config). |
+| `lib/terminal-intake/resolveArchetypeFromDate.js` | Client-safe archetype resolution from birth date. Uses `LIGS_ARCHETYPES` from lib/archetypes; `approximateSunLongitudeFromDate` + 12×30° segments. Returns "Ignispectrum" if unparseable. |
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
 | `lib/exemplar-cards.ts` | `EXEMPLAR_CARDS` — legacy static exemplar cards (6 archetypes); landing Examples now uses 12 slots from `LIGS_ARCHETYPES` + manifests/placeholders |
-| `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, glyph paths, sample artifact URLs for archetype previews. Used by TerminalResolutionSequence, ArchetypeArtifactCard, InteractiveReportSequence. |
+| `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, glyph paths, sample artifact URLs, teaser (civilizationFunction, environments) for all 12 archetypes. Used by PreviewRevealSequence, TerminalResolutionSequence, ArchetypeArtifactCard, InteractiveReportSequence. |
 | `lib/report-composition.ts` | Report composition layer: `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Converts phrase-bank fragments into complete sentences. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Used by InteractiveReportSequence. |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
 | `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Previously used by `/beauty/sample-report`; route now redirects to /origin. Observational, scientific tone. |
@@ -383,6 +386,30 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 - [ ] **Dry run:** `DRY_RUN=1` skips OpenAI and returns mock report from `/api/engine`.
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
+
+---
+
+## Verification Log – 2026‑03‑08 (Exemplar manifest-first contract)
+
+**API beauty route:** Exemplar path now uses manifest-first for all archetypes. When manifest exists (from `loadExemplarManifestWithPreferred`), `imageUrls` come from `manifest.urls` (marketingBackground, exemplarCard, shareCard). When manifest missing: Ignis → `IGNIS_V1_ARTIFACTS` fallback; non-Ignis → locked static `/exemplars/{archetype}.png`. Removed Ignis-only branch that always used IGNIS_V1_ARTIFACTS.
+
+---
+
+## Verification Log – 2026‑03‑08 (Preview polish + canonical archetypes)
+
+**Preview text:** Phase text in PreviewRevealSequence made archetype-neutral: "Resolving archetype signature...", "Archetype signature identified.", "This is a visual representation of how your archetype expresses." Phase 4–5 unchanged. **Canonical archetypes:** Added `lib/archetypes.js` with `LIGS_ARCHETYPES`; resolveArchetypeFromDate, API beauty route, LandingPreviews, archetype-preview-config now import from lib/archetypes. **Teaser config:** `lib/archetype-preview-config.js` expanded to all 12 archetypes with `teaser: { civilizationFunction, environments }`. PreviewRevealSequence uses `getArchetypePreviewConfig(arch).teaser` for post-reveal block.
+
+---
+
+## Verification Log – 2026‑03‑08 (Archetype-matched locked preview images)
+
+**Origin → preview flow:** User birth date on /origin now resolves archetype via `lib/terminal-intake/resolveArchetypeFromDate.js` (approximateSunLongitude + 12×30° segments) → redirect to `exemplar-{Archetype}`. **API:** GET `/api/beauty/[reportId]` for non-Ignis exemplars without manifest: returns synthetic profile with `imageUrls: [/exemplars/{archetype}.png]` × 3, `isLockedPreview: true`. **PreviewRevealSequence:** When `profile.isLockedPreview`, phases 3 and 5 show pill-shaped "Unlocking" blur overlay (same treatment as LandingPreviews). Ignis unchanged (v1 assets); other 11 archetypes use existing `public/exemplars/*.png` assets. Archetype validation: `LIGS_ARCHETYPES` on API; unknown archetype → 404.
+
+---
+
+## Verification Log – 2026‑03‑08 (PreviewRevealSequence)
+
+**Top-loaded exemplar reveal:** For exemplar preview only, replaced `TerminalResolutionSequence` with `PreviewRevealSequence`. BeautyViewClient waits for profile, then renders `PreviewRevealSequence` (profile-driven, 8-phase terminal reveal: glyph → Vector Zero → cosmic twin copy → human integration → final artifact build). Single persistent image area. On complete → `InteractiveReportSequence`. `TerminalResolutionSequence` retained but not used for exemplar.
 
 ---
 

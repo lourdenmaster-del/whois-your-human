@@ -1,6 +1,7 @@
 /**
- * LOCKDOWN: Ignis sample uses IGNIS_V1_ARTIFACTS only (never v2 poster-like).
- * Sample/exemplar path is locked; exemplar-Ignispectrum → synthetic backfill + v1 assets.
+ * Exemplar path: manifest-first for all archetypes.
+ * When manifest exists: use manifest.urls (marketingBackground, exemplarCard, shareCard).
+ * When manifest missing: Ignis → IGNIS_V1_ARTIFACTS fallback; others → locked static preview.
  */
 
 import { errorResponse } from "@/lib/api-response";
@@ -11,8 +12,6 @@ import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
 import { getImageUrlFromBlob } from "@/lib/report-store";
 import {
   loadExemplarManifestWithPreferred,
-  loadExemplarManifest,
-  exemplarManifestPath,
   IGNIS_V1_ARTIFACTS,
 } from "@/lib/exemplar-store";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
@@ -21,6 +20,7 @@ import {
   buildExemplarSyntheticSections,
   buildExemplarFullReport,
 } from "@/lib/exemplar-synthetic";
+import { LIGS_ARCHETYPES } from "@/lib/archetypes";
 
 const IMAGE_SLUGS = [
   "vector_zero_beauty_field",
@@ -93,28 +93,55 @@ export async function GET(
   try {
     if (reportId.startsWith("exemplar-")) {
       const archetype = reportId.replace(/^exemplar-/, "");
-      // Ignis: use v1 artifact set only; never v2 (poster-like). Other archetypes: manifest.
-      const isIgnis = archetype === "Ignispectrum";
-      const manifest = isIgnis
-        ? await loadExemplarManifest(exemplarManifestPath(archetype, "v1"))
-        : await loadExemplarManifestWithPreferred(archetype, "v1");
-      if (!manifest || typeof manifest !== "object") {
-        if (!isIgnis) return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
-        // Ignis: use v1 assets even when manifest missing (overlayCopy from descriptor)
-      }
-      const m = (manifest ?? {}) as Record<string, unknown>;
-      const urls = (m.urls as Record<string, string>) ?? {};
-      const exemplarSlots = isIgnis
-        ? [
+      const manifest = await loadExemplarManifestWithPreferred(archetype, "v1");
+
+      let exemplarSlots: { label: string; url: string }[];
+      let m: Record<string, unknown>;
+
+      if (manifest && typeof manifest === "object") {
+        m = manifest as Record<string, unknown>;
+        const urls = (m.urls as Record<string, string>) ?? {};
+        exemplarSlots = [
+          { label: "Vector Zero", url: urls.marketingBackground ?? urls.marketing_background },
+          { label: "Light Signature", url: urls.exemplarCard ?? urls.exemplar_card },
+          { label: "Final Beauty Field", url: urls.shareCard ?? urls.share_card },
+        ];
+      } else {
+        if (archetype === "Ignispectrum") {
+          m = {};
+          exemplarSlots = [
             { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.vectorZero },
             { label: "Light Signature", url: IGNIS_V1_ARTIFACTS.lightSignature },
             { label: "Final Beauty Field", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
-          ]
-        : [
-            { label: "Vector Zero", url: urls.marketingBackground ?? urls.marketing_background },
-            { label: "Light Signature", url: urls.exemplarCard ?? urls.exemplar_card },
-            { label: "Final Beauty Field", url: urls.shareCard ?? urls.share_card },
           ];
+        } else {
+          if (!LIGS_ARCHETYPES.includes(archetype as (typeof LIGS_ARCHETYPES)[number])) {
+            return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
+          }
+          const staticImage = `/exemplars/${archetype.toLowerCase()}.png`;
+          const syntheticSections = buildExemplarSyntheticSections(archetype);
+          const fullReport = buildExemplarFullReport(archetype);
+          const lockedSynthetic = {
+            reportId,
+            subjectName: archetype,
+            dominantArchetype: archetype,
+            emotionalSnippet: getMarketingDescriptor(archetype)?.tagline ?? archetype,
+            imageUrls: [staticImage, staticImage, staticImage],
+            isExemplar: true,
+            isLockedPreview: true,
+            exemplarBackfill: buildExemplarBackfill(archetype, undefined),
+            ...(syntheticSections && {
+              light_signature: syntheticSections.light_signature,
+              archetype: syntheticSections.archetype,
+              deviations: syntheticSections.deviations,
+              corrective_vector: syntheticSections.corrective_vector,
+            }),
+            ...(fullReport && { fullReport }),
+          };
+          log("info", "images_loaded", { requestId, reportId, source: "exemplar_locked_static" });
+          return successResponse(200, lockedSynthetic, requestId);
+        }
+      }
       const filteredSlots = exemplarSlots.filter(
         (s): s is { label: string; url: string } => typeof s.url === "string" && s.url.length > 0
       );
