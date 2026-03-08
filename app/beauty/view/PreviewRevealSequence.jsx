@@ -1,0 +1,288 @@
+"use client";
+
+/**
+ * Top-loaded exemplar reveal sequence. Profile-driven, one continuous terminal-led flow.
+ * Fixed cinematic scene: one text slot, one hero window, one bottom prompt.
+ * Direct continuation of /origin: same terminal shell, same vibe.
+ * 5-phase flow: glyph → archetype expression → final artifact.
+ */
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { getArchetypePreviewConfig, buildPlaceholderSvg } from "@/lib/archetype-preview-config";
+import ContinuePrompt from "./ContinuePrompt";
+
+/** Phase delays (ms). Phase 5 awaits continue. */
+const PHASE_DELAYS_MS = {
+  1: 1200,
+  2: 3500,
+  3: 4000,
+  4: 1000,
+  5: 4000,
+};
+
+const PHASE_TEXT = {
+  1: "Resolving archetype glyph...",
+  2: "This is the symbol of your archetype.\nIt is not arbitrary.\nIt speaks the physics of you.",
+  3: "This is a visual representation\nof how your physics expresses into reality.",
+  4: "Sample share card ready for inspection...",
+  5: "LIGHT IDENTITY ARTIFACT — RESOLVED",
+};
+
+/** Post-reveal teaser: same font/text style as /origin. Archetype-specific. */
+const TEASER_CONFIG = {
+  Ignispectrum: {
+    civilizationFunction: "Initiation",
+    environments: "Founders • Explorers • Early-stage innovators",
+  },
+};
+
+function getTeaserForArchetype(archetype) {
+  const key = archetype?.trim?.();
+  return (
+    TEASER_CONFIG[key] ?? {
+      civilizationFunction: "—",
+      environments: "—",
+    }
+  );
+}
+
+export default function PreviewRevealSequence({ profile, onComplete }) {
+  const arch = profile?.dominantArchetype ?? "Ignispectrum";
+  const config = getArchetypePreviewConfig(arch);
+  const glyphPath = config.hasGlyph ? config.glyphPath : null;
+  const displayName = config.displayName ?? "ARCHETYPE";
+  const vectorZeroImage = profile?.imageUrls?.[0];
+  const lightSignatureImage = profile?.imageUrls?.[1];
+  const finalArtifactImage = profile?.imageUrls?.[2];
+
+  /** Best archetype field visual for phase 3. */
+  const archetypeFieldImage =
+    vectorZeroImage ??
+    lightSignatureImage ??
+    config.sampleArtifactUrl ??
+    buildPlaceholderSvg(displayName);
+
+  /** Final artifact for phase 5: share_card (has logo, glyph, label) or lightSignature as base. Prefer imageUrls[2]. */
+  const finalArtifactBase =
+    finalArtifactImage ??
+    lightSignatureImage ??
+    vectorZeroImage ??
+    config.sampleArtifactUrl ??
+    buildPlaceholderSvg(displayName);
+
+  const [phase, setPhase] = useState(1);
+  const [awaitContinue, setAwaitContinue] = useState(false);
+  const continueRef = useRef(null);
+
+  useEffect(() => {
+    if (phase >= 5) {
+      setAwaitContinue(true);
+      return;
+    }
+    const delay = PHASE_DELAYS_MS[phase] ?? 1500;
+    const t = setTimeout(() => setPhase((p) => Math.min(p + 1, 5)), delay);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  useEffect(() => {
+    if (!awaitContinue) return;
+    const id = requestAnimationFrame(() => continueRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [awaitContinue]);
+
+  useEffect(() => {
+    if (!awaitContinue) return;
+    const onKeyDown = (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.target?.closest?.("a[href]")) return;
+      e.preventDefault();
+      onComplete?.();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [awaitContinue, onComplete]);
+
+  const currentText = PHASE_TEXT[phase] ?? PHASE_TEXT[5];
+  const teaser = getTeaserForArchetype(arch);
+
+  /** Phase 1: hero fades dark→white. Phase 2: white. Phase 3–4: dark. Phase 5: dark. */
+  const heroIsWhite = phase === 2;
+  const heroFadingToWhite = phase === 1;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b] overflow-x-hidden">
+      <div className="w-full max-w-2xl min-w-0">
+        <div
+          className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden"
+          style={{
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div
+            className="px-4 py-2.5 border-b border-[#2a2a2e] flex items-center gap-2"
+            style={{ backgroundColor: "rgba(0,0,0,0.2)" }}
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <span className="ml-2 text-[10px] uppercase tracking-widest font-mono" style={{ color: "#a8a8b0" }}>
+              (L)IGS Human WHOIS Resolution Engine
+            </span>
+          </div>
+
+          <div
+            className="flex flex-col min-h-[min(70vh,480px)] px-4 sm:px-5 py-4 font-mono text-[14px] sm:text-base"
+            style={{
+              color: "#c8c8cc",
+              fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace",
+              lineHeight: 1.7,
+            }}
+          >
+            {/* Fixed text slot — one burst per phase */}
+            <div className="min-h-[2.5rem] flex items-center py-2">
+              <p className="whitespace-pre-wrap break-words" style={{ color: "#9a9aa0" }}>
+                {currentText}
+              </p>
+            </div>
+
+            {/* Fixed hero window — same position, content changes by phase */}
+            <div className="flex-1 flex items-center justify-center py-4 min-h-[200px]">
+              <div
+                className={`preview-hero-window relative max-w-[200px] w-full rounded border border-[#2a2a2e] overflow-hidden min-h-[180px] ${
+                  heroFadingToWhite ? "preview-hero-fade-to-white" : ""
+                } ${heroIsWhite ? "preview-hero-white" : ""}`}
+              >
+                {/* Phase 1: empty, fading to white */}
+                {phase === 1 && <div className="absolute inset-0" aria-hidden />}
+
+                {/* Phase 2: glyph on white, fade in → hold → fade out */}
+                {phase === 2 && glyphPath && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center pointer-events-none preview-glyph-on-white preview-glyph-phase2-sequence"
+                    style={{ color: "#1a1a1e" }}
+                  >
+                    <img
+                      src={glyphPath}
+                      alt=""
+                      aria-hidden
+                      className="preview-glyph-phase2-img"
+                    />
+                  </div>
+                )}
+
+                {/* Phase 3: archetype field image, fade in → zoom → settle → fade out */}
+                {phase === 3 && (
+                  <div className="absolute inset-0 preview-archetype-image-sequence">
+                    <img
+                      src={archetypeFieldImage}
+                      alt=""
+                      aria-hidden
+                      className="w-full h-full object-cover block min-h-[180px]"
+                    />
+                  </div>
+                )}
+
+                {/* Phase 4: clear / empty */}
+                {phase === 4 && <div className="absolute inset-0" aria-hidden />}
+
+                {/* Phase 5: final artifact — base image + glyph overlay + label (same as ReportStep artifact look) */}
+                {phase === 5 && (
+                  <div className="absolute inset-0 preview-final-artifact-reveal">
+                    <img
+                      src={finalArtifactBase}
+                      alt="Light Identity Artifact"
+                      className="w-full h-full object-cover block min-h-[180px]"
+                    />
+                    {glyphPath && (
+                      <div
+                        className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                        style={{ zIndex: 20 }}
+                      >
+                        <img src={glyphPath} alt="" aria-hidden className="archetype-glyph-overlay" />
+                      </div>
+                    )}
+                    <div
+                      className="absolute bottom-0 left-0 right-0 px-3 py-2 flex flex-col items-center justify-center pointer-events-none"
+                      style={{
+                        background: "linear-gradient(to top, rgba(13,11,16,0.9) 0%, transparent 100%)",
+                        zIndex: 10,
+                      }}
+                    >
+                      <span className="text-[10px] font-mono uppercase tracking-[0.2em]" style={{ color: "#9a9aa0" }}>
+                        ARCHETYPE
+                      </span>
+                      <span
+                        className="text-[12px] font-semibold tracking-[0.08em] uppercase text-white mt-0.5"
+                        style={{ fontFamily: "var(--font-beauty-serif), Georgia, serif" }}
+                      >
+                        {displayName}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Post-reveal teaser — same font/text style as /origin */}
+            {awaitContinue && (
+              <>
+                <div
+                  className="mt-3 pt-3 border-t border-[#2a2a2e]/40 space-y-1.5"
+                  style={{
+                    fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace",
+                    fontSize: "11px",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <div>
+                    <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>ARCHETYPE</span>
+                    <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{displayName}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>CIVILIZATION FUNCTION</span>
+                    <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.civilizationFunction}</div>
+                  </div>
+                  <div>
+                    <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>COMMON HUMAN ENVIRONMENTS</span>
+                    <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.environments}</div>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-[#2a2a2e]/40 mt-3">
+                <p
+                  className="text-sm mb-1"
+                  style={{ color: "#9a9aa0", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
+                >
+                  Press ENTER or tap to continue
+                </p>
+                <ContinuePrompt
+                  ref={continueRef}
+                  onContinue={onComplete}
+                  ariaLabel="Press Enter or tap to continue"
+                />
+              </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-[#2a2a2e]/80 space-y-2">
+          <p className="text-center">
+            <Link
+              href="/origin"
+              className="registry-ctrl text-[11px] font-medium text-[#9a9aa0] hover:text-[#7A4FFF] hover:underline touch-manipulation"
+            >
+              ← Return to Origin
+            </Link>
+          </p>
+          <p
+            className="text-center text-[10px] uppercase tracking-widest font-mono"
+            style={{ fontFamily: "inherit", color: "#8a8a90" }}
+          >
+            (L)IGS — Human WHOIS Resolution Engine
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}

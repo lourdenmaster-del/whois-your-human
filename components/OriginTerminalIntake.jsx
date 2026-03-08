@@ -22,7 +22,6 @@ const BOOT_LINES = [
   "Preparing identity query…",
   "",
   "SYSTEM READY",
-  "Press ENTER or tap to continue",
 ];
 
 const INTAKE_PROMPTS = {
@@ -53,7 +52,6 @@ const BOOT_DELAYS_MS = [
   850,  // Preparing identity query — longer
   400,  // "" — short
   750,  // SYSTEM READY — pause before dramatic
-  500,  // Press ENTER — short beat
 ];
 
 /** Staggered delays (ms) before each processing line. Action→[think]→next. Longer dwell for meaningful steps. */
@@ -200,6 +198,19 @@ export default function OriginTerminalIntake() {
     scrollToBottom();
   }, [lines, scrollToBottom]);
 
+  // Document-level keydown fallback: Enter works even when input lacks focus (e.g. after navigation).
+  useEffect(() => {
+    if (phase !== "completeAwaitingEnterRedirect") return;
+    const onKeyDown = (e) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.target?.closest?.("a[href]") || e.target?.closest?.("button")) return;
+      e.preventDefault();
+      redirectNow();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [phase, redirectNow]);
+
   const handleKeyDown = useCallback(
     (e) => {
       if (e.key === "Enter") {
@@ -344,10 +355,12 @@ export default function OriginTerminalIntake() {
     if (!email || !email.includes("@")) {
       addLine("Identity query logged.");
       addLine("Sample identity artifacts available.");
-      addLine("Opening registry preview in 3…");
-      setPhase("completeAwaitingEnterRedirect");
-      setCountdownRemaining(3);
-      setWaitlistState("done");
+        addLine("Opening registry preview in 3…");
+        addLine("");
+        addLine("Press ENTER or tap to continue");
+        setPhase("completeAwaitingEnterRedirect");
+        setCountdownRemaining(3);
+        setWaitlistState("done");
       return;
     }
     let cancelled = false;
@@ -375,6 +388,8 @@ export default function OriginTerminalIntake() {
           addLine("Sample identity artifacts available.");
         }
         addLine("Opening registry preview in 3…");
+        addLine("");
+        addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
         setCountdownRemaining(3);
         setWaitlistState("done");
@@ -384,6 +399,8 @@ export default function OriginTerminalIntake() {
         addLine("Identity query logged.");
         addLine("Sample identity artifacts available.");
         addLine("Opening registry preview in 3…");
+        addLine("");
+        addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
         setCountdownRemaining(3);
         setWaitlistState("done");
@@ -424,6 +441,8 @@ export default function OriginTerminalIntake() {
         addLine("Early registry status confirmed.");
         if (data?.confirmationSent) addLine("Registry confirmation transmitted.");
         addLine("Opening registry preview in 3…");
+        addLine("");
+        addLine("Press ENTER or tap to continue");
         setCtaVisible(false);
         setPhase("completeAwaitingEnterRedirect");
         setCountdownRemaining(3);
@@ -539,7 +558,7 @@ export default function OriginTerminalIntake() {
                 onKeyDown={phase === "completeAwaitingEnterRedirect" ? (e) => { if (e.key === "Enter") { e.preventDefault(); redirectNow(); } } : undefined}
                 role={phase === "completeAwaitingEnterRedirect" ? "button" : undefined}
                 tabIndex={phase === "completeAwaitingEnterRedirect" ? 0 : undefined}
-                aria-label={phase === "completeAwaitingEnterRedirect" ? "Tap to open preview now" : undefined}
+                aria-label={phase === "completeAwaitingEnterRedirect" ? "Press ENTER or tap to continue" : undefined}
               >
                 <span className="text-[#7a7a80]">&gt;</span>
                 <input
@@ -554,7 +573,7 @@ export default function OriginTerminalIntake() {
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  aria-label={phase === "completeAwaitingEnterRedirect" ? "Press Enter to view sample now, or wait for automatic redirect" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
+                  aria-label={phase === "completeAwaitingEnterRedirect" ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
                 />
                 <span
                   className="inline-block w-2 h-4 bg-[#7a7a80] animate-pulse"

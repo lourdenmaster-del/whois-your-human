@@ -186,6 +186,73 @@ body {
   width: 55% !important;
 }
 
+/* -------------------------------------------------------------------------
+   Preview reveal sequence — 5-phase hero window
+   ------------------------------------------------------------------------- */
+.preview-hero-window {
+  background-color: #0d0d0f;
+  transition: background-color 0.8s ease-out;
+}
+.preview-hero-fade-to-white {
+  animation: preview-hero-fade-to-white 1.2s ease-out forwards;
+}
+.preview-hero-white {
+  background-color: #ffffff;
+}
+@keyframes preview-hero-fade-to-white {
+  from { background-color: #0d0d0f; }
+  to { background-color: #ffffff; }
+}
+
+/* Phase 2: glyph dark on white — in / hold / out over 3500ms */
+.preview-glyph-on-white {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 55%;
+  height: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview-glyph-phase2-img {
+  width: 100%;
+  height: auto;
+  /* Dark on white: force dark glyph for contrast */
+  filter: brightness(0);
+}
+.preview-glyph-phase2-sequence {
+  animation: preview-glyph-phase2 3.5s ease-in-out forwards;
+}
+@keyframes preview-glyph-phase2 {
+  0% { opacity: 0; }
+  23% { opacity: 1; }
+  77% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Phase 3: archetype image — fade in, pulse/zoom, settle, fade out over 4000ms */
+.preview-archetype-image-sequence {
+  animation: preview-archetype-image 4s ease-in-out forwards;
+}
+@keyframes preview-archetype-image {
+  0% { opacity: 0; transform: scale(1); }
+  20% { opacity: 1; transform: scale(1); }
+  45% { opacity: 1; transform: scale(1.05); }
+  70% { opacity: 1; transform: scale(1.04); }
+  85% { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
+/* Phase 5: final artifact staged reveal — fade + scale over 1.2s */
+.preview-final-artifact-reveal img {
+  animation: preview-final-artifact-img 1.2s ease-out forwards;
+}
+@keyframes preview-final-artifact-img {
+  0% { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 /* Archetype glyph overlay — same rules as ignis-glyph-overlay; used for any archetype with glyph. */
 .archetype-glyph-overlay {
   position: absolute;
