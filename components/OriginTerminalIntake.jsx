@@ -9,9 +9,7 @@ import {
   prepurchaseBeautyDraft,
 } from "@/lib/engine-client";
 import { setBeautyUnlocked, setBeautyDraft, saveLastFormData, saveOriginIntake, isBeautyUnlocked } from "@/lib/landing-storage";
-import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
-import ArchetypeResolveCarousel from "@/components/ArchetypeResolveCarousel";
 
 // LOCKDOWN: WAITLIST_ONLY=1 (default) = terminal-only, no CTA button; Enter → exemplar-Ignispectrum. Set to "0" to re-enable purchase.
 const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
@@ -45,27 +43,27 @@ const PROCESSING_LINES = [
   "Identity classification stabilized.",
 ];
 
-/** Boot delays (ms). Calm, observational — system coming online. */
+/** Staggered delays (ms) before each boot line. Index i = delay before showing line i. */
 const BOOT_DELAYS_MS = [
-  0,     // (L)IGS SYSTEM INITIALIZING — immediate
-  620,   // "" — brief
-  1180,  // Initializing Human WHOIS Resolution Engine…
-  920,   // Loading query interface…
-  1380,  // Preparing identity query… — dwell
-  480,   // "" — no dead air
-  1150,  // SYSTEM READY — pause before ready
+  0,    // (L)IGS SYSTEM INITIALIZING — immediate
+  350,  // "" — quick
+  600,  // Initializing Human WHOIS Resolution Engine — medium
+  450,  // Loading query interface — shorter
+  850,  // Preparing identity query — longer
+  400,  // "" — short
+  750,  // SYSTEM READY — pause before dramatic
 ];
 
-/** Processing delays (ms). Staged system activity — uneven, believable. */
+/** Staggered delays (ms) before each processing line. Action→[think]→next. Longer dwell for meaningful steps. */
 const PROCESSING_DELAYS_MS = [
-  0,     // Input parameters accepted — immediate
-  820,   // "" — pause
-  1680,  // Resolving solar field conditions...
-  2140,  // Resolving planetary environment...
-  1980,  // Calculating light interaction vectors...
-  2680,  // Mapping archetypal structure... — deeper work, longer
-  920,   // "" — breathe
-  1720,  // Identity classification stabilized — intentional pause before resolve
+  0,    // Input parameters accepted — immediate
+  500,  // ""
+  900,  // Resolving solar field conditions...
+  1300, // Resolving planetary... — thinking pause
+  1200, // Calculating light interaction... — thinking pause
+  1400, // Mapping archetypal structure... — thinking pause
+  700,  // "" — breathe
+  800,  // Identity classification stabilized — pause before reveal
 ];
 
 function getDryRunFromUrl() {
@@ -84,7 +82,7 @@ export default function OriginTerminalIntake() {
   const countdownTimerRef = useRef(null);
   const formDataRef = useRef({});
 
-  const [phase, setPhase] = useState("boot"); // boot | waiting_enter | intake | processing | archetypeResolve | postResolve | completeAwaitingEnterRedirect
+  const [phase, setPhase] = useState("boot");
   const [bootIndex, setBootIndex] = useState(0);
   const [lines, setLines] = useState([]);
   const [inputValue, setInputValue] = useState("");
@@ -127,10 +125,8 @@ export default function OriginTerminalIntake() {
       countdownTimerRef.current = null;
     }
     setCountdownRemaining(null);
-    const form = formDataRef.current ?? {};
-    saveOriginIntake(form);
-    const archetype = resolveArchetypeFromDate(form.birthDate ?? "");
-    router.push(`/beauty/view?reportId=exemplar-${encodeURIComponent(archetype)}`);
+    saveOriginIntake(formDataRef.current ?? {});
+    router.push("/beauty/view?reportId=exemplar-Ignispectrum");
   }, [router]);
 
   const scrollToBottom = useCallback(() => {
@@ -139,10 +135,9 @@ export default function OriginTerminalIntake() {
     });
   }, []);
 
-  // Start countdown: chained setTimeout. Calmer interval (1.2s).
+  // Start countdown: chained setTimeout, one timer ref, explicit cleanup. Called when entering completion phase.
   const startRedirectCountdown = useCallback(() => {
     if (countdownTimerRef.current) return;
-    const COUNTDOWN_INTERVAL_MS = 1200;
     let remaining = 3;
     const tick = () => {
       remaining--;
@@ -152,9 +147,9 @@ export default function OriginTerminalIntake() {
       }
       addLine(`${remaining}…`);
       setCountdownRemaining(remaining);
-      countdownTimerRef.current = setTimeout(tick, COUNTDOWN_INTERVAL_MS);
+      countdownTimerRef.current = setTimeout(tick, 1000);
     };
-    countdownTimerRef.current = setTimeout(tick, COUNTDOWN_INTERVAL_MS);
+    countdownTimerRef.current = setTimeout(tick, 1000);
   }, [addLine, redirectNow]);
 
   // Cleanup countdown timer on unmount
@@ -188,16 +183,15 @@ export default function OriginTerminalIntake() {
     return () => clearTimeout(t);
   }, [phase, bootIndex, addLine]);
 
-  // Focus input only when we're actually showing it (not during countdown/processing/resolve)
-  const showInputRow = phase === "waiting_enter" || (phase === "intake" && currentField) || (phase === "completeAwaitingEnterRedirect" && countdownRemaining == null);
+  // Focus input when waiting, in intake, or awaiting redirect; defer for mobile Safari after DOM updates
   useEffect(() => {
-    if (showInputRow) {
+    if (phase === "waiting_enter" || (phase === "intake" && currentField) || phase === "completeAwaitingEnterRedirect") {
       const id = requestAnimationFrame(() => {
         inputRef.current?.focus();
       });
       return () => cancelAnimationFrame(id);
     }
-  }, [showInputRow, lines.length]);
+  }, [phase, currentField, lines.length]);
 
   // Scroll on new lines
   useEffect(() => {
@@ -330,21 +324,23 @@ export default function OriginTerminalIntake() {
     [phase, currentField, inputValue, dateNeedsConfirm, addLine, redirectNow]
   );
 
-  // Processing sequence — when done, brief pause before carousel (not mechanical)
+  // Processing sequence — when done, add archetype lines and proceed to waitlist/CTA (no carousel)
   useEffect(() => {
     if (phase !== "processing") return;
     if (processingIndex >= PROCESSING_LINES.length) {
       if (!archetypePreviewShown) {
-        const t = setTimeout(() => {
-          addLine("Resolving archetype signature...");
-          setArchetypePreviewShown(true);
-          setPhase("archetypeResolve");
-        }, 1150); // Micro-pause: resolution begins after stabilization settles
-        return () => clearTimeout(t);
+        addLine("Primary archetype detected: —");
+        addLine("Identity record ready.");
+        setArchetypePreviewShown(true);
+        if (WAITLIST_ONLY) {
+          setWaitlistState("running");
+        } else {
+          setCtaVisible(true);
+        }
       }
       return;
     }
-    const delay = PROCESSING_DELAYS_MS[processingIndex] ?? 1100;
+    const delay = PROCESSING_DELAYS_MS[processingIndex] ?? 550;
     const t = setTimeout(() => {
       addLine(PROCESSING_LINES[processingIndex]);
       setProcessingIndex((i) => i + 1);
@@ -359,12 +355,12 @@ export default function OriginTerminalIntake() {
     if (!email || !email.includes("@")) {
       addLine("Identity query logged.");
       addLine("Sample identity artifacts available.");
-        addLine("Opening registry preview in 3…");
-        addLine("");
-        addLine("Press ENTER or tap to continue");
-        setPhase("completeAwaitingEnterRedirect");
-        setCountdownRemaining(3);
-        setWaitlistState("done");
+      addLine("Opening registry preview in 3…");
+      addLine("");
+      addLine("Press ENTER or tap to continue");
+      setPhase("completeAwaitingEnterRedirect");
+      setCountdownRemaining(3);
+      setWaitlistState("done");
       return;
     }
     let cancelled = false;
@@ -411,20 +407,6 @@ export default function OriginTerminalIntake() {
       });
     return () => { cancelled = true; };
   }, [waitlistState, formData.email, addLine]);
-
-  const archetype = resolveArchetypeFromDate(formData.birthDate ?? "");
-  const handleArchetypeSettle = useCallback(() => {
-    addLine(`Primary archetype detected: ${archetype || "—"}`);
-    setTimeout(() => addLine("Identity record ready."), 480); // Micro-pause: conclusion, not next-in-sequence
-  }, [addLine, archetype]);
-  const handleArchetypeResolve = useCallback(() => {
-    setPhase("postResolve");
-    if (WAITLIST_ONLY) {
-      setWaitlistState("running");
-    } else {
-      setCtaVisible(true);
-    }
-  }, []);
 
   const handleCtaClick = useCallback(async () => {
     if (ctaSubmittingRef.current) return;
@@ -569,27 +551,7 @@ export default function OriginTerminalIntake() {
               </div>
             ))}
 
-            {/* Archetype resolve carousel — cycles then lands on final archetype */}
-            {phase === "archetypeResolve" && (
-              <div className="origin-archetype-resolve-panel">
-                <ArchetypeResolveCarousel
-                  finalArchetype={archetype}
-                  onSettle={handleArchetypeSettle}
-                  onResolve={handleArchetypeResolve}
-                  config={{
-                    cycleDurationStartMs: 400,
-                    cycleDurationEndMs: 920,
-                    resolvePauseBeforeFinalMs: 550,
-                    resolveTransitionMs: 950,
-                    resolveHoldMs: 1150,
-                  }}
-                  className="archetype-resolve-in-terminal"
-                />
-              </div>
-            )}
-
-            {/* Input row: only when actually waiting for user input. NOT during countdown, processing, archetypeResolve, or postResolve. */}
-            {showInputRow && (
+            {(phase === "waiting_enter" || (phase === "intake" && currentField) || phase === "completeAwaitingEnterRedirect") && (
               <div
                 className={`flex items-center gap-1 mt-1 min-h-[44px] ${phase === "completeAwaitingEnterRedirect" ? "cursor-pointer touch-manipulation" : ""}`}
                 onClick={phase === "completeAwaitingEnterRedirect" ? redirectNow : undefined}
