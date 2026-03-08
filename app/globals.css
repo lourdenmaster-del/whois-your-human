@@ -218,7 +218,7 @@ body {
   to { background-color: #ffffff; }
 }
 
-/* Phase 2: archetype image on white — in / hold / out over 3500ms */
+/* Phase 2: archetype image carousel — cycle then resolve */
 .preview-archetype-on-white {
   position: absolute;
   inset: 0;
@@ -229,19 +229,44 @@ body {
   align-items: center;
   justify-content: center;
 }
-.preview-archetype-phase2-img {
+.archetype-resolve-carousel {
+  width: 100%;
+  height: 100%;
+}
+.archetype-resolve-carousel-img {
   width: 100%;
   height: auto;
-  opacity: 0.9;
+  opacity: 0.88;
+  transition: opacity 0.35s ease-out, transform 0.4s ease-out;
 }
-.preview-archetype-phase2-sequence {
-  animation: preview-archetype-phase2 3.5s ease-in-out forwards;
+.archetype-resolve-settled.archetype-resolve-carousel-img {
+  opacity: 1;
+  transform: scale(1.015);
+  transition-duration: 0.5s;
 }
-@keyframes preview-archetype-phase2 {
-  0% { opacity: 0; }
-  23% { opacity: 1; }
-  77% { opacity: 1; }
-  100% { opacity: 0; }
+
+/* Origin terminal: archetype resolve panel — integrated, restrained */
+.origin-archetype-resolve-panel {
+  position: relative;
+  width: min(100%, 200px);
+  max-width: 200px;
+  margin: 1.25rem auto 1.5rem;
+  min-height: 180px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(42, 42, 46, 0.7);
+  background: linear-gradient(180deg, rgba(10, 10, 11, 0.97) 0%, rgba(8, 8, 9, 0.98) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 2px 12px rgba(0, 0, 0, 0.4);
+}
+@media (min-width: 640px) {
+  .origin-archetype-resolve-panel {
+    min-height: 200px;
+    margin: 1.5rem auto 1.75rem;
+  }
+}
+.archetype-resolve-in-terminal .archetype-resolve-carousel-img {
+  object-fit: contain;
+  max-height: 100%;
 }
 
 /* Phase 3: archetype image — fade in, pulse/zoom, settle, fade out over 4000ms */

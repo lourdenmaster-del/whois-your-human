@@ -4,18 +4,19 @@
  * Top-loaded exemplar reveal sequence. Profile-driven, one continuous terminal-led flow.
  * Fixed cinematic scene: one text slot, one hero window, one bottom prompt.
  * Direct continuation of /origin: same terminal shell, same vibe.
- * 5-phase flow: archetype image → archetype expression → final artifact.
+ * 5-phase flow: archetype image carousel → archetype expression → final artifact.
+ * Phase 2 uses ArchetypeResolveCarousel (cycle → resolve); no glyph logic.
  */
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { getArchetypePreviewConfig, buildPlaceholderSvg } from "@/lib/archetype-preview-config";
+import ArchetypeResolveCarousel from "@/components/ArchetypeResolveCarousel";
 import ContinuePrompt from "./ContinuePrompt";
 
-/** Phase delays (ms). Phase 5 awaits continue. */
+/** Phase delays (ms). Phase 2 driven by carousel onResolve, not timer. Phase 5 awaits continue. */
 const PHASE_DELAYS_MS = {
   1: 1200,
-  2: 3500,
   3: 4000,
   4: 1000,
   5: 4000,
@@ -51,7 +52,7 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
     config.sampleArtifactUrl ??
     buildPlaceholderSvg(displayName);
 
-  /** Final artifact for phase 5: share_card (has logo, glyph, label) or lightSignature as base. Prefer imageUrls[2]. */
+  /** Final artifact for phase 5: share_card (has logo, archetype overlay, label) or lightSignature as base. Prefer imageUrls[2]. */
   const finalArtifactBase =
     finalArtifactImage ??
     lightSignatureImage ??
@@ -63,15 +64,19 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
   const [awaitContinue, setAwaitContinue] = useState(false);
   const continueRef = useRef(null);
 
+  // Phase advance: phase 2 is driven by carousel onResolve, others by timer.
   useEffect(() => {
     if (phase >= 5) {
       setAwaitContinue(true);
       return;
     }
+    if (phase === 2) return; // Carousel drives phase 2 → 3
     const delay = PHASE_DELAYS_MS[phase] ?? 1500;
     const t = setTimeout(() => setPhase((p) => Math.min(p + 1, 5)), delay);
     return () => clearTimeout(t);
   }, [phase]);
+
+  const handleCarouselResolve = useCallback(() => setPhase(3), []);
 
   useEffect(() => {
     if (!awaitContinue) return;
@@ -144,16 +149,12 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                 {/* Phase 1: empty, fading to white */}
                 {phase === 1 && <div className="absolute inset-0" aria-hidden />}
 
-                {/* Phase 2: archetype image on white, fade in → hold → fade out */}
-                {phase === 2 && archetypeImagePath && (
-                  <div
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none preview-archetype-on-white preview-archetype-phase2-sequence"
-                  >
-                    <img
-                      src={archetypeImagePath}
-                      alt=""
-                      aria-hidden
-                      className="preview-archetype-phase2-img"
+                {/* Phase 2: archetype image carousel — cycle then resolve to final archetype */}
+                {phase === 2 && (
+                  <div className="absolute inset-0 preview-archetype-on-white">
+                    <ArchetypeResolveCarousel
+                      finalArchetype={arch}
+                      onResolve={handleCarouselResolve}
                     />
                   </div>
                 )}
