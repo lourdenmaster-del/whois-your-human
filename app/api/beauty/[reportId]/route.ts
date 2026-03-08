@@ -14,6 +14,7 @@ import {
   loadExemplarManifestWithPreferred,
   IGNIS_V1_ARTIFACTS,
 } from "@/lib/exemplar-store";
+import { getArchetypePublicAssetUrls } from "@/lib/archetype-public-assets";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import {
   buildExemplarBackfill,
@@ -93,7 +94,9 @@ export async function GET(
   try {
     if (reportId.startsWith("exemplar-")) {
       const archetype = reportId.replace(/^exemplar-/, "");
-      const manifest = await loadExemplarManifestWithPreferred(archetype, "v1");
+      // Ignis: always use v1 (coherent); v2 has poster-like assets — bypass manifest
+      const useIgnisV1Only = archetype === "Ignispectrum";
+      const manifest = useIgnisV1Only ? null : await loadExemplarManifestWithPreferred(archetype, "v1");
 
       let exemplarSlots: { label: string; url: string }[];
       let m: Record<string, unknown>;
@@ -115,31 +118,41 @@ export async function GET(
             { label: "Final Beauty Field", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
           ];
         } else {
-          if (!LIGS_ARCHETYPES.includes(archetype as (typeof LIGS_ARCHETYPES)[number])) {
-            return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
+          const publicUrls = getArchetypePublicAssetUrls(archetype);
+          if (publicUrls) {
+            m = { urls: publicUrls };
+            exemplarSlots = [
+              { label: "Vector Zero", url: publicUrls.marketingBackground },
+              { label: "Light Signature", url: publicUrls.exemplarCard },
+              { label: "Final Beauty Field", url: publicUrls.shareCard },
+            ];
+          } else {
+            if (!LIGS_ARCHETYPES.includes(archetype as (typeof LIGS_ARCHETYPES)[number])) {
+              return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
+            }
+            const staticImage = `/exemplars/${archetype.toLowerCase()}.png`;
+            const syntheticSections = buildExemplarSyntheticSections(archetype);
+            const fullReport = buildExemplarFullReport(archetype);
+            const lockedSynthetic = {
+              reportId,
+              subjectName: archetype,
+              dominantArchetype: archetype,
+              emotionalSnippet: getMarketingDescriptor(archetype)?.tagline ?? archetype,
+              imageUrls: [staticImage, staticImage, staticImage],
+              isExemplar: true,
+              isLockedPreview: true,
+              exemplarBackfill: buildExemplarBackfill(archetype, undefined),
+              ...(syntheticSections && {
+                light_signature: syntheticSections.light_signature,
+                archetype: syntheticSections.archetype,
+                deviations: syntheticSections.deviations,
+                corrective_vector: syntheticSections.corrective_vector,
+              }),
+              ...(fullReport && { fullReport }),
+            };
+            log("info", "images_loaded", { requestId, reportId, source: "exemplar_locked_static" });
+            return successResponse(200, lockedSynthetic, requestId);
           }
-          const staticImage = `/exemplars/${archetype.toLowerCase()}.png`;
-          const syntheticSections = buildExemplarSyntheticSections(archetype);
-          const fullReport = buildExemplarFullReport(archetype);
-          const lockedSynthetic = {
-            reportId,
-            subjectName: archetype,
-            dominantArchetype: archetype,
-            emotionalSnippet: getMarketingDescriptor(archetype)?.tagline ?? archetype,
-            imageUrls: [staticImage, staticImage, staticImage],
-            isExemplar: true,
-            isLockedPreview: true,
-            exemplarBackfill: buildExemplarBackfill(archetype, undefined),
-            ...(syntheticSections && {
-              light_signature: syntheticSections.light_signature,
-              archetype: syntheticSections.archetype,
-              deviations: syntheticSections.deviations,
-              corrective_vector: syntheticSections.corrective_vector,
-            }),
-            ...(fullReport && { fullReport }),
-          };
-          log("info", "images_loaded", { requestId, reportId, source: "exemplar_locked_static" });
-          return successResponse(200, lockedSynthetic, requestId);
         }
       }
       const filteredSlots = exemplarSlots.filter(

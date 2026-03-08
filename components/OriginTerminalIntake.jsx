@@ -45,25 +45,25 @@ const PROCESSING_LINES = [
 
 /** Staggered delays (ms) before each boot line. Index i = delay before showing line i. */
 const BOOT_DELAYS_MS = [
-  0,    // (L)IGS SYSTEM INITIALIZING — immediate
-  350,  // "" — quick
-  600,  // Initializing Human WHOIS Resolution Engine — medium
-  450,  // Loading query interface — shorter
-  850,  // Preparing identity query — longer
-  400,  // "" — short
-  750,  // SYSTEM READY — pause before dramatic
+  0,     // (L)IGS SYSTEM INITIALIZING
+  600,   // blank
+  1200,  // Initializing Human WHOIS Resolution Engine…
+  900,   // Loading query interface…
+  1600,  // Preparing identity query…
+  700,   // blank
+  1800,  // SYSTEM READY (dramatic pause)
 ];
 
 /** Staggered delays (ms) before each processing line. Action→[think]→next. Longer dwell for meaningful steps. */
 const PROCESSING_DELAYS_MS = [
-  0,    // Input parameters accepted — immediate
-  500,  // ""
-  900,  // Resolving solar field conditions...
-  1300, // Resolving planetary... — thinking pause
-  1200, // Calculating light interaction... — thinking pause
-  1400, // Mapping archetypal structure... — thinking pause
-  700,  // "" — breathe
-  800,  // Identity classification stabilized — pause before reveal
+  0,     // Input parameters accepted.
+  700,   // blank
+  1400,  // Resolving solar field conditions...
+  1800,  // Resolving planetary environment...
+  1700,  // Calculating light interaction vectors...
+  2100,  // Mapping archetypal structure...
+  900,   // blank
+  1800,  // Identity classification stabilized.
 ];
 
 function getDryRunFromUrl() {
@@ -81,6 +81,8 @@ export default function OriginTerminalIntake() {
   const redirectFiredRef = useRef(false);
   const countdownTimerRef = useRef(null);
   const formDataRef = useRef({});
+  const intakeStartedRef = useRef(false);
+  const phaseRef = useRef("boot");
 
   const [phase, setPhase] = useState("boot");
   const [bootIndex, setBootIndex] = useState(0);
@@ -113,9 +115,22 @@ export default function OriginTerminalIntake() {
     setLines((prev) => [...prev, { text, type }]);
   }, []);
 
+  const handleInitialContinue = useCallback(() => {
+    if (intakeStartedRef.current) return;
+    intakeStartedRef.current = true;
+    addLine("Human WHOIS query initiated.");
+    setPhase("intake");
+    setCurrentField("name");
+    addLine(INTAKE_PROMPTS.name);
+  }, [addLine]);
+
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const redirectNow = useCallback(() => {
     if (redirectFiredRef.current) return;
@@ -183,20 +198,22 @@ export default function OriginTerminalIntake() {
     return () => clearTimeout(t);
   }, [phase, bootIndex, addLine]);
 
-  // Focus input when waiting, in intake, or awaiting redirect; defer for mobile Safari after DOM updates
+  // Explicit, mutually exclusive prompt/input rules. No overlap.
+  const showInitialContinuePrompt = phase === "waiting_enter";
+  const showInputRow = phase === "waiting_enter" || (phase === "intake" && currentField);
+  const isCountdownActive = phase === "completeAwaitingEnterRedirect" && countdownRemaining != null && countdownRemaining > 0;
   useEffect(() => {
-    if (phase === "waiting_enter" || (phase === "intake" && currentField) || phase === "completeAwaitingEnterRedirect") {
-      const id = requestAnimationFrame(() => {
-        inputRef.current?.focus();
-      });
+    if (showInputRow) {
+      const id = requestAnimationFrame(() => inputRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
-  }, [phase, currentField, lines.length]);
+  }, [showInputRow, lines.length]);
 
-  // Scroll on new lines
+  // Scroll on new lines — skip during countdown to avoid interruption
   useEffect(() => {
+    if (phase === "completeAwaitingEnterRedirect") return;
     scrollToBottom();
-  }, [lines, scrollToBottom]);
+  }, [lines, scrollToBottom, phase]);
 
   // Document-level keydown fallback: Enter works even when input lacks focus (e.g. after navigation).
   useEffect(() => {
@@ -225,10 +242,7 @@ export default function OriginTerminalIntake() {
         }
 
         if (phase === "waiting_enter") {
-          addLine("Human WHOIS query initiated.");
-          setPhase("intake");
-          setCurrentField("name");
-          addLine(INTAKE_PROMPTS.name);
+          handleInitialContinue();
           return;
         }
 
@@ -321,7 +335,7 @@ export default function OriginTerminalIntake() {
         }
       }
     },
-    [phase, currentField, inputValue, dateNeedsConfirm, addLine, redirectNow]
+    [phase, currentField, inputValue, dateNeedsConfirm, addLine, redirectNow, handleInitialContinue]
   );
 
   // Processing sequence — when done, add archetype lines and proceed to waitlist/CTA (no carousel)
@@ -329,8 +343,11 @@ export default function OriginTerminalIntake() {
     if (phase !== "processing") return;
     if (processingIndex >= PROCESSING_LINES.length) {
       if (!archetypePreviewShown) {
-        addLine("Primary archetype detected: —");
-        addLine("Identity record ready.");
+        setTimeout(() => {
+          if (phaseRef.current === "completeAwaitingEnterRedirect") return;
+          addLine("Primary archetype detected: —");
+          addLine("Identity record ready.");
+        }, 900);
         setArchetypePreviewShown(true);
         if (WAITLIST_ONLY) {
           setWaitlistState("running");
@@ -551,14 +568,14 @@ export default function OriginTerminalIntake() {
               </div>
             ))}
 
-            {(phase === "waiting_enter" || (phase === "intake" && currentField) || phase === "completeAwaitingEnterRedirect") && (
+            {showInputRow && (
               <div
-                className={`flex items-center gap-1 mt-1 min-h-[44px] ${phase === "completeAwaitingEnterRedirect" ? "cursor-pointer touch-manipulation" : ""}`}
-                onClick={phase === "completeAwaitingEnterRedirect" ? redirectNow : undefined}
-                onKeyDown={phase === "completeAwaitingEnterRedirect" ? (e) => { if (e.key === "Enter") { e.preventDefault(); redirectNow(); } } : undefined}
-                role={phase === "completeAwaitingEnterRedirect" ? "button" : undefined}
-                tabIndex={phase === "completeAwaitingEnterRedirect" ? 0 : undefined}
-                aria-label={phase === "completeAwaitingEnterRedirect" ? "Press ENTER or tap to continue" : undefined}
+                className={`flex items-center gap-1 mt-1 min-h-[44px] ${showInitialContinuePrompt ? "cursor-pointer touch-manipulation" : ""}`}
+                onClick={showInitialContinuePrompt ? handleInitialContinue : undefined}
+                onKeyDown={showInitialContinuePrompt ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleInitialContinue(); } } : undefined}
+                role={showInitialContinuePrompt ? "button" : undefined}
+                tabIndex={showInitialContinuePrompt ? 0 : undefined}
+                aria-label={showInitialContinuePrompt ? "Press ENTER or tap to continue" : undefined}
               >
                 <span className="text-[#7a7a80]">&gt;</span>
                 <input
@@ -569,11 +586,11 @@ export default function OriginTerminalIntake() {
                   onKeyDown={handleKeyDown}
                   className="flex-1 min-w-0 bg-transparent border-none outline-none text-[#e8e8ec] font-mono placeholder-[#5a5a60]"
                   style={{ font: "inherit" }}
-                  placeholder=""
+                  placeholder={showInitialContinuePrompt ? "Press ENTER or tap to continue" : ""}
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  aria-label={phase === "completeAwaitingEnterRedirect" ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
+                  aria-label={showInitialContinuePrompt ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
                 />
                 <span
                   className="inline-block w-2 h-4 bg-[#7a7a80] animate-pulse"
