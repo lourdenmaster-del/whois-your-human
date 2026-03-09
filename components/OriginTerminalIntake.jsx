@@ -97,6 +97,7 @@ export default function OriginTerminalIntake() {
   const [countdownRemaining, setCountdownRemaining] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
+  const [registryCount, setRegistryCount] = useState(null);
 
   const dryRun = getDryRunFromUrl();
   const [unlocked, setUnlockedState] = useState(false);
@@ -115,6 +116,17 @@ export default function OriginTerminalIntake() {
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/waitlist/count")
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => {
+        if (!cancelled && typeof data?.total === "number") setRegistryCount(data.total);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const redirectNow = useCallback(() => {
     if (redirectFiredRef.current) return;
@@ -793,6 +805,27 @@ export default function OriginTerminalIntake() {
         >
           Human WHOIS protocol
         </p>
+      )}
+      {typeof registryCount === "number" && (
+        <div
+          className="mt-2 text-center font-mono"
+          style={{
+            animation: "whois-fade-in 0.5s ease-out forwards",
+          }}
+        >
+          <p
+            className="text-[10px]"
+            style={{ color: "rgba(122,122,128,0.35)" }}
+          >
+            Registry nodes recorded: {registryCount}
+          </p>
+          <p
+            className="mt-1 text-[9px]"
+            style={{ color: "rgba(122,122,128,0.35)" }}
+          >
+            Full identity reports released to registry members first.
+          </p>
+        </div>
       )}
     </div>
   );
