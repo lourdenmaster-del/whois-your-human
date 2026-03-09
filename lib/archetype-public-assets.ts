@@ -187,9 +187,10 @@ const ARC_IMAGE_FOLDER_MAP: Record<string, { folder: string; filePrefix: string 
   Vectoris: { folder: "vectoris arc images", filePrefix: "vectoris" },
 };
 
-/** Ignispectrum asset typo: first file is Ignispectrum1.jpeg (capital I). */
+/** Ignispectrum asset typo: first file is Ignispectrum1.jpeg (capital I). Fluxionis: fluxonis1.jpeg (typo). */
 function getArcFileName(archetype: string, index: number): string {
   if (archetype === "Ignispectrum" && index === 1) return "Ignispectrum1.jpeg";
+  if (archetype === "Fluxionis" && index === 1) return "fluxonis1.jpeg";
   const entry = ARC_IMAGE_FOLDER_MAP[archetype];
   if (!entry) return "";
   return `${entry.filePrefix}${index}.jpeg`;
