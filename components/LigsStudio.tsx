@@ -699,12 +699,47 @@ export default function LigsStudio() {
   const [glyphDebugName, setGlyphDebugName] = useState("ignis");
   const [glyphDebugLoading, setGlyphDebugLoading] = useState(false);
 
+  const [waitlistData, setWaitlistData] = useState<{
+    total: number;
+    recent: Array<{ email: string; created_at: string; source: string; preview_archetype?: string; solar_season?: string; name?: string }>;
+    metrics: {
+      total: number;
+      last24h: number;
+      last7d: number;
+      bySource: { source: string; count: number; newestAt?: string }[];
+      byArchetype: { archetype: string; count: number }[];
+      originTerminalPct: number | null;
+    };
+  } | null>(null);
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistError, setWaitlistError] = useState<string | null>(null);
+  const [waitlistSourceFilter, setWaitlistSourceFilter] = useState<string>("");
+
   useEffect(() => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     fetch(`${base}/api/ligs/status`)
       .then((r) => r.json())
       .then(setStatus)
       .catch(() => setStatus(null));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setWaitlistLoading(true);
+    setWaitlistError(null);
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    fetch(`${base}/api/waitlist/list`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 503 ? "Not configured" : "Failed"))))
+      .then((data) => {
+        if (!cancelled) setWaitlistData(data);
+      })
+      .catch((err) => {
+        if (!cancelled) setWaitlistError(err?.message ?? "Failed to load");
+      })
+      .finally(() => {
+        if (!cancelled) setWaitlistLoading(false);
+      });
+    return () => { cancelled = true; };
   }, []);
 
   const effectiveDryRun = forceDryRun;
@@ -1705,6 +1740,105 @@ export default function LigsStudio() {
             </span>
           )}
         </div>
+      </div>
+      <div className="mb-4 p-4 rounded border-2 border-sky-200 bg-sky-50">
+        <p className="text-xs font-semibold text-sky-900 uppercase tracking-wide mb-3">Waitlist Registry (Internal)</p>
+        {waitlistLoading && <p className="text-sm text-sky-700">Loading…</p>}
+        {waitlistError && <p className="text-sm text-red-600 mb-2">{waitlistError}</p>}
+        {waitlistData && !waitlistLoading && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
+              <div className="p-2 rounded bg-white border border-sky-200">
+                <span className="text-sky-600 block">Total</span>
+                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.total}</span>
+              </div>
+              <div className="p-2 rounded bg-white border border-sky-200">
+                <span className="text-sky-600 block">24h</span>
+                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.last24h}</span>
+              </div>
+              <div className="p-2 rounded bg-white border border-sky-200">
+                <span className="text-sky-600 block">7d</span>
+                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.last7d}</span>
+              </div>
+              <div className="p-2 rounded bg-white border border-sky-200">
+                <span className="text-sky-600 block">Origin %</span>
+                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.originTerminalPct ?? "—"}%</span>
+              </div>
+              <div className="p-2 rounded bg-white border border-sky-200 col-span-2 sm:col-span-1">
+                <span className="text-sky-600 block">Nodes</span>
+                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.total}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-medium text-sky-800 mb-2">By source</p>
+                <ul className="space-y-1 text-xs font-mono">
+                  {waitlistData.metrics.bySource.map(({ source, count, newestAt }) => (
+                    <li key={source} className="flex justify-between gap-2 items-center">
+                      <span>{source}</span>
+                      <span>{count}</span>
+                      {newestAt && <span className="text-sky-600 text-[10px]" title={newestAt}>{new Date(newestAt).toLocaleDateString()}</span>}
+                    </li>
+                  ))}
+                  {waitlistData.metrics.bySource.length === 0 && <li className="text-sky-600">—</li>}
+                </ul>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-sky-800 mb-2">Top archetypes</p>
+                <ul className="space-y-1 text-xs font-mono">
+                  {waitlistData.metrics.byArchetype.slice(0, 8).map(({ archetype, count }) => (
+                    <li key={archetype} className="flex justify-between gap-2">
+                      <span>{archetype}</span>
+                      <span>{count}</span>
+                    </li>
+                  ))}
+                  {waitlistData.metrics.byArchetype.length === 0 && <li className="text-sky-600">—</li>}
+                </ul>
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <p className="text-xs font-medium text-sky-800">Recent entries</p>
+                <select
+                  value={waitlistSourceFilter}
+                  onChange={(e) => setWaitlistSourceFilter(e.target.value)}
+                  className="text-xs rounded border border-sky-300 bg-white px-2 py-1"
+                >
+                  <option value="">All sources</option>
+                  {waitlistData.metrics.bySource.map(({ source }) => (
+                    <option key={source} value={source}>{source}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-sky-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-sky-50 border-b border-sky-200">
+                    <tr>
+                      <th className="text-left p-2 font-medium">Email</th>
+                      <th className="text-left p-2 font-medium">Source</th>
+                      <th className="text-left p-2 font-medium">Archetype</th>
+                      <th className="text-left p-2 font-medium">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {waitlistData.recent
+                      .filter((e) => !waitlistSourceFilter || e.source === waitlistSourceFilter)
+                      .map((e, i) => (
+                        <tr key={`${e.email}-${i}`} className="border-b border-sky-100 last:border-0">
+                          <td className="p-2 font-mono truncate max-w-[160px]" title={e.email}>{e.email}</td>
+                          <td className="p-2">{e.source}</td>
+                          <td className="p-2">{e.preview_archetype ?? "—"}</td>
+                          <td className="p-2" title={e.created_at}>
+                            {new Date(e.created_at).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       {lastGenerateDebug && !effectiveDryRun && (
         <div className="mb-4 p-4 rounded border-2 border-slate-300 bg-slate-50">

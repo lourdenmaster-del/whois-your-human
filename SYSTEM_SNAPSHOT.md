@@ -212,6 +212,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | POST | `/api/waitlist` | Email capture with duplicate check and confirmation. Body: `{ email: string, source?: string, birthDate?: string, archetype_preview?: string, solar_season?: string }`. When `birthDate` (YYYY-MM-DD) provided, computes `archetype_preview` and `solar_season` server-side via `approximateSunLongitudeFromDate` + `getPrimaryArchetypeFromSolarLongitude`. Validates email; rate limit 5 req/60s per IP+UA. Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. Duplicate → 200 `{ ok: true, alreadyRegistered: true }` (no confirmation resend). New signup → `insertWaitlistEntry` → `sendWaitlistConfirmation` (Resend or SendGrid) → 200 `{ ok: true }`. Requires `BLOB_READ_WRITE_TOKEN`. One of `RESEND_API_KEY` or `SENDGRID_API_KEY` for confirmation. |
+| GET | `/api/waitlist/list` | **Internal/admin only.** List waitlist entries from Blob. Returns `{ total, recent, metrics }`. When `LIGS_STUDIO_TOKEN` is set, requires cookie (set by visiting `/ligs-studio?token=`) or `Authorization: Bearer <token>`. 403 when protected and unauthenticated. Requires `BLOB_READ_WRITE_TOKEN`. |
 
 ### 2.4 Stripe
 
@@ -291,6 +292,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
 | `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | (other pages) | `"1"` = show dev controls. Conversion-first Beauty landing no longer renders Dev Live pipeline section. |
 | `NEXT_PUBLIC_WAITLIST_ONLY` | `BeautyLandingClient.jsx` | `"0"` = re-enable purchase flow. Default (unset) = waitlist-only. |
+| `LIGS_STUDIO_TOKEN` | `lib/studio-auth.ts`, middleware, `/api/waitlist/list` | When set, `/ligs-studio` and `/api/waitlist/list` require `?token=<value>` (page) or cookie / `Authorization: Bearer` (API). Unset = no protection. |
 | *(removed)* `BRAND_LOGO_PATH` | — | No longer used. Compose always uses `GLOBAL_LOGO_PATH` from `lib/brand.ts`. |
 | `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when global logo file missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
@@ -396,6 +398,10 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑09 (Waitlist observability in Studio)
+
+**Studio waitlist section:** Added internal admin visibility for waitlist. `lib/waitlist-list.ts` lists Blob entries, fetches content, computes metrics. GET `/api/waitlist/list` returns `{ total, recent, metrics }`. LIGS Studio shows Waitlist Registry: total, 24h, 7d, origin %, by-source breakdown, top archetypes, recent entries table with source filter. **Access protection:** `lib/studio-auth.ts` + middleware gate `/ligs-studio`; API route gates `/api/waitlist/list`. When `LIGS_STUDIO_TOKEN` is set, require `?token=` or cookie (set by visiting with token). Unset = no protection. Build passes.
 
 ## Verification Log – 2026‑03‑09 (Report flow — aperture law alignment)
 
