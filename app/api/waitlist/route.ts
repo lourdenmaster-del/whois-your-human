@@ -122,7 +122,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, alreadyRegistered: true });
     }
 
-    sendWaitlistConfirmation(email).catch((err) => {
+    const createdAt = new Date().toISOString();
+    sendWaitlistConfirmation(email, {
+      created_at: createdAt,
+      ...(preview_archetype && { preview_archetype }),
+      ...(solar_season && { solar_season }),
+    }).catch((err) => {
       const msg = err instanceof Error ? err.message : String(err);
       if (process.env.NODE_ENV === "development") {
         console.error("[waitlist] Confirmation email failed:", msg);

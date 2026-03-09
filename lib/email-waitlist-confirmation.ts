@@ -1,8 +1,15 @@
 /**
- * LIGS early registry confirmation email.
+ * LIGS waitlist confirmation email — white-paper registry notice.
  * Subject: "Your identity query has been logged"
- * Body: LIGS system voice.
+ * Body: Document-style notice, one artifact image, minimal CTA.
+ * Image: recipient's resolved archetype (deterministic from email + preview_archetype); fallback Ignis.
  */
+
+import { IGNIS_V1_ARTIFACTS } from "@/lib/exemplar-store";
+import {
+  getArchetypePublicAssetUrlWithRotation,
+  getArchetypePublicAssetUrls,
+} from "@/lib/archetype-public-assets";
 
 const DEFAULT_FROM = "LIGS <onboarding@resend.dev>";
 
@@ -14,39 +21,178 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : "https://ligs.io";
+const SITE_URL =
+  (typeof process.env.NEXT_PUBLIC_SITE_URL === "string" && process.env.NEXT_PUBLIC_SITE_URL.trim()) ||
+  (typeof process.env.VERCEL_URL === "string" && process.env.VERCEL_URL.trim()
+    ? `https://${process.env.VERCEL_URL}`
+    : "") ||
+  "https://ligs.io";
 
-export function buildWaitlistConfirmationHtml(): string {
-  const body = `
-Your contact node has been recorded.
+export interface WaitlistConfirmationPayload {
+  created_at?: string;
+  preview_archetype?: string;
+  solar_season?: string;
+}
 
-You are now part of the LIGS early registry.
+/** Deterministic seed for registry email artifact selection. Same person + archetype → same image. */
+const REGISTRY_EMAIL_ARTIFACT_SEED_SUFFIX = ":registry-email";
 
-Early registry entries advance through identity tiers at a higher rate than later participants.
+/**
+ * Resolve the best registry artifact image URL for the recipient.
+ * Order: (1) Ignis uses v1 share card; (2) other archetypes use public shareCard with rotation; (3) exemplarCard if no shareCard; (4) fallback Ignis v1 share card.
+ */
+export function getRegistryArtifactImageUrl(
+  preview_archetype: string | undefined,
+  email: string
+): string {
+  const fallback = IGNIS_V1_ARTIFACTS.finalBeautyField;
 
-Your full identity resolution will become available soon.
+  const raw = preview_archetype?.trim();
+  if (!raw) return fallback;
 
-Run another query anytime:
-${escapeHtml(SITE_URL)}
-`.trim();
+  const archetype = normalizeArchetypeKey(raw);
+  if (!archetype) return fallback;
+
+  if (archetype === "Ignispectrum") return IGNIS_V1_ARTIFACTS.finalBeautyField;
+
+  const seed = `${email}:${archetype}${REGISTRY_EMAIL_ARTIFACT_SEED_SUFFIX}`;
+  const shareCard = getArchetypePublicAssetUrlWithRotation(archetype, "shareCard", seed);
+  if (shareCard) return toAbsoluteUrl(shareCard);
+  const urls = getArchetypePublicAssetUrls(archetype);
+  if (urls?.shareCard) return toAbsoluteUrl(urls.shareCard);
+  if (urls?.exemplarCard) return toAbsoluteUrl(urls.exemplarCard);
+  return fallback;
+}
+
+function normalizeArchetypeKey(raw: string): string | null {
+  if (ARCHETYPE_KEYS[raw as keyof typeof ARCHETYPE_KEYS]) return raw;
+  const lower = raw.toLowerCase();
+  const found = Object.keys(ARCHETYPE_KEYS).find((k) => k.toLowerCase() === lower);
+  return found ?? null;
+}
+
+const ARCHETYPE_KEYS: Record<string, true> = {
+  Aequilibris: true,
+  Duplicaris: true,
+  Fluxionis: true,
+  Ignispectrum: true,
+  Innovaris: true,
+  Obscurion: true,
+  Precisura: true,
+  Radiantis: true,
+  Stabiliora: true,
+  Structoris: true,
+  Tenebris: true,
+  Vectoris: true,
+};
+
+function toAbsoluteUrl(path: string): string {
+  const base = SITE_URL.replace(/\/$/, "");
+  const p = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${p}`;
+}
+
+export function buildWaitlistConfirmationHtml(
+  payload?: WaitlistConfirmationPayload | null,
+  artifactImageUrl?: string
+): string {
+  const created_at = payload?.created_at ?? new Date().toISOString();
+  const preview_archetype = payload?.preview_archetype?.trim();
+  const solar_season = payload?.solar_season?.trim();
+
+  const facts: string[] = [
+    "Registry Status: Confirmed",
+    "Contact Node: Active",
+    "Record Type: Human Identity Query",
+    `Timestamp: ${escapeHtml(created_at)}`,
+  ];
+  if (preview_archetype) facts.push(`Preview Archetype: ${escapeHtml(preview_archetype)}`);
+  if (solar_season) facts.push(`Solar Segment: ${escapeHtml(solar_season)}`);
+
+  const factsHtml = facts
+    .map((line) => {
+      const idx = line.indexOf(": ");
+      const label = idx >= 0 ? line.slice(0, idx) + ":" : line;
+      const value = idx >= 0 ? line.slice(idx + 2) : "";
+      return `    <tr><td style="padding:4px 12px 4px 0;vertical-align:top;font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#1a1a1a;">${escapeHtml(label)}</td><td style="padding:4px 0;font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#333;">${escapeHtml(value)}</td></tr>`;
+    })
+    .join("\n");
+
+  const imgUrl =
+    artifactImageUrl && artifactImageUrl.length > 0
+      ? artifactImageUrl
+      : IGNIS_V1_ARTIFACTS.finalBeautyField;
 
   return `
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>Your identity query has been logged</title></head>
-<body style="font-family:Georgia,serif;line-height:1.6;color:#1a1a1a;max-width:480px;margin:0 auto;padding:24px;">
-  <p style="margin:0 0 1em 0;">Your contact node has been recorded.</p>
-  <p style="margin:0 0 1em 0;">You are now part of the LIGS early registry.</p>
-  <p style="margin:0 0 1em 0;">Early registry entries advance through identity tiers at a higher rate than later participants.</p>
-  <p style="margin:0 0 1em 0;">Your full identity resolution will become available soon.</p>
-  <p style="margin:0 0 1em 0;">Run another query anytime:<br><a href="${escapeHtml(SITE_URL)}" style="color:#7A4FFF;">${escapeHtml(SITE_URL)}</a></p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Your identity query has been logged</title>
+</head>
+<body style="margin:0;padding:0;background:#fff;font-family:Georgia,serif;color:#1a1a1a;line-height:1.5;">
+  <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
+    <header style="border-bottom:1px solid #e0e0e0;padding-bottom:16px;margin-bottom:24px;">
+      <h1 style="margin:0;font-size:14px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#1a1a1a;">LIGS HUMAN WHOIS REGISTRY</h1>
+      <p style="margin:6px 0 0 0;font-size:12px;color:#444;">Registry confirmation notice</p>
+    </header>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+${factsHtml}
+    </table>
+
+    <p style="margin:0 0 24px 0;font-size:14px;color:#333;">Your contact node has been recorded in the LIGS Human WHOIS Registry. Full identity reports will be released to registry members first.</p>
+
+    <div style="margin:28px 0;text-align:center;">
+      <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
+    </div>
+
+    <p style="margin:24px 0 0 0;font-size:13px;">
+      <a href="${escapeHtml(SITE_URL)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a>
+    </p>
+
+    <footer style="margin-top:40px;padding-top:16px;border-top:1px solid #e8e8e8;font-size:11px;color:#666;">
+      <p style="margin:0;">LIGS Systems</p>
+      <p style="margin:4px 0 0 0;">This message was generated automatically by the registry.</p>
+    </footer>
+  </div>
 </body>
 </html>`.trim();
 }
 
-export async function sendWaitlistConfirmation(email: string): Promise<boolean> {
+export function buildWaitlistConfirmationText(payload?: WaitlistConfirmationPayload | null): string {
+  const created_at = payload?.created_at ?? new Date().toISOString();
+  const preview_archetype = payload?.preview_archetype?.trim();
+  const solar_season = payload?.solar_season?.trim();
+
+  const lines: string[] = [
+    "LIGS HUMAN WHOIS REGISTRY",
+    "Registry confirmation notice",
+    "",
+    "Registry Status: Confirmed",
+    "Contact Node: Active",
+    "Record Type: Human Identity Query",
+    `Timestamp: ${created_at}`,
+  ];
+  if (preview_archetype) lines.push(`Preview Archetype: ${preview_archetype}`);
+  if (solar_season) lines.push(`Solar Segment: ${solar_season}`);
+  lines.push(
+    "",
+    "Your contact node has been recorded in the LIGS Human WHOIS Registry. Full identity reports will be released to registry members first.",
+    "",
+    `Return to the registry: ${SITE_URL}`,
+    "",
+    "LIGS Systems",
+    "This message was generated automatically by the registry."
+  );
+  return lines.join("\n");
+}
+
+export async function sendWaitlistConfirmation(
+  email: string,
+  payload?: WaitlistConfirmationPayload | null
+): Promise<boolean> {
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
   if (!resendKey && !sendgridKey) {
@@ -58,7 +204,9 @@ export async function sendWaitlistConfirmation(email: string): Promise<boolean> 
 
   const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
   const subject = "Your identity query has been logged";
-  const html = buildWaitlistConfirmationHtml();
+  const artifactImageUrl = getRegistryArtifactImageUrl(payload?.preview_archetype, email);
+  const html = buildWaitlistConfirmationHtml(payload, artifactImageUrl);
+  const text = buildWaitlistConfirmationText(payload);
 
   if (resendKey) {
     const res = await fetch("https://api.resend.com/emails", {
@@ -72,6 +220,7 @@ export async function sendWaitlistConfirmation(email: string): Promise<boolean> 
         to: [email],
         subject,
         html,
+        text,
       }),
     });
     if (!res.ok) {
@@ -93,7 +242,10 @@ export async function sendWaitlistConfirmation(email: string): Promise<boolean> 
     body: JSON.stringify({
       personalizations: [{ to: [{ email }], subject }],
       from: { email: fromEmail, name: fromName },
-      content: [{ type: "text/html", value: html }],
+      content: [
+        { type: "text/html", value: html },
+        { type: "text/plain", value: text },
+      ],
     }),
   });
   if (!res.ok) {
