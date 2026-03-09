@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { parseDate, parseTime, normalizePlace } from "@/lib/terminal-intake/parseInputs";
+import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import {
   submitToBeautySubmit,
   submitToBeautyDryRun,
@@ -141,7 +142,8 @@ export default function OriginTerminalIntake() {
     }
     setCountdownRemaining(null);
     saveOriginIntake(formDataRef.current ?? {});
-    router.push("/beauty/view?reportId=exemplar-Ignispectrum");
+    const resolvedArchetype = resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
+    router.push(`/beauty/view?reportId=exemplar-${resolvedArchetype}`);
   }, [router]);
 
   const scrollToBottom = useCallback(() => {
@@ -200,7 +202,8 @@ export default function OriginTerminalIntake() {
 
   // Explicit, mutually exclusive prompt/input rules. No overlap.
   const showInitialContinuePrompt = phase === "waiting_enter";
-  const showInputRow = phase === "waiting_enter" || (phase === "intake" && currentField);
+  const showCompleteEnterPrompt = phase === "completeAwaitingEnterRedirect" && countdownRemaining == null;
+  const showInputRow = phase === "waiting_enter" || (phase === "intake" && currentField) || showCompleteEnterPrompt;
   const isCountdownActive = phase === "completeAwaitingEnterRedirect" && countdownRemaining != null && countdownRemaining > 0;
   useEffect(() => {
     if (showInputRow) {
@@ -215,18 +218,22 @@ export default function OriginTerminalIntake() {
     scrollToBottom();
   }, [lines, scrollToBottom, phase]);
 
-  // Document-level keydown fallback: Enter works even when input lacks focus (e.g. after navigation).
+  // Document-level keydown: Enter starts countdown (if not started) or skips to redirect (if already counting).
   useEffect(() => {
     if (phase !== "completeAwaitingEnterRedirect") return;
     const onKeyDown = (e) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       if (e.target?.closest?.("a[href]") || e.target?.closest?.("button")) return;
       e.preventDefault();
-      redirectNow();
+      if (countdownRemaining == null) {
+        setCountdownRemaining(3);
+      } else {
+        redirectNow();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [phase, redirectNow]);
+  }, [phase, countdownRemaining, redirectNow]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -237,7 +244,11 @@ export default function OriginTerminalIntake() {
         lastEnterHandledRef.current = now;
 
         if (phase === "completeAwaitingEnterRedirect") {
-          redirectNow();
+          if (countdownRemaining == null) {
+            setCountdownRemaining(3);
+          } else {
+            redirectNow();
+          }
           return;
         }
 
@@ -335,7 +346,7 @@ export default function OriginTerminalIntake() {
         }
       }
     },
-    [phase, currentField, inputValue, dateNeedsConfirm, addLine, redirectNow, handleInitialContinue]
+    [phase, currentField, inputValue, dateNeedsConfirm, countdownRemaining, addLine, redirectNow, handleInitialContinue]
   );
 
   // Processing sequence — when done, add archetype lines and proceed to waitlist/CTA (no carousel)
@@ -345,7 +356,8 @@ export default function OriginTerminalIntake() {
       if (!archetypePreviewShown) {
         setTimeout(() => {
           if (phaseRef.current === "completeAwaitingEnterRedirect") return;
-          addLine("Primary archetype detected: —");
+          const resolvedArchetype = resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
+          addLine(`Primary archetype detected: ${resolvedArchetype}`);
           addLine("Identity record ready.");
         }, 900);
         setArchetypePreviewShown(true);
@@ -372,11 +384,11 @@ export default function OriginTerminalIntake() {
     if (!email || !email.includes("@")) {
       addLine("Identity query logged.");
       addLine("Sample identity artifacts available.");
-      addLine("Opening registry preview in 3…");
+      addLine("Registry preview ready.");
       addLine("");
       addLine("Press ENTER or tap to continue");
       setPhase("completeAwaitingEnterRedirect");
-      setCountdownRemaining(3);
+      setCountdownRemaining(null);
       setWaitlistState("done");
       return;
     }
@@ -404,22 +416,22 @@ export default function OriginTerminalIntake() {
           addLine("Identity query logged.");
           addLine("Sample identity artifacts available.");
         }
-        addLine("Opening registry preview in 3…");
+        addLine("Registry preview ready.");
         addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
-        setCountdownRemaining(3);
+        setCountdownRemaining(null);
         setWaitlistState("done");
       })
       .catch(() => {
         if (cancelled) return;
         addLine("Identity query logged.");
         addLine("Sample identity artifacts available.");
-        addLine("Opening registry preview in 3…");
+        addLine("Registry preview ready.");
         addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
-        setCountdownRemaining(3);
+        setCountdownRemaining(null);
         setWaitlistState("done");
       });
     return () => { cancelled = true; };
@@ -457,12 +469,12 @@ export default function OriginTerminalIntake() {
         addLine("Contact node recorded.");
         addLine("Early registry status confirmed.");
         if (data?.confirmationSent) addLine("Registry confirmation transmitted.");
-        addLine("Opening registry preview in 3…");
+        addLine("Registry preview ready.");
         addLine("");
         addLine("Press ENTER or tap to continue");
         setCtaVisible(false);
         setPhase("completeAwaitingEnterRedirect");
-        setCountdownRemaining(3);
+        setCountdownRemaining(null);
         return;
       }
 
@@ -570,12 +582,12 @@ export default function OriginTerminalIntake() {
 
             {showInputRow && (
               <div
-                className={`flex items-center gap-1 mt-1 min-h-[44px] ${showInitialContinuePrompt ? "cursor-pointer touch-manipulation" : ""}`}
-                onClick={showInitialContinuePrompt ? handleInitialContinue : undefined}
-                onKeyDown={showInitialContinuePrompt ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleInitialContinue(); } } : undefined}
-                role={showInitialContinuePrompt ? "button" : undefined}
-                tabIndex={showInitialContinuePrompt ? 0 : undefined}
-                aria-label={showInitialContinuePrompt ? "Press ENTER or tap to continue" : undefined}
+                className={`flex items-center gap-1 mt-1 min-h-[44px] ${showInitialContinuePrompt || showCompleteEnterPrompt ? "cursor-pointer touch-manipulation" : ""}`}
+                onClick={showInitialContinuePrompt ? handleInitialContinue : showCompleteEnterPrompt ? () => setCountdownRemaining(3) : undefined}
+                onKeyDown={showInitialContinuePrompt ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleInitialContinue(); } } : showCompleteEnterPrompt ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCountdownRemaining(3); } } : undefined}
+                role={showInitialContinuePrompt || showCompleteEnterPrompt ? "button" : undefined}
+                tabIndex={showInitialContinuePrompt || showCompleteEnterPrompt ? 0 : undefined}
+                aria-label={showInitialContinuePrompt || showCompleteEnterPrompt ? "Press ENTER or tap to continue" : undefined}
               >
                 <span className="text-[#7a7a80]">&gt;</span>
                 <input
@@ -586,11 +598,11 @@ export default function OriginTerminalIntake() {
                   onKeyDown={handleKeyDown}
                   className="flex-1 min-w-0 bg-transparent border-none outline-none text-[#e8e8ec] font-mono placeholder-[#5a5a60]"
                   style={{ font: "inherit" }}
-                  placeholder={showInitialContinuePrompt ? "Press ENTER or tap to continue" : ""}
+                  placeholder={showInitialContinuePrompt || showCompleteEnterPrompt ? "Press ENTER or tap to continue" : ""}
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  aria-label={showInitialContinuePrompt ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
+                  aria-label={showInitialContinuePrompt || showCompleteEnterPrompt ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
                 />
                 <span
                   className="inline-block w-2 h-4 bg-[#7a7a80] animate-pulse"

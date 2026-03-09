@@ -4,12 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LightIdentityForm from "@/components/LightIdentityForm";
 import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client";
-import { unwrapResponse } from "@/lib/unwrap-response";
 import { saveLastFormData, loadLastFormData, isBeautyUnlocked } from "@/lib/landing-storage";
 import { TEST_MODE } from "@/lib/dry-run-config";
 import { useApiStatus } from "@/hooks/useApiStatus";
-
-const PAGE_BG_URL = "/ligs-landing-bg.png";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -98,99 +95,112 @@ export default function BeautyStartPage() {
 
   if (showBrandedLoading) {
     return (
-      <div
-        className="beauty-theme relative min-h-screen flex flex-col items-center justify-center px-6"
-        style={{
-          backgroundImage: `url(${PAGE_BG_URL})`,
-          backgroundRepeat: "no-repeat",
-          backgroundSize: "cover",
-          backgroundPosition: "center top",
-          backgroundAttachment: "fixed",
-        }}
-      >
-        <div
-          className="absolute inset-0 z-0"
-          style={{ background: "rgba(0,0,0,0.25)" }}
-          aria-hidden
-        />
-        <div className="relative z-10 text-center max-w-md mx-auto">
-          <p className="text-sm uppercase tracking-[0.2em] beauty-text-muted font-medium mb-6">
-            Light Identity
-          </p>
-          <h1
-            className="text-2xl sm:text-3xl font-semibold tracking-wide beauty-heading text-[var(--beauty-text,#0d0b10)] mb-4"
-            style={{ letterSpacing: "0.02em" }}
-          >
-            Preparing your report…
-          </h1>
-          <p className="text-base beauty-body beauty-text-muted leading-relaxed mb-10">
-            One moment while we bring your Light Signature into view.
-          </p>
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+        <div className="w-full max-w-2xl min-w-0">
           <div
-            className="flex items-center justify-center gap-2"
-            role="status"
-            aria-label="Loading"
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+            style={{
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+            }}
           >
-            <span className="beauty-start-dot w-2 h-2 rounded-full bg-[#7A4FFF]/80" />
-            <span className="beauty-start-dot w-2 h-2 rounded-full bg-[#7A4FFF]/80" />
-            <span className="beauty-start-dot w-2 h-2 rounded-full bg-[#7A4FFF]/80" />
+            <p
+              className="text-[10px] font-mono uppercase tracking-[0.2em] mb-6"
+              style={{ color: "#9a9aa0" }}
+            >
+              (L)IGS Human WHOIS Resolution Engine
+            </p>
+            <h1
+              className="text-xl sm:text-2xl font-semibold tracking-wide mb-4"
+              style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
+            >
+              Preparing your report…
+            </h1>
+            <p className="text-sm leading-relaxed mb-10" style={{ color: "#9a9aa0" }}>
+              One moment while we bring your Light Signature into view.
+            </p>
+            <div className="flex items-center justify-center gap-2" role="status" aria-label="Loading">
+              <span className="w-2 h-2 rounded-full bg-[#7a7a80] animate-pulse" style={{ animationDuration: "1s" }} />
+              <span className="w-2 h-2 rounded-full bg-[#7a7a80] animate-pulse" style={{ animationDuration: "1s", animationDelay: "0.2s" }} />
+              <span className="w-2 h-2 rounded-full bg-[#7a7a80] animate-pulse" style={{ animationDuration: "1s", animationDelay: "0.4s" }} />
+            </div>
           </div>
+          <p
+            className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            style={{ fontFamily: "inherit", color: "#8a8a90" }}
+          >
+            (L)IGS — Human WHOIS Resolution Engine
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      className="relative min-h-screen"
-      style={{
-        backgroundImage: `url(${PAGE_BG_URL})`,
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-        backgroundAttachment: "fixed",
-      }}
-    >
-      <main className="beauty-theme beauty-page relative z-10 min-h-screen">
-        <section className="relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32 border-t border-[var(--beauty-line,#e8e4e8)] bg-transparent">
-          <div className="max-w-3xl mx-auto space-y-8 text-center">
-            <h1 className="text-4xl font-bold text-[#7A4FFF] mb-6">START PAGE FORM</h1>
-            <h1
-              className="text-2xl sm:text-3xl font-semibold tracking-wide beauty-heading"
-              style={{ letterSpacing: "0.02em" }}
-            >
-              Generate your Light Signature Report
-            </h1>
-            <p className="text-lg leading-relaxed font-normal beauty-body">
-              Your Light Signature is already active. LIGS gives you the structure to understand it.
-            </p>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+      <div className="w-full max-w-2xl min-w-0">
+        <div
+          className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden"
+          style={{
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div
+            className="px-4 py-2.5 border-b border-[#2a2a2e] flex items-center gap-2"
+            style={{ backgroundColor: "rgba(0,0,0,0.2)" }}
+          >
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
+            <span className="ml-2 text-[10px] uppercase tracking-widest font-mono" style={{ color: "#a8a8b0" }}>
+              (L)IGS Human WHOIS Resolution Engine
+            </span>
+          </div>
+          <div className="px-5 sm:px-6 py-8 space-y-6">
+            <div className="text-center space-y-2">
+              <h1
+                className="text-xl sm:text-2xl font-semibold tracking-wide"
+                style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
+              >
+                Generate your Light Signature Report
+              </h1>
+              <p className="text-sm leading-relaxed" style={{ color: "#9a9aa0" }}>
+                Your Light Signature is already active. LIGS gives you the structure to understand it.
+              </p>
+            </div>
             {error && (
-              <div className="mb-6 p-4 border border-red-300 bg-red-50 text-red-800 font-light text-sm rounded">
+              <div className="p-4 border border-[#4a3030] rounded bg-[#1a0f0f] text-sm" style={{ color: "#e8a0a0" }}>
                 {error}
               </div>
             )}
             {apiDisabled && (
-              <p className="mb-6 p-4 border border-amber-300 bg-amber-50 text-amber-800 font-light text-sm rounded">
+              <div className="p-4 border border-[#4a4030] rounded bg-[#1a1810] text-sm" style={{ color: "#e8d8a0" }}>
                 Temporarily unavailable for maintenance. Please try again later.
-              </p>
+              </div>
             )}
-            <div className="max-w-xl mx-auto">
-              <LightIdentityForm
-                onSubmit={handleFormSubmit}
-                showOptionalNotes={true}
-                submitButtonLabel={apiDisabled ? "Unavailable" : "Generate my report"}
-                initialFormData={lastFormData}
-                hideSubmitButton={apiDisabled}
-              />
-            </div>
-            <p className="text-sm beauty-text-muted">
-              <a href="/origin" className="hover:text-[#7A4FFF] transition-colors">
-                ← Back to /origin
+            <LightIdentityForm
+              onSubmit={handleFormSubmit}
+              showOptionalNotes={true}
+              submitButtonLabel={apiDisabled ? "Unavailable" : "Generate my report"}
+              initialFormData={lastFormData}
+              hideSubmitButton={apiDisabled}
+            />
+            <p className="text-center">
+              <a
+                href="/origin"
+                className="registry-ctrl text-[11px] font-medium text-[#7A4FFF] hover:underline"
+              >
+                ← Back to Origin
               </a>
             </p>
           </div>
-        </section>
-      </main>
+        </div>
+        <p
+          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+          style={{ fontFamily: "inherit", color: "#8a8a90" }}
+        >
+          (L)IGS — Human WHOIS Resolution Engine
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 /**
- * GET /api/dev/glyph-rasterize?name=ignis_mark
- * Dev-only: rasterizes glyph SVG to 512x512 PNG (contain-fit, transparent bg).
+ * GET /api/dev/glyph-rasterize?name=ignis
+ * Dev-only: rasterizes glyph or icon SVG to 512x512 PNG. Use ?name=ignis (canonical) or ?name=ignis_icon (UI icon).
  */
 
 import { NextResponse } from "next/server";
@@ -9,6 +9,7 @@ import { readFile } from "fs/promises";
 import sharp from "sharp";
 
 const GLYPH_DIR = join(process.cwd(), "public", "glyphs");
+const ICONS_DIR = join(process.cwd(), "public", "icons");
 const SIZE = 512;
 
 function allowDev(): boolean {
@@ -28,12 +29,15 @@ export async function GET(req: Request) {
   const name = searchParams.get("name")?.trim() || "ignis";
   const baseName = name.replace(/\.svg$/i, "");
   const fileName = baseName.endsWith(".svg") ? baseName : `${baseName}.svg`;
-  const resolvedFsPath = join(GLYPH_DIR, fileName);
+  const resolvedFsPath =
+    baseName === "ignis_icon"
+      ? join(ICONS_DIR, "ignis_icon.svg")
+      : join(GLYPH_DIR, fileName);
 
   try {
     const svgBuf = await readFile(resolvedFsPath, "utf8");
 
-    if (process.env.NODE_ENV !== "production" && (baseName === "ignis" || baseName === "ignis_mark")) {
+    if (process.env.NODE_ENV !== "production" && baseName === "ignis") {
       const body = svgBuf.replace(/<svg[^>]*>|<\/svg>|<!--[\s\S]*?-->/gi, "").trim();
       const circleCount = (body.match(/<circle[\s\S]*?>/gi) || []).length;
       const polygonCount = (body.match(/<polygon[\s\S]*?>/gi) || []).length;

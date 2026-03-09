@@ -151,6 +151,7 @@ export async function getExemplarManifestsServer(version: string): Promise<{
   ignisImageUrl: string;
 }> {
   const { LIGS_ARCHETYPES } = await import("@/src/ligs/archetypes/contract");
+  const { getArchetypePublicAssetUrls } = await import("@/lib/archetype-public-assets");
   const manifests: unknown[] = [];
   let ignisManifest: unknown = null;
 
@@ -162,21 +163,44 @@ export async function getExemplarManifestsServer(version: string): Promise<{
         ignisManifest = ignis;
       }
     } else {
-      const manifest = await loadExemplarManifestWithPreferred(archetype, version);
+      let manifest = await loadExemplarManifestWithPreferred(archetype, version);
+      if (manifest == null) {
+        const publicUrls = getArchetypePublicAssetUrls(archetype);
+        if (publicUrls) {
+          manifest = {
+            archetype,
+            version,
+            urls: {
+              marketingBackground: publicUrls.marketingBackground,
+              exemplarCard: publicUrls.exemplarCard,
+              shareCard: publicUrls.shareCard,
+            },
+          };
+        }
+      }
       if (manifest != null) manifests.push(manifest);
     }
   }
 
   if (ignisManifest == null) {
+    const ignisPublic = getArchetypePublicAssetUrls(IGNIS_ARCHETYPE);
     manifests.push({
       archetype: IGNIS_ARCHETYPE,
       version: IGNIS_VERSION,
-      urls: {
-        exemplarCard: IGNIS_CANONICAL_FALLBACK,
-        exemplar_card: IGNIS_CANONICAL_FALLBACK,
-      },
+      urls: ignisPublic
+        ? {
+            marketingBackground: ignisPublic.marketingBackground,
+            exemplarCard: ignisPublic.exemplarCard,
+            shareCard: ignisPublic.shareCard,
+          }
+        : {
+            exemplarCard: IGNIS_CANONICAL_FALLBACK,
+            exemplar_card: IGNIS_CANONICAL_FALLBACK,
+          },
     });
   }
 
-  return { manifests, ignisImageUrl: IGNIS_LANDING_URL };
+  const ignisMan = (manifests.find((m: unknown) => (m as { archetype?: string })?.archetype === IGNIS_ARCHETYPE) ?? {}) as { urls?: { exemplarCard?: string } };
+  const ignisImageUrl = ignisMan.urls?.exemplarCard ?? IGNIS_LANDING_URL;
+  return { manifests, ignisImageUrl };
 }

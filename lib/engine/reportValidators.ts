@@ -8,11 +8,7 @@ import {
   injectBirthAnchoringSentence as injectFromAnchor,
   fullBirthAnchorPresentInInitiation,
 } from "@/lib/engine/initiation-anchor";
-
-const LIGS_ARCHETYPES = [
-  "Ignispectrum", "Stabiliora", "Duplicaris", "Tenebris", "Radiantis",
-  "Precisura", "Aequilibris", "Obscurion", "Vectoris", "Structoris", "Innovaris", "Fluxionis",
-];
+import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
 
 const FORBIDDEN_CITATION_VALUES = [
   "known", "variable", "placeholder", "n/a", "none", "null", "undefined",
@@ -180,7 +176,7 @@ export function validateSingleRegime(
   const canonical = canonicalRegime.trim();
 
   const check = (label: string, val: string | undefined) => {
-    if (val && val !== canonical && LIGS_ARCHETYPES.includes(val)) {
+    if (val && val !== canonical && (LIGS_ARCHETYPES as readonly string[]).includes(val)) {
       issues.push({
         code: "REGIME_MISMATCH",
         message: `Regime mismatch: ${label} says "${val}" but canonical (RESOLUTION KEYS) is "${canonical}".`,

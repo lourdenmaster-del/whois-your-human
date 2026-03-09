@@ -112,8 +112,9 @@ export async function GET(
       } else {
         if (archetype === "Ignispectrum") {
           m = {};
+          // No poster/marketing_background — use share_card only; never load vectorZero before share card
           exemplarSlots = [
-            { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.vectorZero },
+            { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
             { label: "Light Signature", url: IGNIS_V1_ARTIFACTS.lightSignature },
             { label: "Final Beauty Field", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
           ];

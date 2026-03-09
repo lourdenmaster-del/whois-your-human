@@ -32,7 +32,7 @@ const PHASE_TEXT = {
 
 function getTeaserForArchetype(archetype) {
   const config = getArchetypePreviewConfig(archetype);
-  return config.teaser ?? { civilizationFunction: "—", environments: "—" };
+  return config.teaser ?? { humanExpression: "—", civilizationFunction: "—", archetypalVoice: "—", environments: "—" };
 }
 
 export default function PreviewRevealSequence({ profile, onComplete }) {
@@ -155,6 +155,7 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                     <ArchetypeResolveCarousel
                       finalArchetype={arch}
                       onResolve={handleCarouselResolve}
+                      finalImageUrl={arch === "Ignispectrum" ? profile?.imageUrls?.[2] : undefined}
                     />
                   </div>
                 )}
@@ -292,10 +293,22 @@ export default function PreviewRevealSequence({ profile, onComplete }) {
                     <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>ARCHETYPE</span>
                     <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{displayName}</div>
                   </div>
+                  {teaser?.humanExpression && teaser.humanExpression !== "—" && (
+                    <div>
+                      <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>HUMAN EXPRESSION</span>
+                      <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.humanExpression}</div>
+                    </div>
+                  )}
                   {teaser?.civilizationFunction && teaser.civilizationFunction !== "—" && (
                     <div>
                       <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>CIVILIZATION FUNCTION</span>
                       <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.civilizationFunction}</div>
+                    </div>
+                  )}
+                  {teaser?.archetypalVoice && teaser.archetypalVoice !== "—" && (
+                    <div>
+                      <span style={{ color: "#9a9aa0", textTransform: "uppercase", letterSpacing: "0.12em" }}>COMMUNICATION SIGNATURE</span>
+                      <div style={{ color: "#c8c8cc", marginTop: "2px" }}>{teaser.archetypalVoice}</div>
                     </div>
                   )}
                   {teaser?.environments && teaser.environments !== "—" && (

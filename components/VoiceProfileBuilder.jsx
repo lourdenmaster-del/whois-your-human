@@ -3,21 +3,8 @@
 import { useState } from "react";
 import { safeParseVoiceProfile } from "@/src/ligs/voice/schema";
 import { zodToVoiceEngineError } from "@/src/ligs/voice/errors";
+import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
 
-const LIGS_ARCHETYPES = [
-  "Ignispectrum",
-  "Stabiliora",
-  "Duplicaris",
-  "Tenebris",
-  "Radiantis",
-  "Precisura",
-  "Aequilibris",
-  "Obscurion",
-  "Vectoris",
-  "Structoris",
-  "Innovaris",
-  "Fluxionis",
-];
 const CHANNELS = ["website", "email", "social_caption", "longform", "ads"];
 
 const DEFAULT_CADENCE = {

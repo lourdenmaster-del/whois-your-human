@@ -68,6 +68,13 @@ Reference:
 
 ---
 
+## Non-Canonical Glyphs
+
+Files in `public/icons/` are UI icons and do NOT follow glyph-law geometry.
+Only files in `public/glyphs/` are canonical archetype glyphs.
+
+---
+
 ## System Rule
 
 All future archetype glyphs must:

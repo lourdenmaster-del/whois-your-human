@@ -13,6 +13,7 @@ import {
   exemplarManifestPath,
   loadExemplarManifest,
 } from "@/lib/exemplar-store";
+import { getArchetypePublicAssetUrls } from "@/lib/archetype-public-assets";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 const IGNIS_VERSION = "v2";
@@ -34,19 +35,40 @@ export async function GET(req: Request) {
           ignisManifest = ignis;
         }
       } else {
-        const manifest = await loadExemplarManifestWithPreferred(archetype, version);
+        let manifest = await loadExemplarManifestWithPreferred(archetype, version);
+        if (manifest == null) {
+          const publicUrls = getArchetypePublicAssetUrls(archetype);
+          if (publicUrls) {
+            manifest = {
+              archetype,
+              version,
+              urls: {
+                marketingBackground: publicUrls.marketingBackground,
+                exemplarCard: publicUrls.exemplarCard,
+                shareCard: publicUrls.shareCard,
+              },
+            };
+          }
+        }
         if (manifest != null) manifests.push(manifest);
       }
     }
 
     if (ignisManifest == null) {
+      const ignisPublic = getArchetypePublicAssetUrls(IGNIS_ARCHETYPE);
       manifests.push({
         archetype: IGNIS_ARCHETYPE,
         version: IGNIS_VERSION,
-        urls: {
-          exemplarCard: IGNIS_CANONICAL_FALLBACK,
-          exemplar_card: IGNIS_CANONICAL_FALLBACK,
-        },
+        urls: ignisPublic
+          ? {
+              marketingBackground: ignisPublic.marketingBackground,
+              exemplarCard: ignisPublic.exemplarCard,
+              shareCard: ignisPublic.shareCard,
+            }
+          : {
+              exemplarCard: IGNIS_CANONICAL_FALLBACK,
+              exemplar_card: IGNIS_CANONICAL_FALLBACK,
+            },
       });
     }
 

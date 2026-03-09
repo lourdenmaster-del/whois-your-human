@@ -4,7 +4,7 @@
  */
 
 import { LIGS_ARCHETYPES, getArchetypeOrFallback } from "./contract";
-import type { LigsArchetype } from "./contract";
+import type { LigsArchetype, ArchetypePreviewDescriptor } from "./contract";
 import type { ArchetypeVisualParams } from "../image/archetype-visual-map";
 import type { ArchetypeAnchor } from "../voice/prompt/archetypeAnchors";
 
@@ -113,6 +113,17 @@ export function getOverlayCopyRecord(): Record<
     out[arch] = getOverlayCopyBank(arch);
   }
   return out;
+}
+
+/** Returns canonical preview descriptor (humanExpression, civilizationFunction, archetypalVoice, environments). */
+export function getArchetypePreviewDescriptor(archetype: string): ArchetypePreviewDescriptor {
+  const c = getArchetypeOrFallback(archetype);
+  return {
+    humanExpression: c.preview.humanExpression,
+    civilizationFunction: c.preview.civilizationFunction,
+    archetypalVoice: c.preview.archetypalVoice,
+    environments: [...c.preview.environments],
+  };
 }
 
 /** Returns marketing visuals (keywords, palette, motion) for lib/marketing/visuals.ts. */

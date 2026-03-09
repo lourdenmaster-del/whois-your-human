@@ -35,8 +35,12 @@ function buildIgnisSteps(profile) {
   const finalArtifactImage = profile?.imageUrls?.[2];
   const bestImage = lightSignatureImage ?? baselineImage ?? finalArtifactImage ?? config.sampleArtifactUrl ?? buildPlaceholderSvg(config.displayName);
 
-  const openingLines = composeArchetypeOpening(profile);
+  const openingLines = composeArchetypeOpening(profile, config);
   const summaryLines = composeArchetypeSummary(profile);
+  const archetypalVoice = config.teaser?.archetypalVoice;
+  if (archetypalVoice && archetypalVoice !== "—") {
+    summaryLines.push(archetypalVoice.endsWith(".") ? archetypalVoice : `${archetypalVoice}.`);
+  }
   const lightLines = composeLightExpression(profile);
   const cosmicLines = composeCosmicTwin(profile);
   const returnLines = composeReturnToCoherence(profile);
@@ -77,6 +81,7 @@ function buildIgnisSteps(profile) {
       finalArtifactImage,
       archetypeImagePath: config.hasArchetypeVisual ? config.archetypeStaticImagePath : null,
       displayName: config.displayName,
+      humanExpression: config.teaser?.humanExpression ?? null,
     },
     {
       id: "return-next",

@@ -60,12 +60,21 @@ export interface ArchetypeCopyPhrases {
   disclaimers: string[];
 }
 
+/** Canonical descriptive layer for preview/report UI. Human-readable summary lines. */
+export interface ArchetypePreviewDescriptor {
+  humanExpression: string;
+  civilizationFunction: string;
+  archetypalVoice: string;
+  environments: string[];
+}
+
 export interface ArchetypeContract {
   voice: ArchetypeVoice;
   visual: ArchetypeVisual;
   marketingDescriptor: ArchetypeMarketingDescriptor;
   marketingVisuals: ArchetypeMarketingVisuals;
   copyPhrases: ArchetypeCopyPhrases;
+  preview: ArchetypePreviewDescriptor;
 }
 
 /** Canonical 12 archetypes for iteration */
@@ -136,6 +145,12 @@ export const NEUTRAL_FALLBACK: ArchetypeContract = {
     ctas: ["Learn more", "Explore", "Discover"],
     disclaimers: ["Individual results may vary."],
   },
+  preview: {
+    humanExpression: "—",
+    civilizationFunction: "—",
+    archetypalVoice: "—",
+    environments: ["—"],
+  },
 };
 
 /** Type for the canonical archetype → contract map */
@@ -203,6 +218,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
         "For informational purposes only.",
       ],
     },
+    preview: {
+      humanExpression: "The Anchor",
+      civilizationFunction: "Keeps society from collapsing",
+      archetypalVoice: "steady, grounded, measured lines",
+      environments: ["System maintainers", "Institution builders", "Long-term planners"],
+    },
   },
   Ignispectrum: {
     voice: {
@@ -258,6 +279,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       ctas: ["Transform now", "Get started", "Ignite"],
       disclaimers: ["Results vary. Individual experience may differ."],
     },
+    preview: {
+      humanExpression: "The Initiator",
+      civilizationFunction: "Drives the beginning of everything",
+      archetypalVoice: "catalytic bursts, forward-pushing, high-energy phrasing",
+      environments: ["Founders", "Explorers", "Innovators"],
+    },
   },
   Duplicaris: {
     voice: {
@@ -306,6 +333,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       ctas: ["See both sides", "Explore", "Reflect"],
       disclaimers: ["Individual results may vary."],
     },
+    preview: {
+      humanExpression: "The Mirror",
+      civilizationFunction: "Creates social coherence",
+      archetypalVoice: "attuned, reflective, synchronizing language",
+      environments: ["Pattern multipliers", "Template users", "Scale operators"],
+    },
   },
   Tenebris: {
     voice: {
@@ -353,6 +386,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       subheads: ["Quiet certainty. Restored focus."],
       ctas: ["Discover", "Explore depth", "Learn more"],
       disclaimers: ["For informational purposes."],
+    },
+    preview: {
+      humanExpression: "The Depth Diver",
+      civilizationFunction: "Expands depth and understanding",
+      archetypalVoice: "deep, slow, layered sentences",
+      environments: ["Night workers", "Depth seekers", "Shadow integrators"],
     },
   },
   Radiantis: {
@@ -406,6 +445,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       ctas: ["Illuminate", "Discover", "Explore"],
       disclaimers: ["Individual results may vary."],
     },
+    preview: {
+      humanExpression: "The Amplifier",
+      civilizationFunction: "Spreads ideas and culture",
+      archetypalVoice: "bright, connective, outward-facing language",
+      environments: ["Beacon holders", "Light amplifiers", "Inspiration carriers"],
+    },
   },
   Precisura: {
     voice: {
@@ -457,6 +502,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       subheads: ["No guesswork. Structured progress."],
       ctas: ["Get precise", "Learn more", "Explore"],
       disclaimers: ["Accuracy depends on individual circumstances."],
+    },
+    preview: {
+      humanExpression: "The Specialist",
+      civilizationFunction: "Advances precision and mastery",
+      archetypalVoice: "precise, refined, detail-oriented phrasing",
+      environments: ["Detail specialists", "Boundary definers", "Measurement experts"],
     },
   },
   Aequilibris: {
@@ -510,6 +561,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       ctas: ["Find balance", "Explore", "Learn more"],
       disclaimers: ["Individual results may vary."],
     },
+    preview: {
+      humanExpression: "The Balancer",
+      civilizationFunction: "Maintains social and systemic balance",
+      archetypalVoice: "balanced, regulating, harmonizing language",
+      environments: ["Bridge builders", "Mediators", "Balance keepers"],
+    },
   },
   Obscurion: {
     voice: {
@@ -561,6 +618,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       subheads: ["Subtle. Interpretive. Rich."],
       ctas: ["Discover", "Explore", "Dive deeper"],
       disclaimers: ["For informational purposes."],
+    },
+    preview: {
+      humanExpression: "The Strategist",
+      civilizationFunction: "Protects society from blind spots",
+      archetypalVoice: "indirect, inferential, pattern-detecting language",
+      environments: ["Veil holders", "Mystery preservers", "Threshold guardians"],
     },
   },
   Vectoris: {
@@ -614,6 +677,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       ctas: ["Move forward", "Get started", "Explore"],
       disclaimers: ["Individual progress may vary."],
     },
+    preview: {
+      humanExpression: "The Driver",
+      civilizationFunction: "Pushes society toward goals",
+      archetypalVoice: "direct, linear, goal-driven phrasing",
+      environments: ["Path finders", "Trajectory setters", "Vector definers"],
+    },
   },
   Structoris: {
     voice: {
@@ -665,6 +734,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       subheads: ["Architecture for progress."],
       ctas: ["Build", "Explore", "Learn more"],
       disclaimers: ["Results depend on structure and execution."],
+    },
+    preview: {
+      humanExpression: "The Architect",
+      civilizationFunction: "Builds the infrastructure of civilization",
+      archetypalVoice: "frameworks, sequences, architectural logic",
+      environments: ["Framework builders", "Architects", "Order imposers"],
     },
   },
   Innovaris: {
@@ -718,6 +793,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       ctas: ["Innovate", "Discover", "Explore"],
       disclaimers: ["Individual outcomes may vary."],
     },
+    preview: {
+      humanExpression: "The Disruptor",
+      civilizationFunction: "Breaks stagnation and invents the new",
+      archetypalVoice: "leaps, recombinations, unexpected turns",
+      environments: ["Prototype makers", "First movers", "Paradigm shifters"],
+    },
   },
   Fluxionis: {
     voice: {
@@ -765,6 +846,12 @@ export const ARCHETYPE_CONTRACT_MAP: ArchetypeContractMap = {
       subheads: ["Adaptive. Shifting. Fluent."],
       ctas: ["Flow", "Adapt", "Explore"],
       disclaimers: ["Individual results may vary."],
+    },
+    preview: {
+      humanExpression: "The Adapter",
+      civilizationFunction: "Helps society adapt to change",
+      archetypalVoice: "fluid, adaptive, shape-shifting phrasing",
+      environments: ["Adaptation specialists", "Change agents", "Transition guides"],
     },
   },
 };

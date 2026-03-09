@@ -98,7 +98,7 @@ Rows with empty/`—` values are filtered out (`hasValue`).
 - **Source:** `IGNIS_V1_ARTIFACTS` in `lib/exemplar-store.ts` — v1 base path.
 - **URLs:** `vectorZero`, `lightSignature`, `finalBeautyField` (marketing_background, light_signature, share_card).
 - **API:** `/api/beauty/[reportId]` for `exemplar-Ignispectrum` loads v1 manifest directly; uses `IGNIS_V1_ARTIFACTS` when manifest missing.
-- **Glyph:** `public/glyphs/ignis.svg` (canonical); `ignis_mark.svg` for proof overlay.
+- **Glyph:** `public/glyphs/ignis.svg` (canonical, glyph-law); `public/icons/ignis_icon.svg` (UI icon, non-canonical).
 - **Overlay:** ArchetypeArtifactCard `showGlyphOverlay`; PreviewCarousel `glyphOverlayForIgnis` — only when Ignis exemplar.
 
 ---

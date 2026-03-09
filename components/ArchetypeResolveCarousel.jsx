@@ -57,6 +57,7 @@ function buildCarouselSequence(finalArchetype, cycleCount) {
  * @param {() => void} onSettle - Optional. Called when final image has visually settled (start of resolve_hold). Use for in-sync terminal copy.
  * @param {string} [className] - Optional wrapper class
  * @param {object} [config] - Override CAROUSEL_CONFIG (cycleDurationMs, cycleCount, resolveHoldMs)
+ * @param {string} [finalImageUrl] - Override final resolve image (e.g. share_card; bypasses arc-static poster)
  */
 export default function ArchetypeResolveCarousel({
   finalArchetype = "Ignispectrum",
@@ -64,6 +65,7 @@ export default function ArchetypeResolveCarousel({
   onSettle,
   className = "",
   config = {},
+  finalImageUrl,
 }) {
   const cfg = { ...CAROUSEL_CONFIG, ...config };
   const sequence = buildCarouselSequence(finalArchetype, cfg.cycleCount);
@@ -73,7 +75,7 @@ export default function ArchetypeResolveCarousel({
   const resolvedRef = useRef(false);
 
   const currentArchetype = sequence[index];
-  const finalPath = getArchetypeStaticImagePathOrFallback(finalArchetype);
+  const finalPath = finalImageUrl ?? getArchetypeStaticImagePathOrFallback(finalArchetype);
 
   const emitResolve = useCallback(() => {
     if (resolvedRef.current) return;

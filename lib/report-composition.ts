@@ -40,10 +40,17 @@ function keyMovesToPracticePhrase(moves: string[]): string {
 }
 
 /** Returns one sentence for Step 1. Calm, observational; not bureaucratic. Does not repeat "This resolves into X". */
-export function composeArchetypeOpening(profile: { dominantArchetype?: string }): string[] {
+export function composeArchetypeOpening(
+  profile: { dominantArchetype?: string },
+  config?: { displayName?: string; teaser?: { humanExpression?: string } } | null,
+): string[] {
   const arch = profile?.dominantArchetype ?? "Ignispectrum";
-  const config = getArchetypePreviewConfig(arch);
-  const displayName = config?.displayName ?? (typeof arch === "string" ? arch.toUpperCase() : "IGNISPECTRUM");
+  const cfg = config ?? getArchetypePreviewConfig(arch);
+  const displayName = cfg?.displayName ?? (typeof arch === "string" ? arch.toUpperCase() : "IGNISPECTRUM");
+  const humanExpression = cfg?.teaser?.humanExpression;
+  if (humanExpression && humanExpression !== "—") {
+    return [`This identity operates as the ${humanExpression} within the ${displayName} regime.`];
+  }
   return [`This identity operates within the ${displayName} regime.`];
 }
 

@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import LigsFooter from "@/components/LigsFooter";
 import { track } from "@/lib/analytics";
 import { setBeautyUnlocked } from "@/lib/landing-storage";
 
@@ -45,94 +44,129 @@ function BeautySuccessContent() {
   if (!sessionId || status === "loading" || status === "error") {
     const isError = status === "error" || !sessionId;
     return (
-      <>
-        <main className="beauty-theme min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
-          <div className="max-w-md w-full beauty-form-card rounded-3xl px-8 py-12 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+        <div className="w-full max-w-2xl min-w-0">
+          <div
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+            style={{
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+            }}
+          >
             {isError ? (
               <>
-                <p className="beauty-body text-lg beauty-text-inverse font-normal mb-6">
+                <p className="text-base mb-6" style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
                   {!sessionId ? "Missing checkout session." : "Payment verification failed."}
                 </p>
                 <Link
                   href="/origin"
-                  className="inline-block px-6 py-3 bg-[#7A4FFF] text-white text-sm font-semibold rounded-lg hover:opacity-90"
+                  className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50 touch-manipulation"
+                  style={{ color: "#c8c8cc" }}
                 >
-                  Back to /origin
+                  Back to Origin
                 </Link>
               </>
             ) : (
-              <p className="beauty-body beauty-text-muted">Verifying payment…</p>
+              <p className="text-sm" style={{ color: "#9a9aa0", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+                Verifying payment…
+              </p>
             )}
           </div>
-        </main>
-        <LigsFooter />
-      </>
+          <p
+            className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            style={{ fontFamily: "inherit", color: "#8a8a90" }}
+          >
+            (L)IGS — Human WHOIS Resolution Engine
+          </p>
+        </div>
+      </div>
     );
   }
 
   if (prePurchase || !reportId) {
     return (
-      <>
-        <main className="beauty-theme min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32">
-          <div className="max-w-2xl mx-auto text-center space-y-8">
-            <h1 className="beauty-heading text-2xl sm:text-3xl lg:text-4xl tracking-wide beauty-text-inverse">
-              You&apos;re Unlocked!
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+        <div className="w-full max-w-2xl min-w-0">
+          <div
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+            style={{
+              boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+            }}
+          >
+            <h1 className="text-xl sm:text-2xl font-semibold tracking-wide mb-4" style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+              You&apos;re Unlocked
             </h1>
-            <p className="beauty-body text-lg beauty-text-muted font-normal">
+            <p className="text-sm leading-relaxed mb-8" style={{ color: "#9a9aa0" }}>
               Generate your Light Signature report now.
             </p>
-            <div>
-              <Link
-                href="/beauty/start"
-                className="inline-block px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/50"
-              >
-                Generate my report
-              </Link>
-            </div>
+            <Link
+              href="/beauty/start"
+              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50 touch-manipulation"
+              style={{ color: "#c8c8cc" }}
+            >
+              Generate my report
+            </Link>
           </div>
-        </main>
-        <LigsFooter />
-      </>
+          <p
+            className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            style={{ fontFamily: "inherit", color: "#8a8a90" }}
+          >
+            (L)IGS — Human WHOIS Resolution Engine
+          </p>
+        </div>
+      </div>
     );
   }
 
   const viewUrl = `/beauty/view?reportId=${encodeURIComponent(reportId)}`;
 
   return (
-    <>
-      <main className="beauty-theme min-h-screen font-sans relative px-6 sm:px-16 lg:px-32 py-24 sm:py-32">
-        <div className="max-w-2xl mx-auto text-center space-y-8">
-          <h1 className="beauty-heading text-2xl sm:text-3xl lg:text-4xl tracking-wide beauty-text-inverse">
-            Your Light Identity Sequence Is Complete.
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+      <div className="w-full max-w-2xl min-w-0">
+        <div
+          className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+          style={{
+            boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          <h1 className="text-xl sm:text-2xl font-semibold tracking-wide mb-4" style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Your Light Identity Sequence Is Complete
           </h1>
-          <p className="beauty-body text-lg beauty-text-muted font-normal">
+          <p className="text-sm leading-relaxed mb-8" style={{ color: "#9a9aa0" }}>
             We&apos;ve sent your report to your email. You can also view it anytime using the link below.
           </p>
-          <div>
-            <Link
-              href={viewUrl}
-              className="inline-block px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors focus:outline-none focus:ring-2 focus:ring-[#7A4FFF]/50"
-            >
-              View Your Report
-            </Link>
-          </div>
-          <p className="beauty-body text-sm beauty-text-muted font-normal">
+          <Link
+            href={viewUrl}
+            className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50 touch-manipulation"
+            style={{ color: "#c8c8cc" }}
+          >
+            View Your Report
+          </Link>
+          <p className="mt-6 text-xs" style={{ color: "#7a7a80" }}>
             If you don&apos;t see the email within a few minutes, check your spam folder.
           </p>
         </div>
-      </main>
-      <LigsFooter />
-    </>
+        <p
+          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+          style={{ fontFamily: "inherit", color: "#8a8a90" }}
+        >
+          (L)IGS — Human WHOIS Resolution Engine
+        </p>
+      </div>
+    </div>
   );
 }
 
 export default function BeautySuccessPage() {
   return (
-    <Suspense fallback={
-      <main className="beauty-theme min-h-screen font-sans relative flex flex-col items-center justify-center px-6 py-24">
-        <p className="beauty-body beauty-text-muted">Loading…</p>
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+          <p className="text-sm font-mono" style={{ color: "#9a9aa0" }}>
+            Loading…
+          </p>
+        </div>
+      }
+    >
       <BeautySuccessContent />
     </Suspense>
   );

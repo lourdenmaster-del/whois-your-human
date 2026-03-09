@@ -393,6 +393,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑09 (Canonical archetype descriptive layers)
+
+**Contract preview block:** Extended `ArchetypeContract` with `preview: { humanExpression, civilizationFunction, archetypalVoice, environments }` for all 12 archetypes. **Adapter:** `getArchetypePreviewDescriptor(archetype)` in `src/ligs/archetypes/adapters.ts` returns preview from contract. **archetype-preview-config.js:** Teaser content (civilizationFunction, environments) now sourced from contract via adapter; removed duplicate `TEASER_BY_ARCHETYPE`. Preview/report pages read civilization function from canonical contract. No resolver, timing, layout, or image mapping changes.
+
 ## Verification Log – 2026‑03‑08 (Archetype public asset name cleanup)
 
 **Standardized naming:** All archetype image folders renamed to `public/{archetype}-images/` (e.g. `aequilibris-images`, `fluxionis-images`). Files: `{archetype}-prime1.png`, `prime2`, `prime3` (fixed `innovaros_prime3.png` → `innovaris-prime3.png`). `lib/archetype-public-assets.ts` updated to match. No API or preview logic changed.

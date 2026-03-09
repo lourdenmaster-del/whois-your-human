@@ -1,6 +1,6 @@
 /**
- * GET /api/dev/glyph-debug?name=ignis_mark
- * Dev-only: audits glyph SVG file. Returns metadata for source-of-truth verification.
+ * GET /api/dev/glyph-debug?name=ignis
+ * Dev-only: audits glyph or icon SVG. Use ?name=ignis for canonical glyph, ?name=ignis_icon for UI icon.
  */
 
 import { NextResponse } from "next/server";
@@ -8,6 +8,7 @@ import { join } from "path";
 import { readFile } from "fs/promises";
 
 const GLYPH_DIR = join(process.cwd(), "public", "glyphs");
+const ICONS_DIR = join(process.cwd(), "public", "icons");
 
 function allowDev(): boolean {
   return (
@@ -42,7 +43,10 @@ export async function GET(req: Request) {
   const name = searchParams.get("name")?.trim() || "ignis";
   const baseName = name.replace(/\.svg$/i, "");
   const fileName = baseName.endsWith(".svg") ? baseName : `${baseName}.svg`;
-  const resolvedFsPath = join(GLYPH_DIR, fileName);
+  const resolvedFsPath =
+    baseName === "ignis_icon"
+      ? join(ICONS_DIR, "ignis_icon.svg")
+      : join(GLYPH_DIR, fileName);
 
   try {
     const buf = await readFile(resolvedFsPath, "utf8");

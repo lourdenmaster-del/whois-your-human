@@ -22,6 +22,7 @@ function ArtifactReveal({
   finalArtifactImage,
   archetypeImagePath,
   displayName,
+  humanExpression,
 }) {
   // ONE base image for stages 3–5. Prefer Light Signature (best for final assembled look).
   const baseImage = lightSignatureImage ?? finalArtifactImage ?? baselineImage ?? imageSrc;
@@ -112,6 +113,9 @@ function ArtifactReveal({
                 >
                   {displayName}
                 </span>
+                {humanExpression && humanExpression !== "—" && (
+                  <span className="text-[10px] text-[#c8c8cc] mt-0.5">{humanExpression}</span>
+                )}
               </div>
             )}
           </>
@@ -150,6 +154,7 @@ export default function ReportStep({
     finalArtifactImage,
     archetypeImagePath,
     displayName,
+    humanExpression,
   } = step;
 
   const hasArtifactAssets =
@@ -185,6 +190,7 @@ export default function ReportStep({
           finalArtifactImage={finalArtifactImage}
           archetypeImagePath={archetypeImagePath}
           displayName={displayName}
+          humanExpression={humanExpression}
         />
       )}
       {showContinue && onContinue && !isLast && (

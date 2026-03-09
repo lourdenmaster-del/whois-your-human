@@ -1,6 +1,7 @@
 /**
  * Structured sample report content for the Ignispectrum exemplar.
- * Used by /beauty/sample-report to demonstrate full report depth.
+ * Static content for Ignispectrum exemplar. Previously used by /beauty/sample-report;
+ * that route now redirects to /origin. Kept for reference.
  * Tone: observational, scientific, identity-analysis. No astrology or marketing.
  */
 
