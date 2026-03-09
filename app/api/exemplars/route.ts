@@ -13,7 +13,10 @@ import {
   exemplarManifestPath,
   loadExemplarManifest,
 } from "@/lib/exemplar-store";
-import { getArchetypePublicAssetUrls } from "@/lib/archetype-public-assets";
+import {
+  getArchetypePublicAssetUrls,
+  getArchetypePublicAssetUrlsWithRotation,
+} from "@/lib/archetype-public-assets";
 
 const IGNIS_ARCHETYPE = "Ignispectrum";
 const IGNIS_VERSION = "v2";
@@ -37,7 +40,10 @@ export async function GET(req: Request) {
       } else {
         let manifest = await loadExemplarManifestWithPreferred(archetype, version);
         if (manifest == null) {
-          const publicUrls = getArchetypePublicAssetUrls(archetype);
+          // Deterministic rotation: archetype+version => stable variation across exemplars
+          const publicUrls =
+            getArchetypePublicAssetUrlsWithRotation(archetype, `${archetype}:${version}`) ??
+            getArchetypePublicAssetUrls(archetype);
           if (publicUrls) {
             manifest = {
               archetype,
@@ -55,7 +61,9 @@ export async function GET(req: Request) {
     }
 
     if (ignisManifest == null) {
-      const ignisPublic = getArchetypePublicAssetUrls(IGNIS_ARCHETYPE);
+      const ignisPublic =
+        getArchetypePublicAssetUrlsWithRotation(IGNIS_ARCHETYPE, `${IGNIS_ARCHETYPE}:${IGNIS_VERSION}`) ??
+        getArchetypePublicAssetUrls(IGNIS_ARCHETYPE);
       manifests.push({
         archetype: IGNIS_ARCHETYPE,
         version: IGNIS_VERSION,

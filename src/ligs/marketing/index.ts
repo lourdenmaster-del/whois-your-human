@@ -33,3 +33,12 @@ export {
   type OverlaySpecValidationResult,
   type OverlaySpecIssue,
 } from "./validateOverlaySpec";
+
+export {
+  buildIdentityOverlaySpec,
+  generateLirId,
+  IDENTITY_TEMPLATE_ID,
+  type IdentityOverlaySpec,
+  type IdentityTemplateId,
+  type BuildIdentityOverlaySpecInput,
+} from "./identity-spec";

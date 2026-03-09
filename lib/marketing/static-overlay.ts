@@ -2,10 +2,15 @@
  * ONE canonical static overlay for square_card_v1.
  * No branching. No optional steps. Deterministic layer order.
  * Used by /api/image/compose and all compose flows.
+ *
+ * renderIdentityCardOverlay: scientific identity share card (square_identity_v1).
+ * Top-left header, bottom-left identity block, bottom-right system mark.
  */
 
 import sharp from "sharp";
 import { getLogoStyleWithDefaults, type MarketingOverlaySpec } from "@/src/ligs/marketing";
+import { getIdentityTemplate } from "@/src/ligs/marketing/templates";
+import type { IdentityOverlaySpec } from "@/src/ligs/marketing/identity-spec";
 import { getArchetypeStaticImagePath } from "@/lib/archetype-static-images";
 
 const ARCHETYPE_IMAGE_CONFIG = {
@@ -258,4 +263,165 @@ export async function renderStaticCardOverlay(
     glyphPath: archetypeImagePath,
     rasterDims,
   };
+}
+
+/** Format ISO timestamp for display: "2026-03-09 12:44 UTC" */
+function formatGeneratedTimestamp(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const h = String(d.getUTCHours()).padStart(2, "0");
+    const min = String(d.getUTCMinutes()).padStart(2, "0");
+    return `${y}-${m}-${day} ${h}:${min} UTC`;
+  } catch {
+    return iso;
+  }
+}
+
+/** Load small archetype mark for identity header. Returns null if not available. */
+async function loadSmallArchetypeMark(
+  markArchetype: string,
+  sizePx: number
+): Promise<Buffer | null> {
+  const imagePath = getArchetypeStaticImagePath(markArchetype);
+  if (!imagePath) return null;
+  try {
+    const fs = await import("node:fs/promises");
+    const { join } = await import("path");
+    const fullPath = join(process.cwd(), "public", imagePath.startsWith("/") ? imagePath.slice(1) : imagePath);
+    const pngBuf = await fs.readFile(fullPath);
+    return sharp(pngBuf).resize(sizePx, sizePx).png().toBuffer();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Render scientific identity share card overlay (square_identity_v1).
+ * Background: full-bleed, no blur, no opacity reduction.
+ * Top-left: ARCHETYPE SIGNATURE + archetype name + optional small mark.
+ * Bottom-left: LIGHT IDENTITY REPORT block (name, archetype, LIR-ID, timestamp).
+ * Bottom-right: (L)IGS WHOIS PROTOCOL — HUMAN.
+ * Optional: ultra-faint 1% measurement grid.
+ */
+export async function renderIdentityCardOverlay(
+  spec: IdentityOverlaySpec,
+  backgroundBuffer: Buffer
+): Promise<Buffer> {
+  const size = spec.size ?? 1200;
+  const placement = getIdentityTemplate(spec.templateId);
+
+  let img = sharp(backgroundBuffer)
+    .resize(size, size)
+    .extract({ left: 0, top: 0, width: size, height: size });
+
+  // Optional: nearly subliminal grid (0.3% opacity — barely registers)
+  const gridOpacity = 0.003;
+  const gridStep = Math.round(size / 16);
+  const gridLines: string[] = [];
+  for (let i = 0; i <= size; i += gridStep) {
+    gridLines.push(`<line x1="${i}" y1="0" x2="${i}" y2="${size}" stroke="rgba(255,255,255,${gridOpacity})" stroke-width="1"/>`);
+    gridLines.push(`<line x1="0" y1="${i}" x2="${size}" y2="${i}" stroke="rgba(255,255,255,${gridOpacity})" stroke-width="1"/>`);
+  }
+  const gridSvg = Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${gridLines.join("\n")}</svg>`
+  );
+  img = img.composite([{ input: gridSvg, left: 0, top: 0 }]);
+
+  const px = (box: { x: number; y: number; w: number; h: number }) => ({
+    x: Math.round(box.x * size),
+    y: Math.round(box.y * size),
+    w: Math.round(box.w * size),
+    h: Math.round(box.h * size),
+  });
+
+  // Top-left header: ARCHETYPE SIGNATURE (micro-label) + archetype name + optional mark (secondary)
+  const header = px(placement.headerBlock);
+  const headerParts: string[] = [];
+  let headerY = header.y + 20;
+  headerParts.push(
+    `<text x="${header.x}" y="${headerY}" font-family="monospace,sans-serif" font-size="9" font-weight="400" fill="rgba(255,255,255,0.52)" letter-spacing="0.12em">ARCHETYPE SIGNATURE</text>`
+  );
+  headerY += 28;
+  headerParts.push(
+    `<text x="${header.x}" y="${headerY}" font-family="monospace,sans-serif" font-size="16" font-weight="500" fill="rgba(255,255,255,0.88)">${escapeXml(spec.archetypeName)}</text>`
+  );
+
+  // Optional small archetype mark to the right of archetype name (secondary, low prominence)
+  if (spec.markArchetype) {
+    const markSize = Math.round(size * 0.028);
+    const markBuf = await loadSmallArchetypeMark(spec.markArchetype, markSize);
+    if (markBuf) {
+      const markX = header.x + 120;
+      const markY = headerY - 14;
+      const b64 = markBuf.toString("base64");
+      headerParts.push(
+        `<image href="data:image/png;base64,${b64}" x="${markX}" y="${markY}" width="${markSize}" height="${markSize}" opacity="0.62"/>`
+      );
+    }
+  }
+
+  const headerSvg = Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">${headerParts.join("\n")}</svg>`
+  );
+  img = img.composite([{ input: headerSvg, left: 0, top: 0 }]);
+
+  // Bottom-left identity block — minimal backing for readability, embedded feel
+  // Font sizes increased (12–16px) for in-app legibility at ~280–320px display; remains restrained
+  const idBlock = px(placement.identityBlock);
+  const generatedStr = formatGeneratedTimestamp(spec.generatedAt);
+  const lineH = 22;
+  const idLines = [
+    "LIGHT IDENTITY REPORT",
+    "",
+    `Name: ${escapeXml(spec.subjectName)}`,
+    `Archetype: ${escapeXml(spec.archetypeName)}`,
+    `LIR-ID: ${escapeXml(spec.lirId)}`,
+    "",
+    `Generated: ${generatedStr}`,
+  ];
+  if (spec.systemPhrase) {
+    idLines.splice(1, 0, spec.systemPhrase);
+  }
+  // Minimal backing: extremely restrained local darkening (6% black) for readability; no panel feel
+  const backPad = 4;
+  const backX = Math.max(0, idBlock.x - backPad);
+  const backY = Math.max(0, idBlock.y - backPad);
+  const backW = Math.min(idBlock.w + backPad * 2, size - backX);
+  const backH = idLines.length * lineH + 24;
+  const backSvg = `<rect x="${backX}" y="${backY}" width="${backW}" height="${backH}" rx="0" fill="rgba(0,0,0,0.08)"/>`;
+  const idParts: string[] = [backSvg];
+  let idY = idBlock.y + 16;
+  for (const line of idLines) {
+    if (line === "") {
+      idY += 6;
+      continue;
+    }
+    const fontSize = line.startsWith("LIGHT IDENTITY") ? 13 : line.startsWith("Generated") ? 12 : 16;
+    const fill = line.startsWith("LIGHT IDENTITY") ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.9)";
+    const weight = line.startsWith("LIGHT IDENTITY") ? "500" : "400";
+    idParts.push(
+      `<text x="${idBlock.x}" y="${idY}" font-family="monospace,sans-serif" font-size="${fontSize}" font-weight="${weight}" fill="${fill}">${escapeXml(line)}</text>`
+    );
+    idY += lineH;
+  }
+  const idSvg = Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">${idParts.join("\n")}</svg>`
+  );
+  img = img.composite([{ input: idSvg, left: 0, top: 0 }]);
+
+  // Bottom-right system mark — very small, quiet, system-stamp feel
+  const sys = px(placement.systemMarkBlock);
+  const sysRightX = sys.x + sys.w;
+  const sysSvg = Buffer.from(
+    `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+      <text x="${sysRightX}" y="${sys.y + 10}" text-anchor="end" font-family="monospace,sans-serif" font-size="7" font-weight="400" fill="rgba(255,255,255,0.38)" letter-spacing="0.06em">(L)IGS</text>
+      <text x="${sysRightX}" y="${sys.y + 22}" text-anchor="end" font-family="monospace,sans-serif" font-size="6" font-weight="400" fill="rgba(255,255,255,0.3)">WHOIS PROTOCOL — HUMAN</text>
+    </svg>`
+  );
+  img = img.composite([{ input: sysSvg, left: 0, top: 0 }]);
+
+  return img.png().toBuffer();
 }

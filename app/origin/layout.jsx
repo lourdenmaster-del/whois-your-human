@@ -9,12 +9,12 @@ const ORIGIN_SERIF = "Georgia, 'Times New Roman', Times, serif";
 export default function OriginLayout({ children }) {
   return (
     <div
-      className="beauty-theme relative min-h-screen"
+      className="beauty-theme whois-origin relative min-h-screen"
       style={{
         color: "var(--text-on-dark)",
         fontFamily: ORIGIN_SERIF,
         "--font-beauty-serif": ORIGIN_SERIF,
-        background: "transparent",
+        background: "#000",
       }}
     >
       <div className="relative" style={{ zIndex: 1 }}>

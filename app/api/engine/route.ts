@@ -34,9 +34,9 @@ import {
 import { saveImageToBlob, getImageUrlFromBlob } from "@/lib/report-store";
 import { buildMinimalVoiceProfile } from "@/lib/marketing/minimal-profile";
 import { pickBackgroundSource } from "@/lib/ligs-studio-utils";
-import { buildOverlaySpecWithCopy } from "@/src/ligs/marketing";
+import { buildOverlaySpecWithCopy, buildIdentityOverlaySpec } from "@/src/ligs/marketing";
 import { createArchetypeGradientSvgBuffer } from "@/lib/marketing/gradient-background";
-import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
+import { renderStaticCardOverlay, renderIdentityCardOverlay } from "@/lib/marketing/static-overlay";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import {
   saveKeeperManifest,
@@ -566,24 +566,33 @@ export async function POST(req: Request) {
           }
         }
 
-        // Step 3: Generate share_card
+        // Step 3: Compose Beauty share_card (scientific identity) from Light Signature
+        // Uses Light Signature (imageUrls[1]) as background + identity overlay. No DALL·E share_card call.
         if (!shareCardUrl) {
           try {
-            const res = await fetch(`${origin}/api/image/generate`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: imageGenBody("share_card", "share-card"),
-            });
-            const data = (await res.json()) as { images?: Array<{ url?: string }>; providerPrompt?: { positive: string; negative: string; full: string } };
-            if (data?.providerPrompt) shareCardSpec = data.providerPrompt;
-            const src = pickBackgroundSource(data?.images ? { images: data.images } : null);
-            if (src?.url) {
-              const imgRes = await fetch(src.url);
+            const sigUrls = (payloadRecord.imageUrls as string[] | undefined) ?? [];
+            const lightSignatureUrl = sigUrls[1] ?? sigUrls[2] ?? sigUrls[0];
+            shareCardSpec = signaturePrompts[1] ?? signaturePrompts[2] ?? signaturePrompts[0] ?? null;
+            if (lightSignatureUrl) {
+              const imgRes = await fetch(lightSignatureUrl);
               if (imgRes.ok) {
-                const buf = await imgRes.arrayBuffer();
-                shareCardUrl = (await saveImageToBlob(reportId, "share_card", buf, imgRes.headers.get("content-type") || "image/png")) ?? undefined;
+                const bgBuf = Buffer.from(await imgRes.arrayBuffer());
+                const identitySpec = buildIdentityOverlaySpec({
+                  subjectName: fullName || "Subject",
+                  archetypeName: archetypeName || "Unknown",
+                  reportId,
+                  generatedAt: new Date().toISOString(),
+                  markArchetype: archetypeName || undefined,
+                });
+                const composedBuf = await renderIdentityCardOverlay(identitySpec, bgBuf);
+                shareCardUrl =
+                  (await saveImageToBlob(reportId, "share_card", new Uint8Array(composedBuf).buffer, "image/png")) ?? undefined;
                 if (shareCardUrl) payloadRecord.shareCardUrl = shareCardUrl;
+                log("info", "share_card_composed", { requestId, reportId });
               }
+            }
+            if (!shareCardUrl) {
+              log("warn", "share_card_skipped_no_signature", { requestId, reportId });
             }
           } catch (e) {
             log("warn", "share_card_failed", { requestId, reportId, message: e instanceof Error ? e.message : String(e) });

@@ -24,7 +24,8 @@ import {
 import { deriveIdempotencyKey } from "@/lib/idempotency-store";
 import { LIGS_ARCHETYPES, FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import { GLOBAL_LOGO_PATH } from "@/lib/brand";
-import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
+import { renderStaticCardOverlay, renderIdentityCardOverlay } from "@/lib/marketing/static-overlay";
+import { buildIdentityOverlaySpec } from "@/src/ligs/marketing/identity-spec";
 import { buildGlyphReferenceLogoMarkPrompt } from "@/lib/marketing/glyphReferencePrompt";
 import { allowExternalWrites, isDryRun } from "@/lib/runtime-mode";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
@@ -140,7 +141,6 @@ export async function POST(req: Request) {
     const profile = buildMinimalVoiceProfile(arch, { deterministicId: `exemplar_${arch}_${version}` });
     const exemplarBaseKey = "a1b2c3d4-e5f6-4789-a012-345678901234"; // fixed base for exemplar derivation
     const idempotencyKeyBg = deriveIdempotencyKey(exemplarBaseKey, `${arch}-${version}-marketing_background`);
-    const idempotencyKeyShare = deriveIdempotencyKey(exemplarBaseKey, `${arch}-${version}-share_card`);
 
     let marketingBackgroundUrl: string | null = null;
     let shareCardUrl: string | null = null;
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
             size: "1024",
             count: 1,
           },
-          variationKey: `exemplar-${version}`,
+          variationKey: `exemplar-${arch}-${version}`,
           idempotencyKey: idempotencyKeyBg,
         }),
       });
@@ -209,54 +209,37 @@ export async function POST(req: Request) {
       backgroundBuffer = await createDryBackgroundPlaceholder();
     }
 
-    // 2) share_card — non-Ignis: generate via DALL·E. Ignis: skip; use composed image (step 3).
-    if (isLive && arch !== "Ignispectrum") {
-      const res = await fetch(`${baseUrl}/api/image/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          profile,
-          purpose: "share_card",
-          image: { aspectRatio: "16:9", size: "1024", count: 1 },
-          variationKey: `exemplar-${version}`,
-          idempotencyKey: idempotencyKeyShare,
-        }),
+    // 2) share_card — ALL archetypes: compose scientific identity card from marketing_background (no DALL·E)
+    // Uses same pipeline as real Beauty report share cards: top-left archetype header, bottom-left metadata, bottom-right system mark
+    if (isLive) {
+      const exemplarReportId = `exemplar-${arch}`;
+      const createdAt = new Date().toISOString();
+      const identitySpec = buildIdentityOverlaySpec({
+        subjectName: "Sample Subject",
+        archetypeName: arch,
+        reportId: exemplarReportId,
+        generatedAt: createdAt,
+        markArchetype: arch,
+        systemPhrase: "Human identity vector resolved.",
       });
-      const data = (await res.json()) as Record<string, unknown>;
-      if (!res.ok) {
-        log("warn", "exemplar_share_card_failed", {
+      try {
+        const shareCardBuf = await renderIdentityCardOverlay(identitySpec, backgroundBuffer);
+        shareCardUrl = await saveExemplarToBlob(
+          exemplarPath(arch, version, "share_card"),
+          shareCardBuf,
+          "image/png"
+        );
+        providerPrompts.share_card = { positive: "[composed identity overlay]", negative: "", full: "[composed]" };
+      } catch (e) {
+        log("warn", "exemplar_share_card_compose_failed", {
           requestId,
           archetype: arch,
-          status: res.status,
-          error: data.message ?? data.error,
+          error: e instanceof Error ? e.message : String(e),
         });
-      } else {
-        providerPrompts.share_card = (data.providerPrompt as Record<string, string>) ?? undefined;
-        const scSource = pickBackgroundSource(data);
-        if (scSource?.url || scSource?.b64) {
-          let scBuf: Buffer;
-          if (scSource.b64) {
-            scBuf = Buffer.from(scSource.b64.replace(/^data:image\/\w+;base64,/, ""), "base64");
-          } else {
-            const scRes = await fetch(scSource.url!);
-            if (scRes.ok) {
-              scBuf = Buffer.from(await scRes.arrayBuffer());
-            } else {
-              scBuf = Buffer.alloc(0);
-            }
-          }
-          if (scBuf.length > 0) {
-            shareCardUrl = await saveExemplarToBlob(
-              exemplarPath(arch, version, "share_card"),
-              scBuf,
-              "image/png"
-            );
-          }
-        }
       }
     }
 
-    // 3) compose (always; free)
+    // 3) compose exemplar_card (always; free) — marketing-style for Light Signature slot; share_card above is identity-style
     const overlayCopy = getDefaultOverlayCopy(arch);
     const overlaySpec = buildOverlaySpecWithCopy(
       profile,
@@ -300,14 +283,6 @@ export async function POST(req: Request) {
         pngBuffer,
         "image/png"
       );
-      // Ignis: share_card = composed from same background (coherence, no blanks)
-      if (arch === "Ignispectrum" && !shareCardUrl) {
-        shareCardUrl = await saveExemplarToBlob(
-          exemplarPath(arch, version, "share_card"),
-          pngBuffer,
-          "image/png"
-        );
-      }
     }
 
     const createdAt = new Date().toISOString();
@@ -384,7 +359,7 @@ export async function POST(req: Request) {
           providerUsed: "dall-e-3",
           providerChoice: {
             marketing_background: arch === "Ignispectrum" ? "dall-e-3 (field-first, center void)" : "dall-e-3 (no referenceImage)",
-            share_card: arch === "Ignispectrum" ? "compose (same as exemplar_card, coherence)" : "dall-e-3 (no referenceImage)",
+            share_card: "compose (identity overlay on marketing_background; all archetypes)",
             exemplar_card: "compose (archetype image from public/arc-static-images/ when markType=archetype)",
           },
           prompts: {

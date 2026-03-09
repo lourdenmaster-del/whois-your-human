@@ -22,8 +22,8 @@ const CAROUSEL_CONFIG = {
   cycleDurationStartMs: 380,
   /** Duration for last cycle image before final (slower) */
   cycleDurationEndMs: 580,
-  /** Number of archetypes to cycle through before resolve (excluding final) */
-  cycleCount: 6,
+  /** Number of archetypes to cycle through before resolve. 11 = one full pass through all 12 (others + final). */
+  cycleCount: 11,
   /** Duration of transition when landing on final archetype */
   resolveTransitionMs: 700,
   /** Hold duration on final archetype before considering "resolved" */
@@ -37,15 +37,16 @@ function getCycleDelayMs(index, cycleCount, startMs, endMs) {
   return Math.round(startMs + t * (endMs - startMs));
 }
 
-/** Build ordered sequence: cycle through N archetypes, then final. Excludes final from cycle. */
+/**
+ * Build ordered sequence: one full pass through all 12 archetypes, then final.
+ * Cycles through all "others" (11 archetypes excluding final), then settles on final.
+ * Ensures user perceives a complete scan of the class registry before resolution.
+ */
 function buildCarouselSequence(finalArchetype, cycleCount) {
   const final = finalArchetype?.trim?.() || "Ignispectrum";
   const others = LIGS_ARCHETYPES.filter((a) => a !== final);
-  /** Deterministic subset: take first N from others. If fewer than N, pad with repeated. */
-  const cycle = [];
-  for (let i = 0; i < cycleCount; i++) {
-    cycle.push(others[i % others.length]);
-  }
+  const n = Math.min(cycleCount, others.length);
+  const cycle = others.slice(0, n);
   return [...cycle, final];
 }
 

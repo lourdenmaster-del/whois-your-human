@@ -163,9 +163,15 @@ export default function BeautyViewClient() {
       );
     }
     if (!terminalComplete) {
-      return <PreviewRevealSequence profile={profile} onComplete={handleTerminalComplete} />;
+      return (
+        <PreviewRevealSequence
+          profile={profile}
+          reportId={reportId ?? profile?.reportId ?? ""}
+          onComplete={handleTerminalComplete}
+        />
+      );
     }
-    return <InteractiveReportSequence profile={profile} reportId={reportId} />;
+    return <InteractiveReportSequence profile={profile} />;
   }
 
   // No reportId
@@ -219,5 +225,5 @@ export default function BeautyViewClient() {
   }
 
   // Valid report: InteractiveReportSequence only
-  return <InteractiveReportSequence profile={profile} reportId={reportId} />;
+    return <InteractiveReportSequence profile={profile} />;
 }

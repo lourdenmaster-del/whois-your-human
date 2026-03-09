@@ -22,7 +22,6 @@ import { killSwitchResponse } from "@/lib/api-kill-switch";
 export async function POST(req: Request) {
   const kill = killSwitchResponse();
   if (kill) return kill;
-  console.log("SERVER KEY PREFIX:", (process.env.OPENAI_API_KEY || "").slice(0, 12));
   const requestId = crypto.randomUUID();
 
   /**

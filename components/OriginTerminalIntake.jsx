@@ -2,70 +2,63 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { parseDate, parseTime, normalizePlace } from "@/lib/terminal-intake/parseInputs";
+import { parseDate, parseTime } from "@/lib/terminal-intake/parseInputs";
 import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import {
   submitToBeautySubmit,
   submitToBeautyDryRun,
   prepurchaseBeautyDraft,
 } from "@/lib/engine-client";
-import { setBeautyUnlocked, setBeautyDraft, saveLastFormData, saveOriginIntake, isBeautyUnlocked } from "@/lib/landing-storage";
+import {
+  setBeautyUnlocked,
+  setBeautyDraft,
+  saveLastFormData,
+  saveOriginIntake,
+  isBeautyUnlocked,
+} from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 
-// LOCKDOWN: WAITLIST_ONLY=1 (default) = terminal-only, no CTA button; Enter → exemplar-Ignispectrum. Set to "0" to re-enable purchase.
 const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 
-const BOOT_LINES = [
-  "(L)IGS SYSTEM INITIALIZING",
-  "",
-  "Initializing Human WHOIS Resolution Engine…",
-  "Loading query interface…",
-  "Preparing identity query…",
-  "",
-  "SYSTEM READY",
-];
-
+/** Intake order: name first, email last. */
+const INTAKE_FIELDS = ["name", "date", "time", "place", "email"];
 const INTAKE_PROMPTS = {
-  name: "Enter name or designation, then press ENTER:",
-  date: "Enter birth date in any format, then press ENTER:",
-  time: "Enter birth time (or type \"unknown\"), then press ENTER:",
-  place: "Enter place of birth, then press ENTER:",
-  email: "Enter contact email, then press ENTER:",
+  name: "Enter name or designation:",
+  date: "Enter birth date:",
+  time: "Enter birth time, or type UNKNOWN:",
+  place: "Enter place of birth:",
+  email: "Enter contact email:",
 };
 
+const BOOT_LINES = [
+  "(L)IGS identity protocol initializing...",
+  "Human WHOIS registry online.",
+  "Press ENTER to begin.",
+];
+
 const PROCESSING_LINES = [
-  "Input parameters accepted.",
-  "",
-  "Resolving solar field conditions...",
-  "Resolving planetary environment...",
-  "Calculating light interaction vectors...",
+  "Resolving solar field...",
   "Mapping archetypal structure...",
-  "",
-  "Identity classification stabilized.",
+  "Identity record ready.",
 ];
 
-/** Staggered delays (ms) before each boot line. Index i = delay before showing line i. */
-const BOOT_DELAYS_MS = [
-  0,     // (L)IGS SYSTEM INITIALIZING
-  600,   // blank
-  1200,  // Initializing Human WHOIS Resolution Engine…
-  900,   // Loading query interface…
-  1600,  // Preparing identity query…
-  700,   // blank
-  1800,  // SYSTEM READY (dramatic pause)
-];
+const PROCESSING_DELAYS_MS = [900, 1200, 800];
 
-/** Staggered delays (ms) before each processing line. Action→[think]→next. Longer dwell for meaningful steps. */
-const PROCESSING_DELAYS_MS = [
-  0,     // Input parameters accepted.
-  700,   // blank
-  1400,  // Resolving solar field conditions...
-  1800,  // Resolving planetary environment...
-  1700,  // Calculating light interaction vectors...
-  2100,  // Mapping archetypal structure...
-  900,   // blank
-  1800,  // Identity classification stabilized.
-];
+/** Basic email format validation — local part @ domain.tld */
+function isValidEmail(s) {
+  if (!s || typeof s !== "string") return false;
+  const trimmed = s.trim().toLowerCase();
+  if (!trimmed) return false;
+  const at = trimmed.indexOf("@");
+  if (at <= 0 || at >= trimmed.length - 1) return false;
+  const local = trimmed.slice(0, at);
+  const domain = trimmed.slice(at + 1);
+  if (!local || !domain) return false;
+  if (!domain.includes(".")) return false;
+  const tld = domain.split(".").pop();
+  if (!tld || tld.length < 2) return false;
+  return true;
+}
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -82,13 +75,13 @@ export default function OriginTerminalIntake() {
   const redirectFiredRef = useRef(false);
   const countdownTimerRef = useRef(null);
   const formDataRef = useRef({});
-  const intakeStartedRef = useRef(false);
-  const phaseRef = useRef("boot");
+  const phaseRef = useRef("idle");
+  const bootCompleteHandledRef = useRef(false);
 
-  const [phase, setPhase] = useState("boot");
-  const [bootIndex, setBootIndex] = useState(0);
+  const [phase, setPhase] = useState("idle");
   const [lines, setLines] = useState([]);
   const [inputValue, setInputValue] = useState("");
+  const [inputVisible, setInputVisible] = useState(false);
   const [currentField, setCurrentField] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
@@ -100,9 +93,8 @@ export default function OriginTerminalIntake() {
   const [dateNeedsConfirm, setDateNeedsConfirm] = useState(null);
   const [processingIndex, setProcessingIndex] = useState(0);
   const [archetypePreviewShown, setArchetypePreviewShown] = useState(false);
-  const [waitlistState, setWaitlistState] = useState("idle"); // idle | running | done
-  const [countdownRemaining, setCountdownRemaining] = useState(null); // 3 | 2 | 1 | null
-  const [ctaVisible, setCtaVisible] = useState(false);
+  const [waitlistState, setWaitlistState] = useState("idle");
+  const [countdownRemaining, setCountdownRemaining] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
 
@@ -115,15 +107,6 @@ export default function OriginTerminalIntake() {
   const addLine = useCallback((text, type = "system") => {
     setLines((prev) => [...prev, { text, type }]);
   }, []);
-
-  const handleInitialContinue = useCallback(() => {
-    if (intakeStartedRef.current) return;
-    intakeStartedRef.current = true;
-    addLine("Human WHOIS query initiated.");
-    setPhase("intake");
-    setCurrentField("name");
-    addLine(INTAKE_PROMPTS.name);
-  }, [addLine]);
 
   useEffect(() => {
     formDataRef.current = formData;
@@ -152,7 +135,6 @@ export default function OriginTerminalIntake() {
     });
   }, []);
 
-  // Start countdown: chained setTimeout, one timer ref, explicit cleanup. Called when entering completion phase.
   const startRedirectCountdown = useCallback(() => {
     if (countdownTimerRef.current) return;
     let remaining = 3;
@@ -169,7 +151,6 @@ export default function OriginTerminalIntake() {
     countdownTimerRef.current = setTimeout(tick, 1000);
   }, [addLine, redirectNow]);
 
-  // Cleanup countdown timer on unmount
   useEffect(() => {
     return () => {
       if (countdownTimerRef.current) {
@@ -179,46 +160,103 @@ export default function OriginTerminalIntake() {
     };
   }, []);
 
-  // When we enter completion phase with countdown, start it once
   useEffect(() => {
     if (phase !== "completeAwaitingEnterRedirect" || countdownRemaining == null) return;
     startRedirectCountdown();
   }, [phase, countdownRemaining, startRedirectCountdown]);
 
-  // Boot sequence — staggered timing: quick steps, longer for resolution work, pause before SYSTEM READY
-  useEffect(() => {
-    if (phase !== "boot") return;
-    if (bootIndex >= BOOT_LINES.length) {
-      setPhase("waiting_enter");
+  const goToErrorAndComplete = useCallback(
+    (message) => {
+      setCtaError(message);
+      addLine(message);
+      addLine("");
+      addLine("Press ENTER or tap to continue");
+      setPhase("completeAwaitingEnterRedirect");
+      setCountdownRemaining(null);
+    },
+    [addLine]
+  );
+
+  const handleActivate = useCallback(() => {
+    if (phase !== "idle") return;
+    setPhase("booting");
+    let idx = 0;
+    const addNextBootLine = () => {
+      if (idx >= BOOT_LINES.length) {
+        setPhase("bootComplete");
+        return;
+      }
+      addLine(BOOT_LINES[idx]);
+      idx += 1;
+      if (idx < BOOT_LINES.length) {
+        setTimeout(addNextBootLine, 800);
+      } else {
+        setPhase("bootComplete");
+      }
+    };
+    setTimeout(addNextBootLine, 600);
+  }, [phase, addLine]);
+
+  const handleBootCompleteEnter = useCallback(() => {
+    if (phase !== "bootComplete" || bootCompleteHandledRef.current) return;
+    bootCompleteHandledRef.current = true;
+    setPhase("intake");
+    setCurrentField("name");
+    addLine(INTAKE_PROMPTS.name);
+    setInputVisible(true);
+    setInputValue("");
+  }, [phase, addLine]);
+
+  const handleDateConfirm = useCallback(() => {
+    if (currentField !== "date" || !dateNeedsConfirm) {
+      if (typeof window !== "undefined") {
+        console.debug("[OriginIntake] Date confirm skipped", { currentField, dateNeedsConfirm: !!dateNeedsConfirm });
+      }
       return;
     }
-    const delay = BOOT_DELAYS_MS[bootIndex] ?? 500;
-    const t = setTimeout(() => {
-      addLine(BOOT_LINES[bootIndex]);
-      setBootIndex((i) => i + 1);
-    }, delay);
-    return () => clearTimeout(t);
-  }, [phase, bootIndex, addLine]);
+    setFormData((f) => ({ ...f, birthDate: dateNeedsConfirm.iso }));
+    setDateNeedsConfirm(null);
+    setInputValue("");
+    const nextIdx = INTAKE_FIELDS.indexOf("date") + 1;
+    const nextField = INTAKE_FIELDS[nextIdx];
+    setCurrentField(nextField);
+    addLine(INTAKE_PROMPTS[nextField]);
+  }, [currentField, dateNeedsConfirm, addLine]);
 
-  // Explicit, mutually exclusive prompt/input rules. No overlap.
-  const showInitialContinuePrompt = phase === "waiting_enter";
+  const advanceToProcessing = useCallback(() => {
+    setPhase("processing");
+    setProcessingIndex(0);
+    addLine("Parameters accepted.");
+    addLine("");
+  }, [addLine]);
+
+  const showInputRow =
+    (phase === "idle" && inputVisible) ||
+    phase === "booting" ||
+    phase === "bootComplete" ||
+    (phase === "intake" && currentField) ||
+    (phase === "completeAwaitingEnterRedirect" && countdownRemaining == null);
+
+  const showIdlePrompt = phase === "idle";
+  const showBootCompletePrompt = phase === "bootComplete";
   const showCompleteEnterPrompt = phase === "completeAwaitingEnterRedirect" && countdownRemaining == null;
-  const showInputRow = phase === "waiting_enter" || (phase === "intake" && currentField) || showCompleteEnterPrompt;
-  const isCountdownActive = phase === "completeAwaitingEnterRedirect" && countdownRemaining != null && countdownRemaining > 0;
+  const showDateConfirmTap = phase === "intake" && currentField === "date" && dateNeedsConfirm;
+
+  const visibleLinesCount = 3;
+  const visibleLines = lines.slice(-visibleLinesCount);
+
   useEffect(() => {
-    if (showInputRow) {
+    if (showInputRow || showIdlePrompt || showBootCompletePrompt) {
       const id = requestAnimationFrame(() => inputRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
-  }, [showInputRow, lines.length]);
+  }, [showInputRow, showIdlePrompt, showBootCompletePrompt, lines.length]);
 
-  // Scroll on new lines — skip during countdown to avoid interruption
   useEffect(() => {
     if (phase === "completeAwaitingEnterRedirect") return;
     scrollToBottom();
   }, [lines, scrollToBottom, phase]);
 
-  // Document-level keydown: Enter starts countdown (if not started) or skips to redirect (if already counting).
   useEffect(() => {
     if (phase !== "completeAwaitingEnterRedirect") return;
     const onKeyDown = (e) => {
@@ -243,6 +281,19 @@ export default function OriginTerminalIntake() {
         if (now - lastEnterHandledRef.current < 150) return;
         lastEnterHandledRef.current = now;
 
+        if (phase === "idle") {
+          if (!inputVisible) {
+            setInputVisible(true);
+            handleActivate();
+          }
+          return;
+        }
+
+        if (phase === "bootComplete") {
+          handleBootCompleteEnter();
+          return;
+        }
+
         if (phase === "completeAwaitingEnterRedirect") {
           if (countdownRemaining == null) {
             setCountdownRemaining(3);
@@ -252,48 +303,50 @@ export default function OriginTerminalIntake() {
           return;
         }
 
-        if (phase === "waiting_enter") {
-          handleInitialContinue();
-          return;
-        }
-
         if (phase === "intake" && currentField) {
           const raw = inputValue.trim();
-          const allowEmpty = currentField === "email" || (currentField === "date" && dateNeedsConfirm);
-          if (!raw && !allowEmpty) return;
+          const allowEmpty = currentField === "date" && dateNeedsConfirm;
+          if (!raw && !allowEmpty) {
+            if (typeof window !== "undefined") {
+              console.debug("[OriginIntake] Enter ignored: empty input", { currentField, dateNeedsConfirm: !!dateNeedsConfirm });
+            }
+            return;
+          }
 
           if (currentField === "name") {
-            const normalized = raw || "—";
-            addLine(normalized, "user");
-            addLine(`Name received: ${normalized}`);
+            if (!raw) {
+              addLine(raw || "(blank)", "user");
+              addLine("Name required.");
+              setInputValue("");
+              return;
+            }
+            addLine(raw, "user");
             setFormData((f) => ({ ...f, name: raw }));
             setInputValue("");
-            setCurrentField("date");
-            addLine(INTAKE_PROMPTS.date);
+            const nextIdx = INTAKE_FIELDS.indexOf("name") + 1;
+            const nextField = INTAKE_FIELDS[nextIdx];
+            setCurrentField(nextField);
+            addLine(INTAKE_PROMPTS[nextField]);
             return;
           }
 
           if (currentField === "date") {
             if (dateNeedsConfirm && !raw) {
-              setFormData((f) => ({ ...f, birthDate: dateNeedsConfirm.iso }));
-              setDateNeedsConfirm(null);
-              setInputValue("");
-              setCurrentField("time");
-              addLine(INTAKE_PROMPTS.time);
+              handleDateConfirm();
               return;
             }
             if (dateNeedsConfirm && raw) setDateNeedsConfirm(null);
             const parsed = parseDate(raw);
             if (!parsed) {
               addLine(raw, "user");
-              addLine("Interpretation unclear. Try format: August 14, 1993 or 8/14/1993");
+              addLine("Try: August 14, 1993 or 8/14/1993");
               setInputValue("");
               return;
             }
             addLine(raw, "user");
+            setFormData((f) => ({ ...f, birthDate: parsed.iso }));
             addLine(`Interpreted as: ${parsed.normalized}`);
-            addLine("Press ENTER to confirm");
-            addLine("or type a new date and press ENTER");
+            addLine("Press ENTER to confirm.");
             setDateNeedsConfirm(parsed);
             setInputValue("");
             return;
@@ -302,54 +355,166 @@ export default function OriginTerminalIntake() {
           if (currentField === "time") {
             const parsed = parseTime(raw);
             addLine(raw, "user");
-            if (parsed.unknown) {
-              addLine("Birth time unavailable.");
-              addLine("Temporal precision reduced.");
-            } else {
-              addLine(`Time parsed: ${parsed.normalized}`);
-            }
             setFormData((f) => ({ ...f, birthTime: parsed.api }));
             setInputValue("");
-            setCurrentField("place");
-            addLine(INTAKE_PROMPTS.place);
+            const nextIdx = INTAKE_FIELDS.indexOf("time") + 1;
+            const nextField = INTAKE_FIELDS[nextIdx];
+            setCurrentField(nextField);
+            addLine(INTAKE_PROMPTS[nextField]);
             return;
           }
 
           if (currentField === "place") {
-            const resolved = normalizePlace(raw);
-            addLine(raw, "user");
-            addLine(`Location received: ${resolved || raw}`);
-            setFormData((f) => ({ ...f, birthLocation: raw }));
-            setInputValue("");
-            setCurrentField("email");
-            addLine(INTAKE_PROMPTS.email);
-            return;
-          }
-
-          if (currentField === "email") {
-            const email = raw.trim().toLowerCase();
-            if (!email || !email.includes("@")) {
-              addLine(raw, "user");
-              addLine("Valid email required.");
+            if (!raw) {
+              addLine(raw || "(blank)", "user");
+              addLine("Place required.");
               setInputValue("");
               return;
             }
             addLine(raw, "user");
-            addLine(`Email received: ${email}`);
+            setFormData((f) => ({ ...f, birthLocation: raw }));
+            setInputValue("");
+            const nextIdx = INTAKE_FIELDS.indexOf("place") + 1;
+            const nextField = INTAKE_FIELDS[nextIdx];
+            setCurrentField(nextField);
+            addLine(INTAKE_PROMPTS[nextField]);
+            return;
+          }
+
+          if (currentField === "email") {
+            if (!isValidEmail(raw)) {
+              addLine(raw || "(blank)", "user");
+              addLine("Enter a valid contact email.");
+              setInputValue("");
+              return;
+            }
+            const email = raw.trim().toLowerCase();
+            addLine(email, "user");
             setFormData((f) => ({ ...f, email }));
             setInputValue("");
             setCurrentField(null);
-            setPhase("processing");
-            setProcessingIndex(0);
+            advanceToProcessing();
             return;
           }
         }
       }
     },
-    [phase, currentField, inputValue, dateNeedsConfirm, countdownRemaining, addLine, redirectNow, handleInitialContinue]
+    [
+      phase,
+      currentField,
+      inputValue,
+      dateNeedsConfirm,
+      countdownRemaining,
+      inputVisible,
+      addLine,
+      redirectNow,
+      handleActivate,
+      handleBootCompleteEnter,
+      handleDateConfirm,
+      advanceToProcessing,
+    ]
   );
 
-  // Processing sequence — when done, add archetype lines and proceed to waitlist/CTA (no carousel)
+  const handleRunWhoisClick = useCallback(async () => {
+    if (ctaSubmittingRef.current) return;
+
+    const payload = {
+      name: formData.name?.trim() || "—",
+      birthDate: formData.birthDate,
+      birthTime: formData.birthTime,
+      birthLocation: formData.birthLocation,
+      email: formData.email?.trim?.()?.toLowerCase?.() || "",
+    };
+
+    setCtaError(null);
+    setCtaLoading(true);
+    ctaSubmittingRef.current = true;
+
+    try {
+      if (WAITLIST_ONLY) {
+        const res = await fetch("/api/waitlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: payload.email,
+            source: "origin-terminal",
+            birthDate: payload.birthDate || undefined,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          goToErrorAndComplete(data?.error ?? "Something went wrong. Try again.");
+          return;
+        }
+        addLine("Recorded.");
+        if (data?.confirmationSent) addLine("Confirmation sent.");
+        addLine("");
+        addLine("Press ENTER or tap to continue");
+        setPhase("completeAwaitingEnterRedirect");
+        setCountdownRemaining(null);
+        return;
+      }
+
+      if (unlocked || dryRun || TEST_MODE) {
+        const result = dryRun
+          ? await submitToBeautyDryRun(payload)
+          : await submitToBeautySubmit(payload);
+        const reportId = result?.reportId;
+        if (!reportId) {
+          goToErrorAndComplete("Generation failed.");
+          return;
+        }
+        saveLastFormData(reportId, payload);
+        router.push(`/beauty/view?reportId=${encodeURIComponent(reportId)}`);
+        return;
+      }
+
+      if (FAKE_PAY) {
+        setBeautyUnlocked();
+        const result = await submitToBeautySubmit(payload);
+        const reportId = result?.reportId;
+        if (reportId) {
+          saveLastFormData(reportId, payload);
+          router.push(`/beauty/view?reportId=${encodeURIComponent(reportId)}`);
+        }
+        return;
+      }
+
+      setBeautyDraft(payload);
+      let draftId = null;
+      try {
+        const prep = await prepurchaseBeautyDraft(payload);
+        draftId = prep?.draftId ?? null;
+      } catch {
+        // fallback
+      }
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prePurchase: true, ...(draftId && { draftId }) }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        goToErrorAndComplete(json?.error ?? "Checkout unavailable.");
+        return;
+      }
+      const url = json?.data?.url ?? json?.url;
+      if (url && typeof url === "string") {
+        window.location.href = url;
+      } else {
+        goToErrorAndComplete("No checkout URL returned.");
+      }
+    } catch (err) {
+      goToErrorAndComplete(err?.message ?? "Something went wrong.");
+    } finally {
+      ctaSubmittingRef.current = false;
+      setCtaLoading(false);
+    }
+  }, [formData, unlocked, dryRun, router, addLine, goToErrorAndComplete]);
+
+  const executeSubmitRef = useRef(null);
+  executeSubmitRef.current = handleRunWhoisClick;
+
   useEffect(() => {
     if (phase !== "processing") return;
     if (processingIndex >= PROCESSING_LINES.length) {
@@ -357,19 +522,29 @@ export default function OriginTerminalIntake() {
         setTimeout(() => {
           if (phaseRef.current === "completeAwaitingEnterRedirect") return;
           const resolvedArchetype = resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
-          addLine(`Primary archetype detected: ${resolvedArchetype}`);
-          addLine("Identity record ready.");
-        }, 900);
+          addLine(`Archetype: ${resolvedArchetype}`);
+          addLine("Ready.");
+        }, 800);
         setArchetypePreviewShown(true);
         if (WAITLIST_ONLY) {
-          setWaitlistState("running");
+          const email = formDataRef.current?.email?.trim?.()?.toLowerCase?.();
+          if (email && isValidEmail(email)) {
+            setWaitlistState("running");
+          } else {
+            addLine("");
+            addLine("Press ENTER or tap to continue");
+            setPhase("completeAwaitingEnterRedirect");
+            setCountdownRemaining(null);
+          }
         } else {
-          setCtaVisible(true);
+          addLine("");
+          addLine("Executing query...");
+          setPhase("executing");
         }
       }
       return;
     }
-    const delay = PROCESSING_DELAYS_MS[processingIndex] ?? 550;
+    const delay = PROCESSING_DELAYS_MS[processingIndex] ?? 800;
     const t = setTimeout(() => {
       addLine(PROCESSING_LINES[processingIndex]);
       setProcessingIndex((i) => i + 1);
@@ -377,15 +552,15 @@ export default function OriginTerminalIntake() {
     return () => clearTimeout(t);
   }, [phase, processingIndex, archetypePreviewShown, addLine]);
 
-  // WAITLIST_ONLY: auto-call waitlist when processing completes, then show Enter prompt (no button)
+  useEffect(() => {
+    if (phase !== "executing") return;
+    executeSubmitRef.current?.();
+  }, [phase]);
+
   useEffect(() => {
     if (waitlistState !== "running" || !WAITLIST_ONLY) return;
     const email = formData.email?.trim?.()?.toLowerCase?.();
-    if (!email || !email.includes("@")) {
-      addLine("Identity query logged.");
-      addLine("Sample identity artifacts available.");
-      addLine("Registry preview ready.");
-      addLine("");
+    if (!email || !isValidEmail(email)) {
       addLine("Press ENTER or tap to continue");
       setPhase("completeAwaitingEnterRedirect");
       setCountdownRemaining(null);
@@ -409,14 +584,9 @@ export default function OriginTerminalIntake() {
       .then(({ ok, data }) => {
         if (cancelled) return;
         if (ok) {
-          addLine("Contact node recorded.");
-          addLine("Early registry status confirmed.");
-          if (data?.confirmationSent) addLine("Registry confirmation transmitted.");
-        } else {
-          addLine("Identity query logged.");
-          addLine("Sample identity artifacts available.");
+          addLine("Recorded.");
+          if (data?.confirmationSent) addLine("Confirmation sent.");
         }
-        addLine("Registry preview ready.");
         addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
@@ -425,154 +595,90 @@ export default function OriginTerminalIntake() {
       })
       .catch(() => {
         if (cancelled) return;
-        addLine("Identity query logged.");
-        addLine("Sample identity artifacts available.");
-        addLine("Registry preview ready.");
-        addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
         setCountdownRemaining(null);
         setWaitlistState("done");
       });
-    return () => { cancelled = true; };
-  }, [waitlistState, formData.email, addLine]);
-
-  const handleCtaClick = useCallback(async () => {
-    if (ctaSubmittingRef.current) return;
-    ctaSubmittingRef.current = true;
-    const payload = {
-      name: formData.name,
-      birthDate: formData.birthDate,
-      birthTime: formData.birthTime,
-      birthLocation: formData.birthLocation,
-      email: formData.email,
+    return () => {
+      cancelled = true;
     };
-    setCtaError(null);
-    setCtaLoading(true);
+  }, [waitlistState, formData.email, formData.birthDate, addLine]);
 
-    try {
-      if (WAITLIST_ONLY) {
-        const res = await fetch("/api/waitlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: payload.email.trim().toLowerCase(),
-            source: "origin-terminal",
-            birthDate: payload.birthDate || undefined,
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          setCtaError(data?.error ?? "Something went wrong. Try again.");
-          return;
-        }
-        addLine("Contact node recorded.");
-        addLine("Early registry status confirmed.");
-        if (data?.confirmationSent) addLine("Registry confirmation transmitted.");
-        addLine("Registry preview ready.");
-        addLine("");
-        addLine("Press ENTER or tap to continue");
-        setCtaVisible(false);
-        setPhase("completeAwaitingEnterRedirect");
-        setCountdownRemaining(null);
-        return;
-      }
-
-      if (unlocked || dryRun || TEST_MODE) {
-        const result = dryRun
-          ? await submitToBeautyDryRun(payload)
-          : await submitToBeautySubmit(payload);
-        const reportId = result?.reportId;
-        if (!reportId) {
-          setCtaError("Generation failed: No report ID returned.");
-          return;
-        }
-        saveLastFormData(reportId, payload);
-        router.push(`/beauty/view?reportId=${encodeURIComponent(reportId)}`);
-        return;
-      }
-      if (FAKE_PAY) {
-        setBeautyUnlocked();
-        const result = await submitToBeautySubmit(payload);
-        const reportId = result?.reportId;
-        if (reportId) {
-          saveLastFormData(reportId, payload);
-          router.push(`/beauty/view?reportId=${encodeURIComponent(reportId)}`);
-        }
-        return;
-      }
-
-      setBeautyDraft(payload);
-      let draftId = null;
-      try {
-        const prep = await prepurchaseBeautyDraft(payload);
-        draftId = prep?.draftId ?? null;
-      } catch {
-        // fallback to localStorage
-      }
-      const res = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prePurchase: true, ...(draftId && { draftId }) }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        const errMsg = json?.error ?? "Checkout unavailable. Try again later.";
-        setCtaError(errMsg === "STRIPE_NOT_CONFIGURED"
-          ? "Stripe not configured. Add STRIPE_SECRET_KEY to enable checkout."
-          : errMsg);
-        return;
-      }
-      const url = json?.data?.url ?? json?.url;
-      if (url && typeof url === "string") {
-        window.location.href = url;
-      } else {
-        setCtaError("No checkout URL returned.");
-      }
-    } catch (err) {
-      setCtaError(err?.message ?? "Something went wrong. Please try again.");
-    } finally {
-      ctaSubmittingRef.current = false;
-      setCtaLoading(false);
+  const handleCompleteTap = useCallback(() => {
+    if (countdownRemaining == null) {
+      setCountdownRemaining(3);
+    } else {
+      redirectNow();
     }
-  }, [formData, unlocked, dryRun, router, addLine]);
+  }, [countdownRemaining, redirectNow]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b] overflow-x-hidden">
-      <div className="w-full max-w-2xl min-w-0 overflow-hidden">
-        <div
-          className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden"
-          style={{
-            boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
-          }}
-        >
-          <div
-            className="px-4 py-2.5 border-b border-[#2a2a2e] flex items-center gap-2"
-            style={{ backgroundColor: "rgba(0,0,0,0.2)" }}
-          >
-            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
-            <span className="ml-2 text-[10px] uppercase tracking-widest font-mono" style={{ color: "#a8a8b0" }}>
-              (L)IGS Human WHOIS Resolution Engine
-            </span>
-          </div>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 overflow-x-hidden whois-origin"
+      style={{
+        background: "#000",
+        position: "relative",
+      }}
+    >
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.02]"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255,255,255,0.3) 0%, transparent 70%)",
+          animation: "whois-field-pulse 10s ease-in-out infinite",
+        }}
+      />
 
+      <div
+        ref={scrollRef}
+        className="whois-aperture w-full max-w-[min(100vw-2rem,1000px)] min-w-0 mx-auto"
+        style={{ position: "relative", zIndex: 1 }}
+      >
+        {phase === "idle" && lines.length === 0 ? (
           <div
-            ref={scrollRef}
-            className="h-[min(70vh,480px)] overflow-x-hidden overflow-y-auto px-5 py-4 font-mono text-sm sm:text-base"
+            className="whois-aperture-inner flex flex-col items-center justify-center min-h-[120px] w-full text-center cursor-default"
+            onClick={() => {
+              setInputVisible(true);
+              handleActivate();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setInputVisible(true);
+                handleActivate();
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Press ENTER to begin"
+          >
+            <p
+              className="text-sm sm:text-base font-mono"
+              style={{
+                color: "rgba(232,232,236,0.92)",
+                fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
+                letterSpacing: "0.06em",
+              }}
+            >
+              Press ENTER to begin.
+            </p>
+          </div>
+        ) : (
+          <div
+            className="whois-aperture-inner w-full font-mono text-sm sm:text-base min-h-[120px] flex flex-col justify-end py-4 px-4 sm:px-5"
             style={{
-              color: "#c8c8cc",
-              fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', 'Consolas', monospace",
-              lineHeight: 1.7,
+              color: "rgba(154,154,160,0.9)",
+              fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
+              lineHeight: 1.9,
             }}
           >
-            {lines.map((line, i) => (
+            {visibleLines.map((line, i) => (
               <div
-                key={i}
+                key={`line-${lines.length - visibleLines.length + i}`}
                 className="whitespace-pre-wrap break-words"
                 style={{
-                  color: line.type === "user" ? "#e8e8ec" : "#9a9aa0",
+                  color: line.type === "user" ? "rgba(232,232,236,0.95)" : "rgba(154,154,160,0.9)",
                 }}
               >
                 {line.type === "user" ? "> " : ""}
@@ -582,67 +688,89 @@ export default function OriginTerminalIntake() {
 
             {showInputRow && (
               <div
-                className={`flex items-center gap-1 mt-1 min-h-[44px] ${showInitialContinuePrompt || showCompleteEnterPrompt ? "cursor-pointer touch-manipulation" : ""}`}
-                onClick={showInitialContinuePrompt ? handleInitialContinue : showCompleteEnterPrompt ? () => setCountdownRemaining(3) : undefined}
-                onKeyDown={showInitialContinuePrompt ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleInitialContinue(); } } : showCompleteEnterPrompt ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCountdownRemaining(3); } } : undefined}
-                role={showInitialContinuePrompt || showCompleteEnterPrompt ? "button" : undefined}
-                tabIndex={showInitialContinuePrompt || showCompleteEnterPrompt ? 0 : undefined}
-                aria-label={showInitialContinuePrompt || showCompleteEnterPrompt ? "Press ENTER or tap to continue" : undefined}
+                className={`flex items-center gap-1 mt-1 min-h-[2.2em] ${showIdlePrompt || showBootCompletePrompt || showCompleteEnterPrompt || showDateConfirmTap ? "cursor-pointer touch-manipulation" : ""}`}
+                onClick={
+                  showIdlePrompt
+                    ? () => {
+                        setInputVisible(true);
+                        handleActivate();
+                      }
+                    : showBootCompletePrompt
+                    ? handleBootCompleteEnter
+                    : showCompleteEnterPrompt
+                    ? handleCompleteTap
+                    : showDateConfirmTap
+                    ? handleDateConfirm
+                    : undefined
+                }
+                onKeyDown={
+                  showIdlePrompt
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setInputVisible(true);
+                          handleActivate();
+                        }
+                      }
+                    : showBootCompletePrompt
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleBootCompleteEnter();
+                        }
+                      }
+                    : showCompleteEnterPrompt
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          handleCompleteTap();
+                        }
+                      }
+                    : undefined
+                }
+                role={showIdlePrompt || showBootCompletePrompt || showCompleteEnterPrompt || showDateConfirmTap ? "button" : undefined}
+                tabIndex={showIdlePrompt || showBootCompletePrompt || showCompleteEnterPrompt || showDateConfirmTap ? 0 : undefined}
+                aria-label={showIdlePrompt || showBootCompletePrompt ? "Press ENTER to begin" : showCompleteEnterPrompt ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : undefined}
               >
-                <span className="text-[#7a7a80]">&gt;</span>
+                <span style={{ color: "rgba(122,122,128,0.9)" }}>&gt;</span>
                 <input
                   ref={inputRef}
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none text-[#e8e8ec] font-mono placeholder-[#5a5a60]"
-                  style={{ font: "inherit" }}
-                  placeholder={showInitialContinuePrompt || showCompleteEnterPrompt ? "Press ENTER or tap to continue" : ""}
+                  className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono"
+                  style={{
+                    color: "rgba(232,232,236,0.95)",
+                    font: "inherit",
+                  }}
+                  placeholder=""
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  aria-label={showInitialContinuePrompt || showCompleteEnterPrompt ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
+                  aria-label={showIdlePrompt || showBootCompletePrompt ? "Press ENTER to begin" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
                 />
                 <span
-                  className="inline-block w-2 h-4 bg-[#7a7a80] animate-pulse"
-                  style={{ animationDuration: "1s" }}
+                  className="inline-block w-2 h-4 bg-[rgba(154,154,160,0.8)] whois-cursor"
+                  style={{
+                    animation: "whois-cursor-blink 1s step-end infinite",
+                  }}
                   aria-hidden
                 />
               </div>
             )}
           </div>
-
-          {ctaVisible && !WAITLIST_ONLY && (
-            <div className="px-5 py-4 border-t border-[#2a2a2e] bg-[#0a0a0b]">
-              <button
-                onClick={handleCtaClick}
-                disabled={ctaLoading}
-                className="w-full py-3 px-4 rounded-md font-medium text-sm tracking-wide transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{
-                  background: "linear-gradient(135deg, #4a3a8a 0%, #3a2a6a 100%)",
-                  color: "#f0f0f4",
-                  border: "1px solid rgba(122,79,255,0.3)",
-                }}
-              >
-                {ctaLoading ? "Redirecting…" : "Generate Human WHOIS Record"}
-              </button>
-              {ctaError && (
-                <p className="mt-2 text-xs text-[#c06060]" style={{ fontFamily: "inherit" }}>
-                  {ctaError}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-
-        <p
-          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
-          style={{ fontFamily: "inherit", color: "#8a8a90" }}
-        >
-          (L)IGS — Human WHOIS Resolution Engine
-        </p>
+        )}
       </div>
+
+      {phase !== "idle" && phase !== "booting" && (
+        <p
+          className="mt-8 text-[9px] font-mono uppercase tracking-[0.12em] text-center"
+          style={{ color: "rgba(122,122,128,0.4)" }}
+        >
+          Human WHOIS protocol
+        </p>
+      )}
     </div>
   );
 }

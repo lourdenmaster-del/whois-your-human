@@ -14,7 +14,10 @@ import {
   loadExemplarManifestWithPreferred,
   IGNIS_V1_ARTIFACTS,
 } from "@/lib/exemplar-store";
-import { getArchetypePublicAssetUrls } from "@/lib/archetype-public-assets";
+import {
+  getArchetypePublicAssetUrls,
+  getArchetypePublicAssetUrlsWithRotation,
+} from "@/lib/archetype-public-assets";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import {
   buildExemplarBackfill,
@@ -63,6 +66,11 @@ async function enrichProfileImages(
     const fromBlob = await getImageUrlFromBlob(reportId, "share_card");
     if (fromBlob) shareCardUrl = fromBlob;
   }
+  // When composed scientific share card exists, use it for imageUrls[2] (Final Beauty Field)
+  // so preview/report UI shows the identity card instead of raw final_beauty_field
+  if (shareCardUrl) {
+    urls[2] = shareCardUrl;
+  }
   return {
     ...profile,
     imageUrls: urls,
@@ -94,9 +102,8 @@ export async function GET(
   try {
     if (reportId.startsWith("exemplar-")) {
       const archetype = reportId.replace(/^exemplar-/, "");
-      // Ignis: always use v1 (coherent); v2 has poster-like assets — bypass manifest
-      const useIgnisV1Only = archetype === "Ignispectrum";
-      const manifest = useIgnisV1Only ? null : await loadExemplarManifestWithPreferred(archetype, "v1");
+      // Try manifest first for all archetypes; fall back to IGNIS_V1_ARTIFACTS (Ignis) or public assets (others)
+      const manifest = await loadExemplarManifestWithPreferred(archetype, "v1");
 
       let exemplarSlots: { label: string; url: string }[];
       let m: Record<string, unknown>;
@@ -110,16 +117,20 @@ export async function GET(
           { label: "Final Beauty Field", url: urls.shareCard ?? urls.share_card },
         ];
       } else {
+        // Manifest missing: Ignis → IGNIS_V1_ARTIFACTS; others → rotated public assets
         if (archetype === "Ignispectrum") {
           m = {};
-          // No poster/marketing_background — use share_card only; never load vectorZero before share card
           exemplarSlots = [
-            { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
+            { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.vectorZero },
             { label: "Light Signature", url: IGNIS_V1_ARTIFACTS.lightSignature },
             { label: "Final Beauty Field", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
           ];
         } else {
-          const publicUrls = getArchetypePublicAssetUrls(archetype);
+          // Deterministic rotation: seed = reportId + version for archetype-consistent variation
+          const rotationSeed = `${reportId}:v1`;
+          const publicUrls =
+            getArchetypePublicAssetUrlsWithRotation(archetype, rotationSeed) ??
+            getArchetypePublicAssetUrls(archetype);
           if (publicUrls) {
             m = { urls: publicUrls };
             exemplarSlots = [

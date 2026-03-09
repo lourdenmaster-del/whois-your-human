@@ -151,7 +151,10 @@ export async function getExemplarManifestsServer(version: string): Promise<{
   ignisImageUrl: string;
 }> {
   const { LIGS_ARCHETYPES } = await import("@/src/ligs/archetypes/contract");
-  const { getArchetypePublicAssetUrls } = await import("@/lib/archetype-public-assets");
+  const {
+    getArchetypePublicAssetUrls,
+    getArchetypePublicAssetUrlsWithRotation,
+  } = await import("@/lib/archetype-public-assets");
   const manifests: unknown[] = [];
   let ignisManifest: unknown = null;
 
@@ -165,7 +168,10 @@ export async function getExemplarManifestsServer(version: string): Promise<{
     } else {
       let manifest = await loadExemplarManifestWithPreferred(archetype, version);
       if (manifest == null) {
-        const publicUrls = getArchetypePublicAssetUrls(archetype);
+        // Deterministic rotation: archetype+version => stable variation across exemplars
+        const publicUrls =
+          getArchetypePublicAssetUrlsWithRotation(archetype, `${archetype}:${version}`) ??
+          getArchetypePublicAssetUrls(archetype);
         if (publicUrls) {
           manifest = {
             archetype,
@@ -183,7 +189,9 @@ export async function getExemplarManifestsServer(version: string): Promise<{
   }
 
   if (ignisManifest == null) {
-    const ignisPublic = getArchetypePublicAssetUrls(IGNIS_ARCHETYPE);
+    const ignisPublic =
+      getArchetypePublicAssetUrlsWithRotation(IGNIS_ARCHETYPE, `${IGNIS_ARCHETYPE}:${IGNIS_VERSION}`) ??
+      getArchetypePublicAssetUrls(IGNIS_ARCHETYPE);
     manifests.push({
       archetype: IGNIS_ARCHETYPE,
       version: IGNIS_VERSION,
