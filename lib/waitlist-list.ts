@@ -153,3 +153,21 @@ export async function listWaitlistEntries(): Promise<WaitlistListResult> {
     hasMore: total > FETCH_LIMIT,
   };
 }
+
+/**
+ * Count waitlist entries only (no content fetch).
+ * Public-safe: returns only the total.
+ */
+export async function getWaitlistCount(): Promise<number> {
+  if (!isBlobEnabled()) return 0;
+  let total = 0;
+  let cursor: string | undefined;
+  let hasMore = false;
+  do {
+    const res = await list({ prefix: BLOB_PREFIX, limit: LIST_LIMIT, cursor });
+    total += res.blobs.length;
+    hasMore = res.hasMore;
+    cursor = res.cursor;
+  } while (hasMore && cursor);
+  return total;
+}
