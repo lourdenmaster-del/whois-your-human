@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildReportGenerationPrompt } from "../route";
+import { buildReportGenerationPrompt } from "@/lib/engine/buildReportGenerationPrompt";
 
 describe("buildReportGenerationPrompt", () => {
   it("includes Archetype Voice Block for Stabiliora", () => {

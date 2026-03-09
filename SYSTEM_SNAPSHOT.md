@@ -393,6 +393,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑09 (Vercel build fix — route export)
+
+**Route export fix:** Next.js (Webpack) rejects route files that export non-handler functions. Extracted `buildReportGenerationPrompt` and helpers to `lib/engine/buildReportGenerationPrompt.ts`. Route `app/api/engine/generate/route.ts` now imports from lib; only exports `POST`. Test `buildReportGenerationPrompt.test.ts` imports from lib. Builds pass (Turbopack + Webpack).
+
 ## Verification Log – 2026‑03‑09 (Canonical archetype descriptive layers)
 
 **Contract preview block:** Extended `ArchetypeContract` with `preview: { humanExpression, civilizationFunction, archetypalVoice, environments }` for all 12 archetypes. **Adapter:** `getArchetypePreviewDescriptor(archetype)` in `src/ligs/archetypes/adapters.ts` returns preview from contract. **archetype-preview-config.js:** Teaser content (civilizationFunction, environments) now sourced from contract via adapter; removed duplicate `TEASER_BY_ARCHETYPE`. Preview/report pages read civilization function from canonical contract. No resolver, timing, layout, or image mapping changes.
@@ -1039,7 +1043,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ## Verification Log – 2026‑02‑20 (Sun/Moon birth context)
 
-**Sun/Moon birth context:** Added `lib/astronomy/computeSunMoonContext.ts` with `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — computes Sun altitude/azimuth, twilight phase (day/civil/nautical/astronomical/night), sunrise/sunset (local), day length; Moon altitude/azimuth, phase name, illumination. Uses astronomy-engine (Equator, Horizon, Illumination, MoonPhase, SearchRiseSet) and luxon for timezone conversion. No external APIs. `POST /api/beauty/submit` calls it after deriveFromBirthData, attaches sun + moon to birthContext; on failure logs warning and continues without sun/moon. Engine `buildBirthContextBlock` includes concise Sun and Moon sections when present. Tests: computeSunMoonContext (twilightPhase, illuminationFrac, altitudes, sunrise/sunset); buildReportGenerationPrompt (Sun/Moon sections when present).
+**Sun/Moon birth context:** Added `lib/astronomy/computeSunMoonContext.ts` with `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — computes Sun altitude/azimuth, twilight phase (day/civil/nautical/astronomical/night), sunrise/sunset (local), day length; Moon altitude/azimuth, phase name, illumination. Uses astronomy-engine (Equator, Horizon, Illumination, MoonPhase, SearchRiseSet) and luxon for timezone conversion. No external APIs. `POST /api/beauty/submit` calls it after deriveFromBirthData, attaches sun + moon to birthContext; on failure logs warning and continues without sun/moon. Engine `buildReportGenerationPrompt` (lib/engine) includes buildBirthContextBlock with concise Sun and Moon sections when present. Tests: computeSunMoonContext (twilightPhase, illuminationFrac, altitudes, sunrise/sunset); buildReportGenerationPrompt (Sun/Moon sections when present).
 
 ---
 
@@ -1105,7 +1109,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 **Legacy archetype maps now derive from canonical contract to prevent drift:** `archetype-visual-map.ts`, `archetypeAnchors.ts`, `archetype-copy-map.ts` are thin re-exports from adapters (`getVisualMapRecord`, `getVoiceAnchorRecord`, `getOverlayCopyRecord`). DO NOT EDIT headers on each file state ARCHETYPE_CONTRACT_MAP is canonical; edit contract.ts only. `legacy-derivation.test.ts` (6 tests) asserts deep equality for Stabiliora and all 12 archetypes. Exported shapes unchanged.
 
-**Archetype Voice Block in engine report:** Added `buildReportGenerationPrompt(birthData, archetype?)` in `app/api/engine/generate/route.ts`. Imports `getArchetypeOrFallback` from contract; appends Archetype Voice Block (emotional_temperature, rhythm, lexicon_bias, metaphor_density, assertiveness, structure_preference, notes) to the report user prompt. Instructs LLM to shape emotional_snippet and ORACLE phrasing by these parameters. Optional `archetype` in EngineBody (validate-engine-body); defaults to Stabiliora when absent. Output schema unchanged. Unit test: `buildReportGenerationPrompt.test.ts` asserts voice block present for Stabiliora.
+**Archetype Voice Block in engine report:** `buildReportGenerationPrompt(birthData, archetype?, birthContext?)` in `lib/engine/buildReportGenerationPrompt.ts`. Imports `getArchetypeOrFallback` from contract; appends Archetype Voice Block (emotional_temperature, rhythm, lexicon_bias, metaphor_density, assertiveness, structure_preference, notes) to the report user prompt. Instructs LLM to shape emotional_snippet and ORACLE phrasing by these parameters. Optional `archetype` in EngineBody (validate-engine-body); defaults to Stabiliora when absent. Route `app/api/engine/generate/route.ts` imports and uses it. Unit test: `buildReportGenerationPrompt.test.ts` asserts voice block present for Stabiliora.
 
 ---
 
