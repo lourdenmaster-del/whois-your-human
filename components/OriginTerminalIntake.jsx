@@ -443,11 +443,22 @@ export default function OriginTerminalIntake() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          goToErrorAndComplete(data?.error ?? "Something went wrong. Try again.");
+          addLine("Identity query could not be recorded.");
+          addLine("You may continue, but confirmation is not secured.");
+          addLine("");
+          addLine("Press ENTER or tap to continue");
+          setPhase("completeAwaitingEnterRedirect");
+          setCountdownRemaining(null);
           return;
         }
-        addLine("Recorded.");
-        if (data?.confirmationSent) addLine("Confirmation sent.");
+        if (data?.alreadyRegistered) {
+          addLine("Identity record already exists.");
+          addLine("Contact node verified.");
+        } else {
+          addLine("Contact node recorded.");
+          addLine("Identity query logged.");
+          if (data?.confirmationSent) addLine("Confirmation signal transmitted.");
+        }
         addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
@@ -584,8 +595,17 @@ export default function OriginTerminalIntake() {
       .then(({ ok, data }) => {
         if (cancelled) return;
         if (ok) {
-          addLine("Recorded.");
-          if (data?.confirmationSent) addLine("Confirmation sent.");
+          if (data?.alreadyRegistered) {
+            addLine("Identity record already exists.");
+            addLine("Contact node verified.");
+          } else {
+            addLine("Contact node recorded.");
+            addLine("Identity query logged.");
+            if (data?.confirmationSent) addLine("Confirmation signal transmitted.");
+          }
+        } else {
+          addLine("Identity query could not be recorded.");
+          addLine("You may continue, but confirmation is not secured.");
         }
         addLine("");
         addLine("Press ENTER or tap to continue");
@@ -595,6 +615,9 @@ export default function OriginTerminalIntake() {
       })
       .catch(() => {
         if (cancelled) return;
+        addLine("Identity query could not be recorded.");
+        addLine("You may continue, but confirmation is not secured.");
+        addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
         setCountdownRemaining(null);
