@@ -2,8 +2,8 @@
 
 /**
  * Beauty view — terminal preview flow only.
- * Exemplar: PreviewRevealSequence (top-loaded, profile-driven) → InteractiveReportSequence.
- * Real report: InteractiveReportSequence.
+ * Exemplar: PreviewRevealSequence (top-loaded, profile-driven) → ReportDocument.
+ * Real report: ReportDocument.
  * Missing/invalid reportId: simple error state + link to /origin.
  */
 
@@ -14,7 +14,7 @@ import { track } from "@/lib/analytics";
 import { unwrapResponse } from "@/lib/unwrap-response";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
 import PreviewRevealSequence from "./PreviewRevealSequence";
-import InteractiveReportSequence from "./InteractiveReportSequence";
+import ReportDocument from "./ReportDocument";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -51,14 +51,14 @@ function ErrorState({ message, onRetry, showRetry }) {
           <button
             type="button"
             onClick={onRetry}
-            className="px-4 py-2 rounded border border-[#7A4FFF]/50 bg-[#7A4FFF]/10 text-[#c4b5ff] font-mono text-sm hover:bg-[#7A4FFF]/20"
+            className="px-4 py-2 rounded border border-[#2a2a2e] font-mono text-sm text-[#c8c8cc] hover:border-[#5a5a62] hover:text-[#e8e8ec]"
           >
             Retry
           </button>
         )}
         <Link
           href="/origin"
-          className="inline-block font-mono text-sm font-medium text-[#7A4FFF] hover:underline"
+          className="inline-block font-mono text-sm font-medium text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline"
         >
           ← Return to Origin
         </Link>
@@ -135,7 +135,7 @@ export default function BeautyViewClient() {
   const isExemplarPreview = reportId?.startsWith?.("exemplar-");
   const handleTerminalComplete = useCallback(() => setTerminalComplete(true), []);
 
-  // Exemplar: wait for profile, then PreviewRevealSequence (top-loaded) → InteractiveReportSequence
+  // Exemplar: wait for profile, then PreviewRevealSequence (top-loaded) → ReportDocument
   if (isExemplarPreview) {
     if (loading) {
       return (
@@ -171,7 +171,7 @@ export default function BeautyViewClient() {
         />
       );
     }
-    return <InteractiveReportSequence profile={profile} />;
+    return <ReportDocument profile={profile} />;
   }
 
   // No reportId
@@ -224,6 +224,6 @@ export default function BeautyViewClient() {
     );
   }
 
-  // Valid report: InteractiveReportSequence only
-    return <InteractiveReportSequence profile={profile} />;
+  // Valid report: ReportDocument only (dossier-style continuous document)
+  return <ReportDocument profile={profile} />;
 }

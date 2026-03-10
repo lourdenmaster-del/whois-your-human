@@ -8,75 +8,17 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { getArchetypePreviewConfig, buildPlaceholderSvg } from "@/lib/archetype-preview-config";
-import {
-  getArchetypeFamilyUrlsForPreview,
-  pickArchetypeFamilyImage,
-} from "@/lib/archetype-public-assets";
-import {
-  composeArchetypeOpening,
-  composeArchetypeSummary,
-  composeLightExpression,
-  composeCosmicTwin,
-  composeReturnToCoherence,
-} from "@/lib/report-composition";
+import { getReportSections } from "@/lib/report-sections";
 import ReportStep from "./ReportStep";
 
 const PROMPT_DELAY_MS = 700;
-
-function buildIgnisSteps(profile) {
-  const arch = profile?.dominantArchetype ?? "Ignispectrum";
-  const config = getArchetypePreviewConfig(arch);
-
-  const baselineImage = profile?.imageUrls?.[0];
-  const lightSignatureImage = profile?.imageUrls?.[1];
-  const finalArtifactImage = profile?.imageUrls?.[2];
-  const bestImage = lightSignatureImage ?? baselineImage ?? finalArtifactImage ?? config.sampleArtifactUrl ?? buildPlaceholderSvg(config.displayName);
-
-  const hasArcFamily = getArchetypeFamilyUrlsForPreview(arch).length > 0;
-  const chosenArcImage = hasArcFamily ? pickArchetypeFamilyImage(arch, profile?.reportId ?? "") : null;
-  const overlayImage = chosenArcImage ?? (config.hasArchetypeVisual ? config.archetypeStaticImagePath : null);
-  const useArcFamilyOverlay = !!chosenArcImage;
-
-  const openingLines = composeArchetypeOpening(profile, config);
-  const summaryLines = composeArchetypeSummary(profile);
-  const archetypalVoice = config.teaser?.archetypalVoice;
-  if (archetypalVoice && archetypalVoice !== "—") {
-    summaryLines.push(archetypalVoice.endsWith(".") ? archetypalVoice : `${archetypalVoice}.`);
-  }
-  const lightLines = composeLightExpression(profile);
-  const cosmicLines = composeCosmicTwin(profile);
-  const returnLines = composeReturnToCoherence(profile);
-
-  return [
-    { id: "archetype-resolved", title: "ARCHETYPE RESOLVED", lines: openingLines, hasImage: false },
-    { id: "archetype-summary", title: "ARCHETYPE SUMMARY", lines: summaryLines.length > 0 ? summaryLines : [], hasImage: false },
-    { id: "light-expression", title: "LIGHT EXPRESSION", lines: lightLines, hasImage: false },
-    { id: "cosmic-twin", title: "COSMIC TWIN RELATION", lines: cosmicLines, hasImage: false },
-    {
-      id: "artifact-reveal",
-      title: "ARTIFACT REVEAL",
-      lines: [],
-      hasImage: true,
-      imageSrc: bestImage,
-      baselineImage,
-      lightSignatureImage,
-      finalArtifactImage,
-      archetypeImagePath: overlayImage,
-      useArcFamilyOverlay,
-      displayName: config.displayName,
-      humanExpression: config.teaser?.humanExpression ?? null,
-    },
-    { id: "return-next", title: "RETURN TO COHERENCE", lines: returnLines, hasImage: false, isLast: true },
-  ];
-}
 
 export default function InteractiveReportSequence({ profile }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [promptReady, setPromptReady] = useState(false);
   const continueRef = useRef(null);
 
-  const steps = profile ? buildIgnisSteps(profile) : [];
+  const steps = profile ? getReportSections(profile) : [];
   const currentStep = steps[currentStepIndex];
   const isLastStep = currentStep?.isLast ?? false;
 
@@ -163,11 +105,14 @@ export default function InteractiveReportSequence({ profile }) {
       <p className="mt-6 text-[9px] font-mono uppercase tracking-[0.12em] text-center" style={{ color: "rgba(122,122,128,0.4)" }}>
         Human WHOIS protocol
       </p>
-      <p className="mt-2">
-        <Link href="/origin" className="text-[10px] font-mono text-[#9a9aa0] hover:text-[#c4b5ff] hover:underline">
+      <div className="protocol-nav mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
+        <Link href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
           ← Return to Origin
         </Link>
-      </p>
+        <Link href="/dossier" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
+          View Dossier
+        </Link>
+      </div>
     </div>
   );
 }
