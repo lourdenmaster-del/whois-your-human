@@ -91,6 +91,7 @@ export default function OriginTerminalIntake() {
     email: "",
   });
   const [dateNeedsConfirm, setDateNeedsConfirm] = useState(null);
+  const [resolvedArchetypeFromDate, setResolvedArchetypeFromDate] = useState(null);
   const [processingIndex, setProcessingIndex] = useState(0);
   const [archetypePreviewShown, setArchetypePreviewShown] = useState(false);
   const [waitlistState, setWaitlistState] = useState("idle");
@@ -112,6 +113,13 @@ export default function OriginTerminalIntake() {
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
+
+  // Resolve base archetype from date as soon as we have a valid date (solar segment → archetype).
+  useEffect(() => {
+    if (formData.birthDate) {
+      setResolvedArchetypeFromDate(resolveArchetypeFromDate(formData.birthDate));
+    }
+  }, [formData.birthDate]);
 
   useEffect(() => {
     phaseRef.current = phase;
@@ -141,9 +149,9 @@ export default function OriginTerminalIntake() {
     }
     setCountdownRemaining(null);
     saveOriginIntake(formDataRef.current ?? {});
-    const resolvedArchetype = resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
-    router.push(`/beauty/view?reportId=exemplar-${resolvedArchetype}`);
-  }, [router]);
+    const archetype = resolvedArchetypeFromDate ?? resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
+    router.push(`/beauty/view?reportId=exemplar-${archetype}`);
+  }, [router, resolvedArchetypeFromDate]);
 
   const scrollToBottom = useCallback(() => {
     queueMicrotask(() => {
@@ -361,6 +369,7 @@ export default function OriginTerminalIntake() {
             }
             addLine(raw, "user");
             setFormData((f) => ({ ...f, birthDate: parsed.iso }));
+            setResolvedArchetypeFromDate(resolveArchetypeFromDate(parsed.iso));
             addLine(`Interpreted as: ${parsed.normalized}`);
             addLine("Press ENTER to confirm.");
             setDateNeedsConfirm(parsed);
@@ -455,6 +464,7 @@ export default function OriginTerminalIntake() {
             email: payload.email,
             source: "origin-terminal",
             birthDate: payload.birthDate || undefined,
+            ...(resolvedArchetypeFromDate ? { preview_archetype: resolvedArchetypeFromDate } : {}),
           }),
         });
         const data = await res.json().catch(() => ({}));
@@ -537,7 +547,7 @@ export default function OriginTerminalIntake() {
       ctaSubmittingRef.current = false;
       setCtaLoading(false);
     }
-  }, [formData, unlocked, dryRun, router, addLine, goToErrorAndComplete]);
+  }, [formData, unlocked, dryRun, router, addLine, goToErrorAndComplete, resolvedArchetypeFromDate]);
 
   const executeSubmitRef = useRef(null);
   executeSubmitRef.current = handleRunWhoisClick;
@@ -548,8 +558,8 @@ export default function OriginTerminalIntake() {
       if (!archetypePreviewShown) {
         setTimeout(() => {
           if (phaseRef.current === "completeAwaitingEnterRedirect") return;
-          const resolvedArchetype = resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
-          addLine(`Archetype: ${resolvedArchetype}`);
+          const archetype = resolvedArchetypeFromDate ?? resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
+          addLine(`Archetype: ${archetype}`);
           addLine("Ready.");
         }, 800);
         setArchetypePreviewShown(true);
@@ -577,7 +587,7 @@ export default function OriginTerminalIntake() {
       setProcessingIndex((i) => i + 1);
     }, delay);
     return () => clearTimeout(t);
-  }, [phase, processingIndex, archetypePreviewShown, addLine]);
+  }, [phase, processingIndex, archetypePreviewShown, resolvedArchetypeFromDate, addLine]);
 
   useEffect(() => {
     if (phase !== "executing") return;
@@ -602,6 +612,7 @@ export default function OriginTerminalIntake() {
         email,
         source: "origin-terminal",
         birthDate: formData.birthDate || undefined,
+        ...(resolvedArchetypeFromDate ? { preview_archetype: resolvedArchetypeFromDate } : {}),
       }),
     })
       .then(async (res) => {
@@ -642,7 +653,7 @@ export default function OriginTerminalIntake() {
     return () => {
       cancelled = true;
     };
-  }, [waitlistState, formData.email, formData.birthDate, addLine]);
+  }, [waitlistState, formData.email, formData.birthDate, addLine, resolvedArchetypeFromDate]);
 
   const handleCompleteTap = useCallback(() => {
     if (countdownRemaining == null) {

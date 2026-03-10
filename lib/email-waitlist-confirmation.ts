@@ -215,6 +215,7 @@ export async function sendWaitlistConfirmation(
 
   if (resendKey) {
     const fromValue = from.includes("<") ? from : `LIGS <${from}>`;
+    console.log("[waitlist] sending_confirmation provider=resend to=" + maskedTo);
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
