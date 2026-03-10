@@ -42,6 +42,12 @@ On production:
 
    If any of these are missing, fix in Vercel → Project → Settings → Environment Variables, then redeploy.
 
+### RESEND_API_KEY — format and source
+
+- **Format:** Keys start with `re_` (e.g. `re_c1tpEyD8_NKFusih9vKVQknRAQfmFcWCv`). No spaces; paste the full string.
+- **Source:** [Resend → API Keys](https://resend.com/api-keys). Create API Key → name (e.g. "LIGS Production") → permission **Sending access** (or Full access) → Create. The secret is shown **once**; copy it and set it in Vercel as `RESEND_API_KEY` for the **Production** environment.
+- **Invalid key (401):** If logs show `confirmation_email_failed provider=resend ... status=401 ... "API key is invalid"`, the value in Vercel is wrong (typo, revoked key, or key from a different Resend account). Create a new key in Resend, set it in Vercel Production, then redeploy so the new value is used.
+
 ## Final verification (after deploy)
 
 1. **Count API:** `GET https://<production-domain>/api/waitlist/count` → `{ "total": number }` (e.g. ≥ 117).
