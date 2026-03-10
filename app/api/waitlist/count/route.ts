@@ -15,7 +15,8 @@ export async function GET() {
   try {
     const realCount = await getWaitlistCount();
     return NextResponse.json({ total: realCount + SEED_REGISTRY_COUNT });
-  } catch {
-    return NextResponse.json({ total: 0 });
+  } catch (err) {
+    console.error("[waitlist/count] getWaitlistCount failed:", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ total: SEED_REGISTRY_COUNT });
   }
 }

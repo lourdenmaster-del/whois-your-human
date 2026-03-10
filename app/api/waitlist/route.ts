@@ -123,18 +123,24 @@ export async function POST(req: NextRequest) {
     }
 
     const createdAt = new Date().toISOString();
+    console.log("waitlist entry received:", maskEmail(email));
+    console.log("sending confirmation email");
     sendWaitlistConfirmation(email, {
       created_at: createdAt,
       ...(preview_archetype && { preview_archetype }),
       ...(solar_season && { solar_season }),
-    }).catch((err) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (process.env.NODE_ENV === "development") {
-        console.error("[waitlist] Confirmation email failed:", msg);
-      } else {
-        console.error("[waitlist] Confirmation email failed:", maskEmail(email), msg.slice(0, 80));
-      }
-    });
+    })
+      .then((emailSent) => {
+        console.log("email send result:", emailSent);
+      })
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (process.env.NODE_ENV === "development") {
+          console.error("[waitlist] Confirmation email failed:", msg);
+        } else {
+          console.error("[waitlist] Confirmation email failed:", maskEmail(email), msg.slice(0, 80));
+        }
+      });
 
     return NextResponse.json({ ok: true, confirmationSent: true });
   } catch (err) {

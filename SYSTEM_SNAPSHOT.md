@@ -29,10 +29,11 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/origin` — Canonical public landing. Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
 - `/beauty`, `/beauty/` → 308 redirect to `/origin` (middleware; most reliable on Vercel)
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
+- `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Not linked from /origin:** `/beauty/start`, `/beauty/view`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
+**Not linked from /origin:** `/beauty/start`, `/beauty/view`, `/dossier`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
 
 ---
 
@@ -79,6 +80,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
+| `app/dossier/page.tsx` | Page | Static sample Identity Dossier (white-paper style). Registry record block, six sections (Identity Resolution, Archetype Profile, Light Expression, Environmental Interaction, Cosmic Analog, Identity Artifact). Uses Ignis exemplar archetype image + share card. CTA → /origin. Does not modify preview/report flow. |
 | `app/ligs-studio/page.tsx` | Page | Renders `LigsStudio` — internal UI to run full image vertical slice (generate background, compose marketing card); inputs persisted in localStorage |
 | `app/voice/page.jsx` | Page | Renders `VoiceProfileBuilder` — build voice profiles (local state only) |
 
@@ -212,6 +214,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | POST | `/api/waitlist` | Email capture with duplicate check and confirmation. Body: `{ email: string, source?: string, birthDate?: string, archetype_preview?: string, solar_season?: string }`. When `birthDate` (YYYY-MM-DD) provided, computes `archetype_preview` and `solar_season` server-side via `approximateSunLongitudeFromDate` + `getPrimaryArchetypeFromSolarLongitude`. Validates email; rate limit 5 req/60s per IP+UA. Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. Duplicate → 200 `{ ok: true, alreadyRegistered: true }` (no confirmation resend). New signup → `insertWaitlistEntry` → `sendWaitlistConfirmation` (Resend or SendGrid) → 200 `{ ok: true }`. Requires `BLOB_READ_WRITE_TOKEN`. One of `RESEND_API_KEY` or `SENDGRID_API_KEY` for confirmation. |
+| GET | `/api/waitlist/count` | **Public.** Returns `{ total: number }` only. Uses `getWaitlistCount()` from `lib/waitlist-list` (list blob keys, no content fetch). No auth. Used by `/origin` for registry readout. |
 | GET | `/api/waitlist/list` | **Internal/admin only.** List waitlist entries from Blob. Returns `{ total, recent, metrics }`. When `LIGS_STUDIO_TOKEN` is set, requires cookie (set by visiting `/ligs-studio?token=`) or `Authorization: Bearer <token>`. 403 when protected and unauthenticated. Requires `BLOB_READ_WRITE_TOKEN`. |
 
 ### 2.4 Stripe
@@ -396,6 +399,22 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 - [ ] **Dry run:** `DRY_RUN=1` skips OpenAI and returns mock report from `/api/engine`.
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
+
+---
+
+## Verification Log – 2026‑03‑10 (Waitlist counter and confirmation email — production diagnosis)
+
+**Diagnosis:** Counter not appearing when `/api/waitlist/count` returned non-200 or client fetch failed (state stayed `null`). Confirmation emails not sent when `RESEND_API_KEY`/`SENDGRID_API_KEY` missing; only dev logged the warning. **Fixes:** (1) Count route: on `getWaitlistCount()` throw, return `{ total: SEED_REGISTRY_COUNT }` and log error so counter always shows. (2) OriginTerminalIntake: if fetch fails or `data.total` missing, set `registryCount` to fallback 117 so counter always appears. (3) Email: log warning in all envs when API keys missing. (4) Temporary logging in POST `/api/waitlist`: "waitlist entry received", "sending confirmation email", "email send result". **Production:** Ensure Vercel env has `BLOB_READ_WRITE_TOKEN`, `RESEND_API_KEY` (or `SENDGRID_API_KEY`), `EMAIL_FROM`; redeploy after 914a55d or later. See docs/WAITLIST-PRODUCTION-DIAGNOSIS.md.
+
+---
+
+## Verification Log – 2026‑03‑09 (Static Identity Dossier)
+
+**Added `/dossier`:** White-paper style sample report page. Title "LIGS HUMAN IDENTITY DOSSIER" / "Human WHOIS Registry Record"; registry block (LIR-EX-0001, Sample Record, Lisbon, Ignispectrum); six sections (Identity Resolution, Archetype Profile, Light Expression, Environmental Interaction, Cosmic Analog, Identity Artifact). Uses `SAMPLE_REPORT_IGNIS` excerpts, `/arc-static-images/ignispectrum-static1.png`, `IGNIS_V1_ARTIFACTS.finalBeautyField` (share card). CTA "Run your own identity query" → `/origin`. Does not modify preview/report flow. Build passes.
+
+## Verification Log – 2026‑03‑09 (Origin registry counter)
+
+**Origin registry readout:** GET `/api/waitlist/count` returns `{ total }` only (public-safe; uses `getWaitlistCount()` from `lib/waitlist-list`). OriginTerminalIntake fetches on mount and displays "Registry nodes recorded: {count}" below the aperture/footer area when count is available. Small, monochrome, protocol-native; subtle fade-in; no display while loading or on failure. Snapshot updated with count route.
 
 ---
 

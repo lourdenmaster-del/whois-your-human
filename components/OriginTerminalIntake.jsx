@@ -119,12 +119,16 @@ export default function OriginTerminalIntake() {
 
   useEffect(() => {
     let cancelled = false;
+    const FALLBACK_COUNT = 117;
     fetch("/api/waitlist/count")
       .then((r) => (r.ok ? r.json() : {}))
       .then((data) => {
         if (!cancelled && typeof data?.total === "number") setRegistryCount(data.total);
+        else if (!cancelled) setRegistryCount(FALLBACK_COUNT);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (!cancelled) setRegistryCount(FALLBACK_COUNT);
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -806,6 +810,13 @@ export default function OriginTerminalIntake() {
           Human WHOIS protocol
         </p>
       )}
+      {phase !== "idle" && phase !== "booting" && (
+        <div className="protocol-nav mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
+          <a href="/dossier" className="text-[11px] font-mono">
+            View Dossier
+          </a>
+        </div>
+      )}
       {typeof registryCount === "number" && (
         <div
           className="mt-2 text-center font-mono"
@@ -814,14 +825,14 @@ export default function OriginTerminalIntake() {
           }}
         >
           <p
-            className="text-[10px]"
-            style={{ color: "rgba(122,122,128,0.35)" }}
+            className="text-[13px] leading-tight"
+            style={{ color: "rgba(180,182,190,0.78)" }}
           >
             Registry nodes recorded: {registryCount}
           </p>
           <p
-            className="mt-1 text-[9px]"
-            style={{ color: "rgba(122,122,128,0.35)" }}
+            className="mt-0.5 text-[11px] leading-tight"
+            style={{ color: "rgba(160,162,170,0.62)" }}
           >
             Full identity reports released to registry members first.
           </p>

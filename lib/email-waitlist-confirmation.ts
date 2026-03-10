@@ -196,9 +196,7 @@ export async function sendWaitlistConfirmation(
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
   if (!resendKey && !sendgridKey) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[waitlist] RESEND_API_KEY and SENDGRID_API_KEY not set — skipping confirmation email");
-    }
+    console.warn("[waitlist] RESEND_API_KEY and SENDGRID_API_KEY not set — skipping confirmation email");
     return false;
   }
 
