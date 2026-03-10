@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import FlowNav from "@/components/FlowNav";
 import { track } from "@/lib/analytics";
 import { setBeautyUnlocked } from "@/lib/landing-storage";
 
@@ -47,7 +48,7 @@ function BeautySuccessContent() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
         <div className="w-full max-w-2xl min-w-0">
           <div
-            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-left"
             style={{
               boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
             }}
@@ -59,7 +60,7 @@ function BeautySuccessContent() {
                 </p>
                 <Link
                   href="/origin"
-                  className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50 touch-manipulation"
+                  className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
                   style={{ color: "#c8c8cc" }}
                 >
                   Back to Origin
@@ -72,7 +73,7 @@ function BeautySuccessContent() {
             )}
           </div>
           <p
-            className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
             (L)IGS — Human WHOIS Resolution Engine
@@ -87,7 +88,7 @@ function BeautySuccessContent() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
         <div className="w-full max-w-2xl min-w-0">
           <div
-            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-left"
             style={{
               boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
             }}
@@ -100,14 +101,14 @@ function BeautySuccessContent() {
             </p>
             <Link
               href="/beauty/start"
-              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50 touch-manipulation"
+              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
               style={{ color: "#c8c8cc" }}
             >
               Generate my report
             </Link>
           </div>
           <p
-            className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
             (L)IGS — Human WHOIS Resolution Engine
@@ -123,7 +124,7 @@ function BeautySuccessContent() {
     <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
       <div className="w-full max-w-2xl min-w-0">
         <div
-          className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+          className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-left"
           style={{
             boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
           }}
@@ -136,7 +137,7 @@ function BeautySuccessContent() {
           </p>
           <Link
             href={viewUrl}
-            className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#7A4FFF]/50 hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#7A4FFF]/50 touch-manipulation"
+            className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
             style={{ color: "#c8c8cc" }}
           >
             View Your Report
@@ -144,9 +145,10 @@ function BeautySuccessContent() {
           <p className="mt-6 text-xs" style={{ color: "#7a7a80" }}>
             If you don&apos;t see the email within a few minutes, check your spam folder.
           </p>
+          <FlowNav variant="dark" className="mt-8" />
         </div>
         <p
-          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+          className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
           style={{ fontFamily: "inherit", color: "#8a8a90" }}
         >
           (L)IGS — Human WHOIS Resolution Engine

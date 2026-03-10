@@ -264,7 +264,7 @@ export default function TerminalResolutionSequence({ onComplete }) {
               const config = getArchetypePreviewConfig(resolved.archetype);
               const thumbnailSrc = config.sampleArtifactUrl || buildPlaceholderSvg(config.displayName);
               return (
-                <div className="my-4 flex justify-center">
+                <div className="my-4 flex justify-start">
                   <div className="relative max-w-[200px] rounded border border-[#2a2a2e] overflow-hidden bg-[#0d0d0f]">
                     <img
                       src={thumbnailSrc}
@@ -311,17 +311,25 @@ export default function TerminalResolutionSequence({ onComplete }) {
           </div>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-[#2a2a2e]/80 space-y-2">
-          <p className="text-center">
+        <div className="mt-4 pt-3 border-t border-[#2a2a2e]/80 space-y-2 text-left">
+          <p>
             <Link
               href="/origin"
-              className="registry-ctrl text-[11px] font-medium text-[#9a9aa0] hover:text-[#7A4FFF] hover:underline touch-manipulation"
+              className="registry-ctrl text-[11px] font-medium text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline touch-manipulation"
             >
               ← Return to Origin
             </Link>
           </p>
+          <p>
+            <Link
+              href="/dossier"
+              className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline touch-manipulation"
+            >
+              View Dossier
+            </Link>
+          </p>
           <p
-            className="text-center text-[10px] uppercase tracking-widest font-mono"
+            className="text-[10px] uppercase tracking-widest font-mono"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
             (L)IGS — Human WHOIS Resolution Engine

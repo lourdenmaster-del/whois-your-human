@@ -102,10 +102,10 @@ export default function InteractiveReportSequence({ profile }) {
         </div>
       </div>
 
-      <p className="mt-6 text-[9px] font-mono uppercase tracking-[0.12em] text-center" style={{ color: "rgba(122,122,128,0.4)" }}>
+      <p className="mt-6 text-[9px] font-mono uppercase tracking-[0.12em] text-left" style={{ color: "rgba(122,122,128,0.4)" }}>
         Human WHOIS protocol
       </p>
-      <div className="protocol-nav mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
+      <div className="protocol-nav mt-2 flex flex-wrap items-center justify-start gap-x-4 gap-y-1 text-left">
         <Link href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
           ← Return to Origin
         </Link>

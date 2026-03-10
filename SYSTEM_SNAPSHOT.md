@@ -402,9 +402,29 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑10 (FlowNav — bottom nav on every page)
+
+**Added `components/FlowNav.jsx`:** "Human WHOIS protocol" + ← Return to Origin | View Dossier. Variants: dark (terminal style) and light (paper style). **Placed on:** OriginTerminalIntake (main + completion), PreviewRevealSequence, ReportDocument, beauty/start, beauty/success, beauty/cancel, dossier, BeautyViewClient ErrorState. InteractiveReportSequence and TerminalResolutionSequence already had equivalent nav; Origin main branch now includes Return to Origin (was View Dossier only). Build passes.
+
+## Verification Log – 2026‑03‑10 (Landing lock + Studio waitlist connection)
+
+**Landing lock expanded:** Added `app/beauty/page.jsx` to landing-lock rule. **Studio Waitlist Registry connected:** LigsStudio now passes `?token=` from URL as `Authorization: Bearer` header when fetching `/api/waitlist/list`, so the waitlist section authenticates even when the cookie is not yet set. Clearer error messages: 403 → "Access denied. Add ?token=YOUR_TOKEN to the URL."; 503 → storage config hint. **Origin % metric fixed:** `lib/waitlist-list` now counts both `origin` (hero form) and `origin-terminal` (terminal flow) for the Origin % metric; previously only origin-terminal was counted. Build passes.
+
+## Verification Log – 2026‑03‑10 (Alignment drift fix — one consistent left-aligned text spine)
+
+**Flow alignment unified:** Removed centering from all reachable beauty/view components so the main text stack shares one consistent left edge (same alignment logic as /origin). Changes: page.jsx (justify-center→justify-start); BeautyViewClient loading/ErrorState (items-center justify-center→items-stretch justify-start, text-center→text-left, max-w-md→max-w-[min(100vw-2rem,1000px)]); PreviewRevealSequence (items-center justify-center→items-stretch justify-start, aperture mx-auto removed, hero items-center→items-start); TerminalResolutionSequence (items-center justify-center→items-stretch, justify-center→justify-start, text-center removed from nav); ReportStep/ArtifactReveal (items-center→items-start, text-center→text-left); InteractiveReportSequence (items-center justify-center→items-stretch justify-start, aperture mx-auto removed, footer text-center→text-left, justify-center→justify-start). ReportDocument unchanged. Build passes.
+
+## Verification Log – 2026‑03‑10 (/origin-as-law cleanup for beauty/view)
+
+**Beauty view shell aligned with /origin:** `app/beauty/view/page.jsx` updated to use same shell as /origin: black background (#000), whois-origin, font-mono, rgba(154,154,160,0.9) base text, max-width 1000px, p-4 sm:p-6 padding. LigsFooter removed from beauty/view flow. ContinuePrompt: added text-[13px]. PreviewRevealSequence: removed border-t above continue line. ReportDocument unchanged. Build passes.
+
 ## Verification Log – 2026‑03‑10 (Waitlist counter and confirmation email — production diagnosis)
 
 **Diagnosis:** Counter not appearing when `/api/waitlist/count` returned non-200 or client fetch failed (state stayed `null`). Confirmation emails not sent when `RESEND_API_KEY`/`SENDGRID_API_KEY` missing; only dev logged the warning. **Fixes:** (1) Count route: on `getWaitlistCount()` throw, return `{ total: SEED_REGISTRY_COUNT }` and log error so counter always shows. (2) OriginTerminalIntake: if fetch fails or `data.total` missing, set `registryCount` to fallback 117 so counter always appears. (3) Email: log warning in all envs when API keys missing. (4) Temporary logging in POST `/api/waitlist`: "waitlist entry received", "sending confirmation email", "email send result". **Production:** Ensure Vercel env has `BLOB_READ_WRITE_TOKEN`, `RESEND_API_KEY` (or `SENDGRID_API_KEY`), `EMAIL_FROM`; redeploy after 914a55d or later. See docs/WAITLIST-PRODUCTION-DIAGNOSIS.md.
+
+## Verification Log – 2026‑03‑10 (Origin WHOIS single-line terminal flow)
+
+**Origin landing refined to single-line WHOIS terminal flow.** Initial state: one line "WHOIS <your name>" and single input; no "Press ENTER to begin". After name + ENTER: handshake (five protocol lines, ~700 ms apart); then sequential intake (date → time → place → email), one prompt at a time. On date confirm: solar segment and base archetype lines in thread; then time/place/email. Report expansion placeholder in ReportDocument: "Additional identity modules are available in the full report: Career Field Catalogue, Relationship Compatibility Analysis, Team Dynamics Map." (research-module tone). No new routes or env vars. See docs/ORIGIN-WHOIS-DELIVERABLE.md.
 
 ---
 

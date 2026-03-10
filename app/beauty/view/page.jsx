@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { headers } from "next/headers";
-import LigsFooter from "@/components/LigsFooter";
 import BeautyViewClient from "./BeautyViewClient";
 import { log } from "@/lib/log";
 
@@ -98,17 +97,23 @@ export async function generateMetadata({ searchParams }) {
 
 export default function BeautyViewPage() {
   return (
-    <div className="registry-view beauty-theme min-h-screen font-sans">
-      <Suspense fallback={
-        <main className="beauty-page min-h-screen relative flex flex-col items-center justify-center px-6 py-24">
-          <p className="beauty-body beauty-text-muted font-mono text-sm" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+    <div
+      className="min-h-screen flex flex-col items-center p-4 sm:p-6 overflow-x-hidden whois-origin font-mono"
+      style={{
+        background: "#000",
+        color: "rgba(154,154,160,0.9)",
+        fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
+      }}
+    >
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[min(100vw-2rem,1000px)] min-w-0">
+        <Suspense fallback={
+          <p className="text-[13px]" style={{ color: "rgba(154,154,160,0.9)" }}>
             Loading registry record…
           </p>
-        </main>
-      }>
-        <BeautyViewClient />
-      </Suspense>
-      <LigsFooter />
+        }>
+          <BeautyViewClient />
+        </Suspense>
+      </div>
     </div>
   );
 }

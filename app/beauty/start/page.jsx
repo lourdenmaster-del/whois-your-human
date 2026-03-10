@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LightIdentityForm from "@/components/LightIdentityForm";
+import FlowNav from "@/components/FlowNav";
 import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client";
 import { saveLastFormData, loadLastFormData, isBeautyUnlocked } from "@/lib/landing-storage";
 import { TEST_MODE } from "@/lib/dry-run-config";
@@ -98,7 +99,7 @@ export default function BeautyStartPage() {
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
         <div className="w-full max-w-2xl min-w-0">
           <div
-            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-center"
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-left"
             style={{
               boxShadow: "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
             }}
@@ -125,7 +126,7 @@ export default function BeautyStartPage() {
             </div>
           </div>
           <p
-            className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
             (L)IGS — Human WHOIS Resolution Engine
@@ -156,7 +157,7 @@ export default function BeautyStartPage() {
             </span>
           </div>
           <div className="px-5 sm:px-6 py-8 space-y-6">
-            <div className="text-center space-y-2">
+            <div className="text-left space-y-2">
               <h1
                 className="text-xl sm:text-2xl font-semibold tracking-wide"
                 style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
@@ -184,18 +185,11 @@ export default function BeautyStartPage() {
               initialFormData={lastFormData}
               hideSubmitButton={apiDisabled}
             />
-            <p className="text-center">
-              <a
-                href="/origin"
-                className="registry-ctrl text-[11px] font-medium text-[#7A4FFF] hover:underline"
-              >
-                ← Back to Origin
-              </a>
-            </p>
+            <FlowNav variant="dark" className="mt-6" />
           </div>
         </div>
         <p
-          className="mt-4 pt-3 text-center text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+          className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
           style={{ fontFamily: "inherit", color: "#8a8a90" }}
         >
           (L)IGS — Human WHOIS Resolution Engine

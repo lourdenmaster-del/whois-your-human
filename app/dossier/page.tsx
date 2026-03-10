@@ -4,6 +4,7 @@
  */
 
 import Link from "next/link";
+import FlowNav from "@/components/FlowNav";
 import { IGNIS_V1_ARTIFACTS } from "@/lib/exemplar-store";
 import { SAMPLE_REPORT_IGNIS } from "@/lib/sample-report";
 
@@ -115,14 +116,7 @@ export default function DossierPage() {
 
         {/* CTA */}
         <footer className="border-t border-black/20 pt-8 space-y-4">
-          <p className="text-center">
-            <Link
-              href="/origin"
-              className="text-sm font-mono text-black/60 hover:text-black/80 hover:underline"
-            >
-              ← Return to Origin
-            </Link>
-          </p>
+          <FlowNav variant="light" />
           <Link
             href="/origin"
             className="inline-block rounded bg-black px-6 py-3 text-sm font-medium text-white transition hover:bg-black/85"

@@ -27,7 +27,7 @@ export function ArtifactReveal({
   const isDocument = variant === "document";
 
   return (
-    <div className={isDocument ? "my-6 flex flex-col items-center gap-2" : "my-4 flex flex-col items-center gap-3"}>
+    <div className={isDocument ? "my-6 flex flex-col items-start gap-2" : "my-4 flex flex-col items-start gap-3"}>
       <div
         className={`relative max-w-[280px] sm:max-w-[320px] w-full rounded overflow-hidden min-h-[200px] report-artifact-frame ${isDocument ? "whois-document-artifact-frame" : ""}`}
         style={
@@ -100,7 +100,7 @@ export function ArtifactReveal({
         )}
       </div>
       <p
-        className={`text-sm text-center max-w-[280px] ${isDocument ? "text-black/60 font-mono" : ""}`}
+        className={`text-sm text-left max-w-[280px] ${isDocument ? "text-black/60 font-mono" : ""}`}
         style={isDocument ? {} : { color: "#9a9aa0" }}
       >
         Identity artifact resolved.
@@ -169,9 +169,6 @@ export default function ReportStep({
       )}
       {showContinue && onContinue && !isLast && (
         <div className="pt-2 mt-2 border-t border-white/[0.06]">
-          <p className="text-sm mb-1" style={{ color: "#9a9aa0", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
-            Press ENTER or tap to continue
-          </p>
           <ContinuePrompt
             ref={continueRef}
             onContinue={onContinue}

@@ -6,10 +6,10 @@
  * Off-white paper, black/charcoal text, serif body, monospace labels, no step-by-step flow.
  */
 
-import Link from "next/link";
 import { generateLirId } from "@/src/ligs/marketing/identity-spec";
 import { getReportSections } from "@/lib/report-sections";
 import { ArtifactReveal } from "./ReportStep";
+import FlowNav from "@/components/FlowNav";
 
 const PAPER_BG = "#fafaf8";
 const SECTION_LABEL_CLASS =
@@ -105,26 +105,17 @@ export default function ReportDocument({ profile }) {
           </section>
         ))}
 
-        {/* Footer — protocol nav (same as previous report view) */}
-        <footer className="border-t border-black/15 pt-8 mt-6">
-          <p className="text-center text-[9px] font-mono uppercase tracking-widest text-black/45">
-            Human WHOIS protocol
+        {/* Expansion modules — research tone, placeholder */}
+        <section className="mb-10 pt-4 border-t border-black/10">
+          <p
+            className="text-xs text-black/55 leading-relaxed"
+            style={{ fontFamily: "var(--font-beauty-serif), Georgia, serif" }}
+          >
+            Additional identity modules are available in the full report: Career Field Catalogue, Relationship Compatibility Analysis, Team Dynamics Map.
           </p>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-6 gap-y-1">
-            <Link
-              href="/origin"
-              className="text-[11px] font-mono text-black/55 hover:text-black/75 hover:underline"
-            >
-              ← Return to Origin
-            </Link>
-            <Link
-              href="/dossier"
-              className="text-[11px] font-mono text-black/55 hover:text-black/75 hover:underline"
-            >
-              View Dossier
-            </Link>
-          </div>
-        </footer>
+        </section>
+
+        <FlowNav variant="light" className="pt-8 border-t border-black/10" />
       </article>
     </div>
   );

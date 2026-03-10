@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { parseDate, parseTime } from "@/lib/terminal-intake/parseInputs";
-import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
+import { resolveArchetypeFromDate, getArchetypeAndSegmentFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import {
   submitToBeautySubmit,
   submitToBeautyDryRun,
@@ -20,21 +20,15 @@ import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 
 const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 
-/** Intake order: name first, email last. */
-const INTAKE_FIELDS = ["name", "date", "time", "place", "email"];
+/** Single active field during intake. Order: name → birthDate → birthPlace → birthTime → email. */
+const INTAKE_FIELDS = ["name", "birthDate", "birthPlace", "birthTime", "email"];
 const INTAKE_PROMPTS = {
-  name: "Enter name or designation:",
-  date: "Enter birth date:",
-  time: "Enter birth time, or type UNKNOWN:",
-  place: "Enter place of birth:",
-  email: "Enter contact email:",
+  name: "WHOIS <your name>",
+  birthDate: "Birth date:",
+  birthPlace: "Place of birth:",
+  birthTime: "Birth time (or UNKNOWN):",
+  email: "Contact email:",
 };
-
-const BOOT_LINES = [
-  "(L)IGS identity protocol initializing...",
-  "Human WHOIS registry online.",
-  "Press ENTER to begin.",
-];
 
 const PROCESSING_LINES = [
   "Resolving solar field...",
@@ -69,6 +63,7 @@ function getDryRunFromUrl() {
 export default function OriginTerminalIntake() {
   const router = useRouter();
   const inputRef = useRef(null);
+  const continuePromptRef = useRef(null);
   const scrollRef = useRef(null);
   const lastEnterHandledRef = useRef(0);
   const ctaSubmittingRef = useRef(false);
@@ -76,13 +71,12 @@ export default function OriginTerminalIntake() {
   const countdownTimerRef = useRef(null);
   const formDataRef = useRef({});
   const phaseRef = useRef("idle");
-  const bootCompleteHandledRef = useRef(false);
 
   const [phase, setPhase] = useState("idle");
-  const [lines, setLines] = useState([]);
+  const [lines, setLines] = useState([{ text: INTAKE_PROMPTS.name, type: "system" }]);
   const [inputValue, setInputValue] = useState("");
-  const [inputVisible, setInputVisible] = useState(false);
-  const [currentField, setCurrentField] = useState(null);
+  const [inputVisible, setInputVisible] = useState(true);
+  const [currentField, setCurrentField] = useState("name");
   const [formData, setFormData] = useState({
     name: "",
     birthDate: "",
@@ -201,47 +195,22 @@ export default function OriginTerminalIntake() {
     [addLine]
   );
 
-  const handleActivate = useCallback(() => {
-    if (phase !== "idle") return;
-    setPhase("booting");
-    let idx = 0;
-    const addNextBootLine = () => {
-      if (idx >= BOOT_LINES.length) {
-        setPhase("bootComplete");
-        return;
-      }
-      addLine(BOOT_LINES[idx]);
-      idx += 1;
-      if (idx < BOOT_LINES.length) {
-        setTimeout(addNextBootLine, 800);
-      } else {
-        setPhase("bootComplete");
-      }
-    };
-    setTimeout(addNextBootLine, 600);
-  }, [phase, addLine]);
-
-  const handleBootCompleteEnter = useCallback(() => {
-    if (phase !== "bootComplete" || bootCompleteHandledRef.current) return;
-    bootCompleteHandledRef.current = true;
-    setPhase("intake");
-    setCurrentField("name");
-    addLine(INTAKE_PROMPTS.name);
-    setInputVisible(true);
-    setInputValue("");
-  }, [phase, addLine]);
-
   const handleDateConfirm = useCallback(() => {
-    if (currentField !== "date" || !dateNeedsConfirm) {
+    if (currentField !== "birthDate" || !dateNeedsConfirm) {
       if (typeof window !== "undefined") {
         console.debug("[OriginIntake] Date confirm skipped", { currentField, dateNeedsConfirm: !!dateNeedsConfirm });
       }
       return;
     }
-    setFormData((f) => ({ ...f, birthDate: dateNeedsConfirm.iso }));
+    const iso = dateNeedsConfirm.iso;
+    setFormData((f) => ({ ...f, birthDate: iso }));
     setDateNeedsConfirm(null);
     setInputValue("");
-    const nextIdx = INTAKE_FIELDS.indexOf("date") + 1;
+    const { archetype } = getArchetypeAndSegmentFromDate(iso);
+    setResolvedArchetypeFromDate(archetype);
+    addLine("Solar segment resolved: " + archetype);
+    addLine("Base archetype detected: " + archetype);
+    const nextIdx = INTAKE_FIELDS.indexOf("birthDate") + 1;
     const nextField = INTAKE_FIELDS[nextIdx];
     setCurrentField(nextField);
     addLine(INTAKE_PROMPTS[nextField]);
@@ -251,30 +220,29 @@ export default function OriginTerminalIntake() {
     setPhase("processing");
     setProcessingIndex(0);
     addLine("Parameters accepted.");
-    addLine("");
   }, [addLine]);
 
   const showInputRow =
-    (phase === "idle" && inputVisible) ||
-    phase === "booting" ||
-    phase === "bootComplete" ||
-    (phase === "intake" && currentField) ||
-    (phase === "completeAwaitingEnterRedirect" && countdownRemaining == null);
-
-  const showIdlePrompt = phase === "idle";
-  const showBootCompletePrompt = phase === "bootComplete";
+    currentField != null &&
+    phase !== "processing" &&
+    phase !== "completeAwaitingEnterRedirect" &&
+    phase !== "executing";
   const showCompleteEnterPrompt = phase === "completeAwaitingEnterRedirect" && countdownRemaining == null;
-  const showDateConfirmTap = phase === "intake" && currentField === "date" && dateNeedsConfirm;
+  const showDateConfirmTap = false;
 
-  const visibleLinesCount = 3;
+  const visibleLinesCount = 10;
   const visibleLines = lines.slice(-visibleLinesCount);
 
   useEffect(() => {
-    if (showInputRow || showIdlePrompt || showBootCompletePrompt) {
+    if (showCompleteEnterPrompt && continuePromptRef.current) {
+      const id = requestAnimationFrame(() => continuePromptRef.current?.focus());
+      return () => cancelAnimationFrame(id);
+    }
+    if (showInputRow && inputRef.current) {
       const id = requestAnimationFrame(() => inputRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
-  }, [showInputRow, showIdlePrompt, showBootCompletePrompt, lines.length]);
+  }, [showInputRow, showCompleteEnterPrompt, lines.length]);
 
   useEffect(() => {
     if (phase === "completeAwaitingEnterRedirect") return;
@@ -305,19 +273,6 @@ export default function OriginTerminalIntake() {
         if (now - lastEnterHandledRef.current < 150) return;
         lastEnterHandledRef.current = now;
 
-        if (phase === "idle") {
-          if (!inputVisible) {
-            setInputVisible(true);
-            handleActivate();
-          }
-          return;
-        }
-
-        if (phase === "bootComplete") {
-          handleBootCompleteEnter();
-          return;
-        }
-
         if (phase === "completeAwaitingEnterRedirect") {
           if (countdownRemaining == null) {
             setCountdownRemaining(3);
@@ -327,95 +282,50 @@ export default function OriginTerminalIntake() {
           return;
         }
 
-        if (phase === "intake" && currentField) {
+        if (currentField != null) {
           const raw = inputValue.trim();
-          const allowEmpty = currentField === "date" && dateNeedsConfirm;
-          if (!raw && !allowEmpty) {
-            if (typeof window !== "undefined") {
-              console.debug("[OriginIntake] Enter ignored: empty input", { currentField, dateNeedsConfirm: !!dateNeedsConfirm });
-            }
-            return;
-          }
-
           if (currentField === "name") {
-            if (!raw) {
-              addLine(raw || "(blank)", "user");
-              addLine("Name required.");
-              setInputValue("");
-              return;
-            }
-            addLine(raw, "user");
+            if (!raw) return;
             setFormData((f) => ({ ...f, name: raw }));
             setInputValue("");
-            const nextIdx = INTAKE_FIELDS.indexOf("name") + 1;
-            const nextField = INTAKE_FIELDS[nextIdx];
-            setCurrentField(nextField);
-            addLine(INTAKE_PROMPTS[nextField]);
+            setPhase("intake");
+            setCurrentField("birthDate");
             return;
           }
-
-          if (currentField === "date") {
-            if (dateNeedsConfirm && !raw) {
-              handleDateConfirm();
-              return;
-            }
-            if (dateNeedsConfirm && raw) setDateNeedsConfirm(null);
+          if (currentField === "birthDate") {
+            if (!raw) return;
             const parsed = parseDate(raw);
             if (!parsed) {
-              addLine(raw, "user");
-              addLine("Try: August 14, 1993 or 8/14/1993");
               setInputValue("");
               return;
             }
-            addLine(raw, "user");
             setFormData((f) => ({ ...f, birthDate: parsed.iso }));
             setResolvedArchetypeFromDate(resolveArchetypeFromDate(parsed.iso));
-            addLine(`Interpreted as: ${parsed.normalized}`);
-            addLine("Press ENTER to confirm.");
-            setDateNeedsConfirm(parsed);
             setInputValue("");
+            setCurrentField("birthPlace");
             return;
           }
-
-          if (currentField === "time") {
-            const parsed = parseTime(raw);
-            addLine(raw, "user");
-            setFormData((f) => ({ ...f, birthTime: parsed.api }));
-            setInputValue("");
-            const nextIdx = INTAKE_FIELDS.indexOf("time") + 1;
-            const nextField = INTAKE_FIELDS[nextIdx];
-            setCurrentField(nextField);
-            addLine(INTAKE_PROMPTS[nextField]);
-            return;
-          }
-
-          if (currentField === "place") {
-            if (!raw) {
-              addLine(raw || "(blank)", "user");
-              addLine("Place required.");
-              setInputValue("");
-              return;
-            }
-            addLine(raw, "user");
+          if (currentField === "birthPlace") {
+            if (!raw) return;
             setFormData((f) => ({ ...f, birthLocation: raw }));
             setInputValue("");
-            const nextIdx = INTAKE_FIELDS.indexOf("place") + 1;
-            const nextField = INTAKE_FIELDS[nextIdx];
-            setCurrentField(nextField);
-            addLine(INTAKE_PROMPTS[nextField]);
+            setCurrentField("birthTime");
             return;
           }
-
+          if (currentField === "birthTime") {
+            const parsed = parseTime(raw);
+            setFormData((f) => ({ ...f, birthTime: parsed.api }));
+            setInputValue("");
+            setCurrentField("email");
+            return;
+          }
           if (currentField === "email") {
+            if (!raw) return;
             if (!isValidEmail(raw)) {
-              addLine(raw || "(blank)", "user");
-              addLine("Enter a valid contact email.");
               setInputValue("");
               return;
             }
-            const email = raw.trim().toLowerCase();
-            addLine(email, "user");
-            setFormData((f) => ({ ...f, email }));
+            setFormData((f) => ({ ...f, email: raw.trim().toLowerCase() }));
             setInputValue("");
             setCurrentField(null);
             advanceToProcessing();
@@ -430,11 +340,8 @@ export default function OriginTerminalIntake() {
       inputValue,
       dateNeedsConfirm,
       countdownRemaining,
-      inputVisible,
       addLine,
       redirectNow,
-      handleActivate,
-      handleBootCompleteEnter,
       handleDateConfirm,
       advanceToProcessing,
     ]
@@ -469,8 +376,10 @@ export default function OriginTerminalIntake() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          addLine("Identity query could not be recorded.");
-          addLine("You may continue, but confirmation is not secured.");
+          if (typeof window !== "undefined") {
+            console.error("[waitlist] request failed status=" + res.status, data);
+          }
+          addLine("Registry channel unavailable.");
           addLine("");
           addLine("Press ENTER or tap to continue");
           setPhase("completeAwaitingEnterRedirect");
@@ -478,11 +387,9 @@ export default function OriginTerminalIntake() {
           return;
         }
         if (data?.alreadyRegistered) {
-          addLine("Identity record already exists.");
-          addLine("Contact node verified.");
+          addLine("Identity query already recorded.");
         } else {
-          addLine("Contact node recorded.");
-          addLine("Identity query logged.");
+          addLine("Identity query recorded.");
           if (data?.confirmationSent) addLine("Confirmation signal transmitted.");
         }
         addLine("");
@@ -617,22 +524,22 @@ export default function OriginTerminalIntake() {
     })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
-        return { ok: res.ok, data };
+        return { ok: res.ok, status: res.status, data };
       })
-      .then(({ ok, data }) => {
+      .then(({ ok, status, data }) => {
         if (cancelled) return;
         if (ok) {
           if (data?.alreadyRegistered) {
-            addLine("Identity record already exists.");
-            addLine("Contact node verified.");
+            addLine("Identity query already recorded.");
           } else {
-            addLine("Contact node recorded.");
-            addLine("Identity query logged.");
+            addLine("Identity query recorded.");
             if (data?.confirmationSent) addLine("Confirmation signal transmitted.");
           }
         } else {
-          addLine("Identity query could not be recorded.");
-          addLine("You may continue, but confirmation is not secured.");
+          if (typeof window !== "undefined") {
+            console.error("[waitlist] request failed status=" + status, data);
+          }
+          addLine("Registry channel unavailable.");
         }
         addLine("");
         addLine("Press ENTER or tap to continue");
@@ -640,10 +547,12 @@ export default function OriginTerminalIntake() {
         setCountdownRemaining(null);
         setWaitlistState("done");
       })
-      .catch(() => {
+      .catch((err) => {
         if (cancelled) return;
-        addLine("Identity query could not be recorded.");
-        addLine("You may continue, but confirmation is not secured.");
+        if (typeof window !== "undefined") {
+          console.error("[waitlist] request failed network error", err);
+        }
+        addLine("Registry channel unavailable.");
         addLine("");
         addLine("Press ENTER or tap to continue");
         setPhase("completeAwaitingEnterRedirect");
@@ -663,9 +572,67 @@ export default function OriginTerminalIntake() {
     }
   }, [countdownRemaining, redirectNow]);
 
+  const archetypeForCompletion = resolvedArchetypeFromDate ?? resolveArchetypeFromDate(formData.birthDate ?? "") ?? "—";
+
+  if (phase === "completeAwaitingEnterRedirect") {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center p-4 sm:p-6 overflow-x-hidden whois-origin"
+        style={{ background: "#000", position: "relative" }}
+      >
+        <div
+          className="absolute inset-0 pointer-events-none opacity-[0.02]"
+          style={{
+            background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255,255,255,0.3) 0%, transparent 70%)",
+            animation: "whois-field-pulse 10s ease-in-out infinite",
+          }}
+        />
+        <div className="flex-1 flex flex-col justify-center w-full max-w-[min(100vw-2rem,1000px)] min-w-0">
+          <div
+            className="font-mono text-sm sm:text-base space-y-1 text-left"
+            style={{
+              color: "rgba(154,154,160,0.9)",
+              fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
+            }}
+          >
+            <p className="text-[11px] uppercase tracking-[0.15em]">LIGHT IDENTITY ARTIFACT — RESOLVED</p>
+            <p className="text-[13px]">Light Identity Artifact</p>
+            <p className="mt-4 text-[11px] uppercase tracking-[0.12em]">ARCHETYPE</p>
+            <p className="text-lg font-medium" style={{ color: "rgba(232,232,236,0.95)" }}>{archetypeForCompletion.toUpperCase()}</p>
+            <p
+              ref={continuePromptRef}
+              className="mt-2 text-left cursor-pointer touch-manipulation text-[13px] outline-none focus:outline-none"
+              style={{ color: "rgba(154,154,160,0.9)", border: "none", boxShadow: "none" }}
+              onClick={handleCompleteTap}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleCompleteTap();
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Press ENTER or tap to continue"
+            >
+              Press ENTER or tap to continue
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-start gap-x-4 gap-y-1 text-left">
+              <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
+                ← Return to Origin
+              </a>
+              <a href="/dossier" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
+                View Dossier
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 overflow-x-hidden whois-origin"
+      className="min-h-screen flex flex-col items-center p-4 sm:p-6 overflow-x-hidden whois-origin"
       style={{
         background: "#000",
         position: "relative",
@@ -680,125 +647,78 @@ export default function OriginTerminalIntake() {
         }}
       />
 
+      <div className="flex-1 flex flex-col justify-center w-full max-w-[min(100vw-2rem,1000px)] min-w-0">
       <div
         ref={scrollRef}
-        className="whois-aperture w-full max-w-[min(100vw-2rem,1000px)] min-w-0 mx-auto"
+        className="whois-aperture w-full min-w-0 mx-auto"
         style={{ position: "relative", zIndex: 1 }}
       >
-        {phase === "idle" && lines.length === 0 ? (
-          <div
-            className="whois-aperture-inner flex flex-col items-center justify-center min-h-[120px] w-full text-center cursor-default"
-            onClick={() => {
-              setInputVisible(true);
-              handleActivate();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setInputVisible(true);
-                handleActivate();
+        <div
+          className="whois-aperture-inner w-full font-mono text-sm sm:text-base min-h-[120px] flex flex-col justify-end py-4 px-4 sm:px-5"
+          style={{
+            color: "rgba(154,154,160,0.9)",
+            fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
+            lineHeight: 1.9,
+          }}
+        >
+          {visibleLines.map((line, i) => {
+              if (currentField != null) return null;
+              const text = typeof line === "string" ? line : line?.text;
+              const type = typeof line === "string" ? "system" : line?.type;
+              if (phase === "processing" || phase === "completeAwaitingEnterRedirect") {
+                if (text === INTAKE_PROMPTS.name) return null;
+                if (phase === "completeAwaitingEnterRedirect" && text === "Press ENTER or tap to continue") return null;
               }
-            }}
-            role="button"
-            tabIndex={0}
-            aria-label="Press ENTER to begin"
-          >
-            <p
-              className="text-sm sm:text-base font-mono"
-              style={{
-                color: "rgba(232,232,236,0.92)",
-                fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
-                letterSpacing: "0.06em",
-              }}
-            >
-              Press ENTER to begin.
-            </p>
-          </div>
-        ) : (
-          <div
-            className="whois-aperture-inner w-full font-mono text-sm sm:text-base min-h-[120px] flex flex-col justify-end py-4 px-4 sm:px-5"
-            style={{
-              color: "rgba(154,154,160,0.9)",
-              fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
-              lineHeight: 1.9,
-            }}
-          >
-            {visibleLines.map((line, i) => (
+              return (
               <div
                 key={`line-${lines.length - visibleLines.length + i}`}
                 className="whitespace-pre-wrap break-words"
                 style={{
-                  color: line.type === "user" ? "rgba(232,232,236,0.95)" : "rgba(154,154,160,0.9)",
+                  color: type === "user" ? "rgba(232,232,236,0.95)" : "rgba(154,154,160,0.9)",
                 }}
               >
-                {line.type === "user" ? "> " : ""}
-                {line.text}
+                {(phase !== "processing" && phase !== "completeAwaitingEnterRedirect" && type === "user") ? "> " : ""}
+                {text}
               </div>
-            ))}
+            );
+            })}
 
             {showInputRow && (
               <div
-                className={`flex items-center gap-1 mt-1 min-h-[2.2em] ${showIdlePrompt || showBootCompletePrompt || showCompleteEnterPrompt || showDateConfirmTap ? "cursor-pointer touch-manipulation" : ""}`}
-                onClick={
-                  showIdlePrompt
-                    ? () => {
-                        setInputVisible(true);
-                        handleActivate();
-                      }
-                    : showBootCompletePrompt
-                    ? handleBootCompleteEnter
-                    : showCompleteEnterPrompt
-                    ? handleCompleteTap
-                    : showDateConfirmTap
-                    ? handleDateConfirm
-                    : undefined
-                }
+                className="flex items-center gap-1 min-h-[2.2em] mt-0"
+                onClick={showDateConfirmTap ? handleDateConfirm : undefined}
                 onKeyDown={
-                  showIdlePrompt
+                  showDateConfirmTap
                     ? (e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setInputVisible(true);
-                          handleActivate();
-                        }
-                      }
-                    : showBootCompletePrompt
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleBootCompleteEnter();
-                        }
-                      }
-                    : showCompleteEnterPrompt
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleCompleteTap();
+                          handleDateConfirm();
                         }
                       }
                     : undefined
                 }
-                role={showIdlePrompt || showBootCompletePrompt || showCompleteEnterPrompt || showDateConfirmTap ? "button" : undefined}
-                tabIndex={showIdlePrompt || showBootCompletePrompt || showCompleteEnterPrompt || showDateConfirmTap ? 0 : undefined}
-                aria-label={showIdlePrompt || showBootCompletePrompt ? "Press ENTER to begin" : showCompleteEnterPrompt ? "Press ENTER or tap to continue" : currentField ? `Enter ${currentField}` : undefined}
+                role={showDateConfirmTap ? "button" : undefined}
+                tabIndex={showDateConfirmTap ? 0 : undefined}
+                aria-label={currentField ? `Enter ${currentField}` : undefined}
               >
                 <span style={{ color: "rgba(122,122,128,0.9)" }}>&gt;</span>
                 <input
+                  key="intake-input"
                   ref={inputRef}
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono"
+                  className={`flex-1 min-w-0 bg-transparent border-none outline-none font-mono placeholder:text-[rgba(154,154,160,0.9)]`}
                   style={{
                     color: "rgba(232,232,236,0.95)",
                     font: "inherit",
                   }}
-                  placeholder=""
+                  placeholder={currentField ? INTAKE_PROMPTS[currentField] : ""}
                   autoComplete="off"
                   autoCapitalize="off"
                   spellCheck={false}
-                  aria-label={showIdlePrompt || showBootCompletePrompt ? "Press ENTER to begin" : currentField ? `Enter ${currentField}` : "Press Enter to continue"}
+                  aria-label={currentField ? `Enter ${currentField}` : undefined}
                 />
                 <span
                   className="inline-block w-2 h-4 bg-[rgba(154,154,160,0.8)] whois-cursor"
@@ -809,28 +729,52 @@ export default function OriginTerminalIntake() {
                 />
               </div>
             )}
-          </div>
-        )}
+
+            {showCompleteEnterPrompt && (
+              <div
+                ref={continuePromptRef}
+                className="min-h-[2.2em] mt-0 cursor-pointer touch-manipulation flex items-center"
+                onClick={handleCompleteTap}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleCompleteTap();
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Press ENTER or tap to continue"
+                style={{ color: "rgba(154,154,160,0.9)" }}
+              >
+                Press ENTER or tap to continue
+              </div>
+            )}
+        </div>
       </div>
 
-      {phase !== "idle" && phase !== "booting" && (
+      {currentField == null && phase !== "processing" && phase !== "executing" && (
         <p
-          className="mt-8 text-[9px] font-mono uppercase tracking-[0.12em] text-center"
+          className="mt-8 text-[9px] font-mono uppercase tracking-[0.12em] text-left"
           style={{ color: "rgba(122,122,128,0.4)" }}
         >
           Human WHOIS protocol
         </p>
       )}
-      {phase !== "idle" && phase !== "booting" && (
-        <div className="protocol-nav mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
-          <a href="/dossier" className="text-[11px] font-mono">
+      {currentField == null && phase !== "processing" && phase !== "executing" && (
+        <div className="protocol-nav mt-2 flex flex-wrap items-center justify-start gap-x-4 gap-y-1 text-left">
+          <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
+            ← Return to Origin
+          </a>
+          <a href="/dossier" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
             View Dossier
           </a>
         </div>
       )}
+      </div>
+
       {typeof registryCount === "number" && (
         <div
-          className="mt-2 text-center font-mono"
+          className="mt-auto pt-6 pb-2 text-left font-mono"
           style={{
             animation: "whois-fade-in 0.5s ease-out forwards",
           }}

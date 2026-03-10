@@ -13,6 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { track } from "@/lib/analytics";
 import { unwrapResponse } from "@/lib/unwrap-response";
 import { FALLBACK_PRIMARY_ARCHETYPE } from "@/src/ligs/archetypes/contract";
+import FlowNav from "@/components/FlowNav";
 import PreviewRevealSequence from "./PreviewRevealSequence";
 import ReportDocument from "./ReportDocument";
 
@@ -42,8 +43,8 @@ const DRY_RUN_PLACEHOLDER = {
 
 function ErrorState({ message, onRetry, showRetry }) {
   return (
-    <main className="min-h-screen font-sans flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
-      <div className="max-w-md w-full text-center space-y-6">
+    <main className="min-h-screen font-sans flex flex-col items-center justify-center w-full max-w-[min(100vw-2rem,1000px)] min-w-0 px-4 sm:px-6 py-6 bg-[#0a0a0b]">
+      <div className="w-full text-left space-y-6">
         <p className="font-mono text-sm text-[#c8c8cc]" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
           {message}
         </p>
@@ -56,12 +57,7 @@ function ErrorState({ message, onRetry, showRetry }) {
             Retry
           </button>
         )}
-        <Link
-          href="/origin"
-          className="inline-block font-mono text-sm font-medium text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline"
-        >
-          ← Return to Origin
-        </Link>
+        <FlowNav variant="dark" />
       </div>
     </main>
   );
@@ -139,7 +135,7 @@ export default function BeautyViewClient() {
   if (isExemplarPreview) {
     if (loading) {
       return (
-        <main className="min-h-screen font-sans flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
+        <main className="min-h-screen font-sans flex flex-col items-center justify-center w-full max-w-[min(100vw-2rem,1000px)] min-w-0 px-4 sm:px-6 py-6 bg-[#0a0a0b]">
           <p className="font-mono text-sm text-[#9a9aa0]" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
             Loading registry record…
           </p>
@@ -186,7 +182,7 @@ export default function BeautyViewClient() {
   // Loading
   if (loading) {
     return (
-      <main className="min-h-screen font-sans flex flex-col items-center justify-center px-6 py-24 bg-[#0a0a0b]">
+      <main className="min-h-screen font-sans flex flex-col items-center justify-center w-full max-w-[min(100vw-2rem,1000px)] min-w-0 px-4 sm:px-6 py-6 bg-[#0a0a0b]">
         <p className="font-mono text-sm text-[#9a9aa0]" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
           Loading registry record…
         </p>

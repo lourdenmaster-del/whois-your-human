@@ -7,11 +7,11 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import Link from "next/link";
 import { getArchetypePreviewConfig, buildPlaceholderSvg } from "@/lib/archetype-preview-config";
 import ArchetypeResolveCarousel from "@/components/ArchetypeResolveCarousel";
 import ArchetypeFamilyCycle from "@/components/ArchetypeFamilyCycle";
 import ContinuePrompt from "./ContinuePrompt";
+import FlowNav from "@/components/FlowNav";
 import {
   getArchetypeFamilyUrlsForPreview,
   pickArchetypeFamilyImage,
@@ -170,8 +170,8 @@ export default function PreviewRevealSequence({ profile, reportId = "", onComple
               {displayProtocolLine}
             </div>
 
-            {/* Hero: same aperture feel — shallow, centered, content by phase */}
-            <div className="flex items-center justify-center py-6 min-h-[180px]">
+            {/* Hero: same aperture feel — shallow, left-aligned, content by phase */}
+            <div className="flex items-start justify-start py-6 min-h-[180px]">
               <div
                 className={`relative w-full max-w-[min(90%,380px)] rounded border border-white/[0.08] overflow-hidden min-h-[160px] ${
                   heroFadingToWhite ? "preview-hero-fade-to-white" : ""
@@ -257,10 +257,7 @@ export default function PreviewRevealSequence({ profile, reportId = "", onComple
             </div>
 
             {awaitContinue && phase === 5 && (
-              <div className="pt-2 mt-2 border-t border-white/[0.06]">
-                <p className="text-sm mb-1" style={{ color: "#9a9aa0", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
-                  Press ENTER or tap to continue
-                </p>
+              <div className="pt-2 mt-2">
                 <ContinuePrompt
                   ref={continueRef}
                   onContinue={onComplete}
@@ -268,24 +265,10 @@ export default function PreviewRevealSequence({ profile, reportId = "", onComple
                 />
               </div>
             )}
+            <FlowNav variant="dark" className="mt-8" />
           </div>
         </div>
       </div>
-
-      <p
-        className="mt-6 text-[9px] font-mono uppercase tracking-[0.12em] text-center"
-        style={{ color: "rgba(122,122,128,0.4)" }}
-      >
-        Human WHOIS protocol
-      </p>
-      <p className="mt-2">
-        <Link
-          href="/origin"
-          className="text-[10px] font-mono text-[#9a9aa0] hover:text-[#c4b5ff] hover:underline"
-        >
-          ← Return to Origin
-        </Link>
-      </p>
     </div>
   );
 }
