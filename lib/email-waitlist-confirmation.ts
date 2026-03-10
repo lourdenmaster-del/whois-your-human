@@ -3,6 +3,10 @@
  * Subject: "Your identity query has been logged"
  * Body: Document-style notice, one artifact image, minimal CTA.
  * Image: recipient's resolved archetype (deterministic from email + preview_archetype); fallback Ignis.
+ *
+ * Sender verification:
+ * - Resend: Default FROM (onboarding@resend.dev) is allowed without verification. Custom domain/address must be verified in Resend dashboard.
+ * - SendGrid: The FROM address (or domain) must be a verified sender identity in SendGrid. Unverified sender causes reject or non-delivery.
  */
 
 import { IGNIS_V1_ARTIFACTS } from "@/lib/exemplar-store";
@@ -196,7 +200,7 @@ export async function sendWaitlistConfirmation(
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
   if (!resendKey && !sendgridKey) {
-    console.warn("[waitlist] RESEND_API_KEY and SENDGRID_API_KEY not set — skipping confirmation email");
+    console.warn("[waitlist] SKIP_CONFIRMATION_EMAIL: RESEND_API_KEY and SENDGRID_API_KEY not set");
     return false;
   }
 
@@ -206,7 +210,11 @@ export async function sendWaitlistConfirmation(
   const html = buildWaitlistConfirmationHtml(payload, artifactImageUrl);
   const text = buildWaitlistConfirmationText(payload);
 
+  /** Mask for logs: "x***@domain.com" */
+  const maskedTo = email.length > 4 ? email.charAt(0) + "***@" + (email.split("@")[1] ?? "") : "***";
+
   if (resendKey) {
+    const fromValue = from.includes("<") ? from : `LIGS <${from}>`;
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -214,19 +222,30 @@ export async function sendWaitlistConfirmation(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: from.includes("<") ? from : `LIGS <${from}>`,
+        from: fromValue,
         to: [email],
         subject,
         html,
         text,
       }),
     });
-    if (!res.ok) {
-      const err = await res.text();
-      console.error("[waitlist] Resend confirmation failed:", res.status, err);
-      return false;
+    const bodyText = await res.text();
+    let bodyJson: { id?: string } | null = null;
+    try {
+      bodyJson = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      // ignore
     }
-    return true;
+    if (res.ok) {
+      console.log(
+        "[waitlist] confirmation_email_sent provider=resend from=" + fromValue.replace(/</g, "").replace(/>/g, "") + " to=" + maskedTo + " status=" + res.status + (bodyJson?.id ? " id=" + bodyJson.id : "")
+      );
+      return true;
+    }
+    console.error(
+      "[waitlist] confirmation_email_failed provider=resend from=" + fromValue.replace(/</g, "").replace(/>/g, "") + " to=" + maskedTo + " status=" + res.status + " body=" + bodyText.slice(0, 200)
+    );
+    return false;
   }
 
   const fromEmail = from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from;
@@ -246,10 +265,15 @@ export async function sendWaitlistConfirmation(
       ],
     }),
   });
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("[waitlist] SendGrid confirmation failed:", res.status, err);
-    return false;
+  const bodyText = await res.text();
+  if (res.ok) {
+    console.log(
+      "[waitlist] confirmation_email_sent provider=sendgrid from=" + fromEmail + " to=" + maskedTo + " status=" + res.status
+    );
+    return true;
   }
-  return true;
+  console.error(
+    "[waitlist] confirmation_email_failed provider=sendgrid from=" + fromEmail + " to=" + maskedTo + " status=" + res.status + " body=" + bodyText.slice(0, 200)
+  );
+  return false;
 }
