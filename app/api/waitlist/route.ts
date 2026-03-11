@@ -135,6 +135,11 @@ export async function POST(req: NextRequest) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[waitlist] confirmation_email_error to=" + maskEmail(email) + " error=" + msg.slice(0, 120));
     }
+    if (confirmationSent) {
+      console.log("[waitlist] signup_ok confirmation_sent to=" + maskEmail(email));
+    } else {
+      console.warn("[waitlist] signup_ok confirmation_not_sent to=" + maskEmail(email));
+    }
     return NextResponse.json({ ok: true, confirmationSent });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

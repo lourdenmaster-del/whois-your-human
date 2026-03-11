@@ -144,6 +144,7 @@ export async function POST(request: Request) {
   }
 
   log("info", "stage", { requestId, stage: "email_send_end" });
+  log("info", "beauty_profile_email_sent", { requestId, reportId });
 
   return successResponse(200, { delivered: true }, requestId);
 }

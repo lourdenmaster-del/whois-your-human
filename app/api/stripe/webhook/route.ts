@@ -77,6 +77,12 @@ export async function POST(request: Request) {
   });
   const json = (await res.json().catch(() => ({}))) as { status?: string; error?: string };
   if (res.status !== 200 || json?.status !== "ok") {
+    log("error", "email_delivery_failed", {
+      requestId,
+      reportId,
+      httpStatus: res.status,
+      error: json?.error ?? "EMAIL_SEND_FAILED",
+    });
     return errorResponse(res.status >= 400 ? res.status : 500, json?.error ?? "EMAIL_SEND_FAILED", requestId);
   }
   log("info", "stage", { requestId, stage: "email_delivery_end" });

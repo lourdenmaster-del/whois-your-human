@@ -390,7 +390,14 @@ export default function OriginTerminalIntake() {
           addLine("Identity query already recorded.");
         } else {
           addLine("Identity query recorded.");
-          if (data?.confirmationSent) addLine("Confirmation signal transmitted.");
+          if (data?.confirmationSent) {
+            addLine("Confirmation signal transmitted.");
+          } else {
+            if (typeof window !== "undefined") {
+              console.warn("[waitlist] confirmation_not_sent signup_ok without email delivery");
+            }
+            addLine("Confirmation signal not transmitted — check configuration or retry later.");
+          }
         }
         addLine("");
         addLine("Press ENTER or tap to continue");
@@ -533,7 +540,14 @@ export default function OriginTerminalIntake() {
             addLine("Identity query already recorded.");
           } else {
             addLine("Identity query recorded.");
-            if (data?.confirmationSent) addLine("Confirmation signal transmitted.");
+            if (data?.confirmationSent) {
+              addLine("Confirmation signal transmitted.");
+            } else {
+              if (typeof window !== "undefined") {
+                console.warn("[waitlist] confirmation_not_sent signup_ok without email delivery");
+              }
+              addLine("Confirmation signal not transmitted — check configuration or retry later.");
+            }
           }
         } else {
           if (typeof window !== "undefined") {
