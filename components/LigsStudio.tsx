@@ -715,6 +715,19 @@ export default function LigsStudio() {
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [waitlistSourceFilter, setWaitlistSourceFilter] = useState<string>("");
 
+  const [pipelineStatus, setPipelineStatus] = useState<{
+    stripeConfigured?: boolean;
+    stripeMode?: string;
+    stripeWebhookSecretConfigured?: boolean;
+    stripeTestModeRequired?: boolean;
+    emailConfigured?: boolean;
+    blobConfigured?: boolean;
+    ligsApiOff?: boolean;
+    waitlistOnly?: boolean;
+    nodeEnv?: string;
+  } | null>(null);
+  const [pipelineStatusError, setPipelineStatusError] = useState<string | null>(null);
+
   useEffect(() => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     fetch(`${base}/api/ligs/status`)
@@ -745,6 +758,19 @@ export default function LigsStudio() {
         if (!cancelled) setWaitlistLoading(false);
       });
     return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    setPipelineStatusError(null);
+    fetch(`${base}/api/studio/pipeline-status`, { credentials: "include" })
+      .then((r) => {
+        if (r.ok) return r.json();
+        if (r.status === 403) throw new Error("Forbidden — login at /ligs-studio/login");
+        throw new Error("Failed to load pipeline status");
+      })
+      .then(setPipelineStatus)
+      .catch((e) => setPipelineStatusError(e?.message ?? "Failed"));
   }, []);
 
   const effectiveDryRun = forceDryRun;
@@ -1745,6 +1771,25 @@ export default function LigsStudio() {
             </span>
           )}
         </div>
+      </div>
+      <div className="mb-4 p-3 rounded border border-gray-300 bg-gray-50 space-y-1">
+        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Pipeline status (paid / delivery)</p>
+        {pipelineStatusError && (
+          <p className="text-xs text-amber-800">{pipelineStatusError}</p>
+        )}
+        {pipelineStatus && !pipelineStatusError && (
+          <ul className="text-xs text-gray-700 font-mono space-y-0.5 list-none">
+            <li>LIGS_API_OFF: {pipelineStatus.ligsApiOff ? "on" : "off"}</li>
+            <li>WAITLIST_ONLY: {pipelineStatus.waitlistOnly ? "on" : "off"}</li>
+            <li>Stripe configured: {pipelineStatus.stripeConfigured ? "yes" : "no"}</li>
+            <li>Stripe mode: {pipelineStatus.stripeMode ?? "—"}</li>
+            <li>Stripe test required: {pipelineStatus.stripeTestModeRequired ? "yes" : "no"}</li>
+            <li>Webhook secret set: {pipelineStatus.stripeWebhookSecretConfigured ? "yes" : "no"}</li>
+            <li>Email provider: {pipelineStatus.emailConfigured ? "configured" : "missing"}</li>
+            <li>Blob token: {pipelineStatus.blobConfigured ? "set" : "missing"}</li>
+            <li>NODE_ENV: {pipelineStatus.nodeEnv ?? "—"}</li>
+          </ul>
+        )}
       </div>
       <div className="mb-4 p-4 rounded border-2 border-sky-200 bg-sky-50">
         <p className="text-xs font-semibold text-sky-900 uppercase tracking-wide mb-3">Waitlist Registry (Internal)</p>

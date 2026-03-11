@@ -253,6 +253,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 |--------|--------|------------------|
 | GET | `/api/status` | Returns `{ disabled: boolean }` for production kill-switch. When `LIGS_API_OFF=1`, `disabled: true`. Frontend hides/disables sensitive CTAs when disabled. No auth. |
 | GET | `/api/ligs/status` | Returns `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }` for LIGS Studio Warning Lights. `logoConfigured=true` when BRAND_LOGO_PATH readable or when `public/brand/ligs-mark-primary.png` exists. No auth. |
+| GET | `/api/studio/pipeline-status` | When `LIGS_STUDIO_TOKEN` set, requires `ligs_studio` cookie (same as `/api/waitlist/list`). Returns env-derived paid/delivery signals only: `stripeConfigured`, `stripeMode` (test\|live\|missing), `stripeWebhookSecretConfigured`, `stripeTestModeRequired`, `emailConfigured`, `blobConfigured`, `ligsApiOff`, `waitlistOnly`, `nodeEnv`. No secrets. LigsStudio shows read-only Pipeline status block. |
 | POST | `/api/studio-auth` | When `LIGS_STUDIO_TOKEN` set: body `{ token }` must match; on success sets `ligs_studio` HttpOnly cookie and returns `{ ok: true }`. When unset, returns `{ ok: true }` without setting cookie. Used by `/ligs-studio/login` only. |
 
 ### 2.9 Dev (non-production only)
@@ -407,6 +408,14 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑03‑10 (Paid path structural readiness — middleware /beauty gate)
 
 **Read-only audit:** WAITLIST_ONLY gates waitlist vs checkout in OriginTerminalIntake and BeautyLandingClient. Stripe create-checkout-session uses kill switch, STRIPE_SECRET_KEY, stripeTestModeRequired (blocks sk_live in non-prod); success_url `/beauty/success?session_id=…`, cancel_url `/beauty/cancel`. Webhook on `checkout.session.completed`: prePurchase → 200 only; report checkout → load profile + POST send-beauty-profile. verify-session returns paid + reportId/prePurchase for success page; success page calls setBeautyUnlocked then /beauty/start. **Blocker:** middleware always redirected `/beauty` → `/origin`, so enabling purchase via NEXT_PUBLIC_WAITLIST_ONLY=0 alone could not surface /beauty. **Change:** middleware redirects /beauty only when `NEXT_PUBLIC_WAITLIST_ONLY !== "0"` (same conditional as clients). No live checkout run. Build passes.
+
+## Verification Log – 2026‑03‑11 (Studio pipeline status — auth-protected endpoint)
+
+**GET `/api/studio/pipeline-status`:** Same cookie gate as waitlist/list when `LIGS_STUDIO_TOKEN` set. JSON flags for Stripe (configured, mode test/live/missing, webhook secret present, test mode required), email provider configured, Blob token set, LIGS_API_OFF, WAITLIST_ONLY, NODE_ENV. No last-webhook timestamp (not persisted). LigsStudio: read-only list under Warning Lights. Build passes.
+
+## Verification Log – 2026‑03‑11 (Blob inventory + manual cleanup — health/ only)
+
+**Factual map:** Prefixes in use — `ligs-reports/`, `ligs-beauty/`, `ligs-images/`, `ligs-waitlist/entries/`, `ligs-keepers/`, `ligs-keepers-dry/`, `ligs-exemplars/`, `ligs-runs/` (idempotency), `health/` (waitlist health writes). **Scripts:** `scripts/blob-storage-inventory.mjs` (read-only list/count per prefix); `scripts/blob-storage-cleanup.mjs` allows purge **only** `health/` with `--execute`; all other prefixes rejected until retention is defined. No cron. npm scripts: `blob:inventory`, `blob:cleanup-health:dry`, `blob:cleanup-health`. Build passes.
 
 ## Verification Log – 2026‑03‑10 (Studio auth — cookie only, no ?token=)
 
