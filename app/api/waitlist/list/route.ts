@@ -1,7 +1,7 @@
 /**
  * GET /api/waitlist/list — Internal admin only.
  * Returns waitlist entries, metrics, source breakdown.
- * When LIGS_STUDIO_TOKEN is set, requires cookie (set by /ligs-studio?token=) or 403.
+ * When LIGS_STUDIO_TOKEN is set, requires cookie (set via POST /api/studio-auth) or 403.
  */
 
 import { NextResponse } from "next/server";
@@ -15,10 +15,7 @@ export async function GET(request: Request) {
   if (isStudioProtected()) {
     const cookieStore = await cookies();
     const cookieValue = cookieStore.get(COOKIE_NAME)?.value ?? null;
-    const authHeader = request.headers.get("authorization");
-    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    const allowed = verifyStudioAccess(cookieValue, bearerToken);
-    if (!allowed) {
+    if (!verifyStudioAccess(cookieValue)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }

@@ -3,7 +3,6 @@ import type { NextRequest } from "next/server";
 import {
   isStudioProtected,
   verifyStudioAccess,
-  getStudioAuthCookieHeader,
   COOKIE_NAME,
 } from "@/lib/studio-auth";
 
@@ -15,7 +14,7 @@ const CANONICAL_HOST = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//,
  * 1) www → apex (308): www.ligs.io/* → https://ligs.io/*
  * 2) / → rewrite to /origin (no redirect, URL stays /)
  * 3) /beauty, /beauty/ → /origin (308)
- * 4) /ligs-studio: when LIGS_STUDIO_TOKEN set, require ?token= or cookie
+ * 4) /ligs-studio: when LIGS_STUDIO_TOKEN set, require cookie (set via POST /api/studio-auth from /ligs-studio/login)
  */
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
@@ -39,19 +38,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
   }
 
-  // 4) /ligs-studio: token gate when LIGS_STUDIO_TOKEN is set
-  if (pathname === "/ligs-studio" && isStudioProtected()) {
-    const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
-    const queryToken = request.nextUrl.searchParams.get("token");
-    const allowed = verifyStudioAccess(cookieValue, queryToken);
-    if (!allowed) {
-      return new NextResponse("Forbidden", { status: 403 });
+  // 4) /ligs-studio: token gate when LIGS_STUDIO_TOKEN is set (cookie only; login at /ligs-studio/login)
+  if (isStudioProtected() && pathname.startsWith("/ligs-studio")) {
+    if (pathname === "/ligs-studio/login") {
+      return NextResponse.next();
     }
-    const cookieHeader = getStudioAuthCookieHeader();
-    if (cookieHeader && queryToken) {
-      const res = NextResponse.next();
-      res.headers.append("Set-Cookie", cookieHeader);
-      return res;
+    if (pathname === "/ligs-studio" || pathname.startsWith("/ligs-studio/")) {
+      const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
+      if (!verifyStudioAccess(cookieValue)) {
+        return NextResponse.redirect(new URL("/ligs-studio/login", request.url));
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 /**
  * Minimal token gate for LIGS Studio and waitlist/list.
- * When LIGS_STUDIO_TOKEN is set, access requires the token via cookie or ?token= query.
+ * When LIGS_STUDIO_TOKEN is set, access requires the HttpOnly cookie set via POST /api/studio-auth.
  * When unset, access is allowed (no protection).
  */
 
@@ -18,17 +18,14 @@ export function getStudioToken(): string | undefined {
 }
 
 /**
- * Verify token from cookie or query param. Returns true if access allowed.
+ * Verify token from cookie only. Returns true if access allowed.
+ * Query params and Bearer headers are not accepted (cookie set via POST /api/studio-auth).
  */
-export function verifyStudioAccess(
-  cookieValue: string | null,
-  queryToken: string | null
-): boolean {
+export function verifyStudioAccess(cookieValue: string | null): boolean {
   const expected = getStudioToken();
   if (!expected) return true; // no protection
-  const provided = cookieValue ?? queryToken;
-  if (!provided) return false;
-  return provided === expected;
+  if (!cookieValue) return false;
+  return cookieValue === expected;
 }
 
 export function getStudioAuthCookieHeader(): string {

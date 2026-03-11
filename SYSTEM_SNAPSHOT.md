@@ -49,7 +49,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308) **only if** `NEXT_PUBLIC_WAITLIST_ONLY !== "0"`. When waitlist-only is off, `/beauty` passes through. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308) **only if** `NEXT_PUBLIC_WAITLIST_ONLY !== "0"`. When waitlist-only is off, `/beauty` passes through. **`/ligs-studio` when `LIGS_STUDIO_TOKEN` set:** cookie-only; unauthenticated requests redirect to `/ligs-studio/login`. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -82,6 +82,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 |------|------|--------|
 | `app/dossier/page.tsx` | Page | Static sample Identity Dossier (white-paper style). Registry record block, six sections (Identity Resolution, Archetype Profile, Light Expression, Environmental Interaction, Cosmic Analog, Identity Artifact). Uses Ignis exemplar archetype image + share card. CTA → /origin. Does not modify preview/report flow. |
 | `app/ligs-studio/page.tsx` | Page | Renders `LigsStudio` — internal UI to run full image vertical slice (generate background, compose marketing card); inputs persisted in localStorage |
+| `app/ligs-studio/login/page.tsx` | Client | When `LIGS_STUDIO_TOKEN` set: password-style token form POSTs to `/api/studio-auth`; on success redirects to `/ligs-studio` (cookie set). |
 | `app/voice/page.jsx` | Page | Renders `VoiceProfileBuilder` — build voice profiles (local state only) |
 
 ### 1.2 Components
@@ -215,7 +216,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 |--------|--------|------------------|
 | POST | `/api/waitlist` | Email capture with duplicate check and confirmation. Body: `{ email: string, source?: string, birthDate?: string, archetype_preview?: string, solar_season?: string }`. When `birthDate` (YYYY-MM-DD) provided, computes `archetype_preview` and `solar_season` server-side via `approximateSunLongitudeFromDate` + `getPrimaryArchetypeFromSolarLongitude`. Validates email; rate limit 5 req/60s per IP+UA. Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. Duplicate → 200 `{ ok: true, alreadyRegistered: true }` (no confirmation resend). New signup → `insertWaitlistEntry` → `sendWaitlistConfirmation` (Resend or SendGrid) → 200 `{ ok: true }`. Requires `BLOB_READ_WRITE_TOKEN`. One of `RESEND_API_KEY` or `SENDGRID_API_KEY` for confirmation. |
 | GET | `/api/waitlist/count` | **Public.** Returns `{ total: number }` only. Uses `getWaitlistCount()` from `lib/waitlist-list` (list blob keys, no content fetch). No auth. Used by `/origin` for registry readout. |
-| GET | `/api/waitlist/list` | **Internal/admin only.** List waitlist entries from Blob. Returns `{ total, recent, metrics }`. When `LIGS_STUDIO_TOKEN` is set, requires cookie (set by visiting `/ligs-studio?token=`) or `Authorization: Bearer <token>`. 403 when protected and unauthenticated. Requires `BLOB_READ_WRITE_TOKEN`. |
+| GET | `/api/waitlist/list` | **Internal/admin only.** List waitlist entries from Blob. Returns `{ total, recent, metrics }`. When `LIGS_STUDIO_TOKEN` is set, requires HttpOnly cookie only (set via POST `/api/studio-auth` after `/ligs-studio/login`). No `?token=` or Bearer. 403 when protected and unauthenticated. Requires `BLOB_READ_WRITE_TOKEN`. |
 
 ### 2.4 Stripe
 
@@ -252,6 +253,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 |--------|--------|------------------|
 | GET | `/api/status` | Returns `{ disabled: boolean }` for production kill-switch. When `LIGS_API_OFF=1`, `disabled: true`. Frontend hides/disables sensitive CTAs when disabled. No auth. |
 | GET | `/api/ligs/status` | Returns `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }` for LIGS Studio Warning Lights. `logoConfigured=true` when BRAND_LOGO_PATH readable or when `public/brand/ligs-mark-primary.png` exists. No auth. |
+| POST | `/api/studio-auth` | When `LIGS_STUDIO_TOKEN` set: body `{ token }` must match; on success sets `ligs_studio` HttpOnly cookie and returns `{ ok: true }`. When unset, returns `{ ok: true }` without setting cookie. Used by `/ligs-studio/login` only. |
 
 ### 2.9 Dev (non-production only)
 
@@ -295,7 +297,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
 | `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | (other pages) | `"1"` = show dev controls. Conversion-first Beauty landing no longer renders Dev Live pipeline section. |
 | `NEXT_PUBLIC_WAITLIST_ONLY` | `BeautyLandingClient.jsx` | `"0"` = re-enable purchase flow. Default (unset) = waitlist-only. |
-| `LIGS_STUDIO_TOKEN` | `lib/studio-auth.ts`, middleware, `/api/waitlist/list` | When set, `/ligs-studio` and `/api/waitlist/list` require `?token=<value>` (page) or cookie / `Authorization: Bearer` (API). Unset = no protection. |
+| `LIGS_STUDIO_TOKEN` | `lib/studio-auth.ts`, middleware, `/api/waitlist/list`, `/api/studio-auth` | When set, `/ligs-studio` requires cookie only; unauthenticated users are redirected to `/ligs-studio/login` → POST `/api/studio-auth` sets cookie. `/api/waitlist/list` accepts cookie only. Unset = no protection. |
 | *(removed)* `BRAND_LOGO_PATH` | — | No longer used. Compose always uses `GLOBAL_LOGO_PATH` from `lib/brand.ts`. |
 | `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when global logo file missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
@@ -401,6 +403,14 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 ---
+
+## Verification Log – 2026‑03‑10 (Paid path structural readiness — middleware /beauty gate)
+
+**Read-only audit:** WAITLIST_ONLY gates waitlist vs checkout in OriginTerminalIntake and BeautyLandingClient. Stripe create-checkout-session uses kill switch, STRIPE_SECRET_KEY, stripeTestModeRequired (blocks sk_live in non-prod); success_url `/beauty/success?session_id=…`, cancel_url `/beauty/cancel`. Webhook on `checkout.session.completed`: prePurchase → 200 only; report checkout → load profile + POST send-beauty-profile. verify-session returns paid + reportId/prePurchase for success page; success page calls setBeautyUnlocked then /beauty/start. **Blocker:** middleware always redirected `/beauty` → `/origin`, so enabling purchase via NEXT_PUBLIC_WAITLIST_ONLY=0 alone could not surface /beauty. **Change:** middleware redirects /beauty only when `NEXT_PUBLIC_WAITLIST_ONLY !== "0"` (same conditional as clients). No live checkout run. Build passes.
+
+## Verification Log – 2026‑03‑10 (Studio auth — cookie only, no ?token=)
+
+**Removed query-param and Bearer auth for `/ligs-studio` and `/api/waitlist/list`.** `verifyStudioAccess` now takes cookie only. Middleware: paths under `/ligs-studio` except `/ligs-studio/login` require valid `ligs_studio` cookie; otherwise redirect to login. **New:** POST `/api/studio-auth` (body `{ token }`) sets HttpOnly cookie when token matches `LIGS_STUDIO_TOKEN`. **New:** `/ligs-studio/login` client page submits token once then redirects to `/ligs-studio`. LigsStudio waitlist fetch uses `credentials: "include"` only. Build passes.
 
 ## Verification Log – 2026‑03‑10 (FlowNav — bottom nav on every page)
 

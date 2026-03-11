@@ -729,7 +729,12 @@ export default function LigsStudio() {
     setWaitlistError(null);
     const base = typeof window !== "undefined" ? window.location.origin : "";
     fetch(`${base}/api/waitlist/list`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 503 ? "Not configured" : "Failed"))))
+      .then((r) => {
+        if (r.ok) return r.json();
+        if (r.status === 403) return Promise.reject(new Error("Access denied. Open /ligs-studio/login to authenticate."));
+        if (r.status === 503) return Promise.reject(new Error("Waitlist storage not configured. Add BLOB_READ_WRITE_TOKEN to the server environment and redeploy."));
+        return Promise.reject(new Error("Failed to load"));
+      })
       .then((data) => {
         if (!cancelled) setWaitlistData(data);
       })
