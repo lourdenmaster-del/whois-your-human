@@ -1701,19 +1701,27 @@ export default function LigsStudio() {
 
   const canSaveMarketingBackground = !!backgroundDisplayUrl;
 
-  const shell = "min-h-screen bg-[#0a0a0b] text-[#c8c8cc] p-4 md:p-6 text-sm font-mono";
-  const sectionLabel = "text-[10px] uppercase tracking-widest text-[#6a6a70] mb-3";
+  const shell = "min-h-screen bg-[#0a0a0b] text-[#c8c8cc] p-4 md:p-6 text-sm font-mono max-w-[1200px]";
+  /* Phase identity: label + optional subline — stronger than inner panel chrome */
+  const phaseBand = (n: string, title: string, sub: string) => (
+    <div className="mb-4 pl-3 border-l-2 border-[#4a4a52]">
+      <p className="text-[11px] uppercase tracking-[0.2em] text-[#9a9aa0] font-medium">{n} — {title}</p>
+      <p className="text-[10px] text-[#6a6a70] mt-0.5">{sub}</p>
+    </div>
+  );
   const panel = "mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#e8e8ec]";
+  const panelSubtle = "mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0a0a0c] text-[#b8b8c0]";
 
   return (
     <div className={shell}>
-      {/* —— STUDIO HEADER / CONTROL BAR —— */}
-      <header className="mb-6 pb-4 border-b border-[#2a2a2e]">
-        <h1 className="text-lg font-medium mb-1 text-[#e8e8ec]">LIGS Studio — launch control</h1>
-        <p className="text-[11px] text-[#8a8a90] mb-3">Light Report preflight + delivery pipeline. All tools below; nothing removed.</p>
-        <div className={panel}>
-        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-2">How to drive</p>
-        <ol className="text-sm text-[#c8c8cc] space-y-1 list-decimal list-inside">
+      {/* 00 — STUDIO HEADER (command header, not tutorial card) */}
+      <header className="mb-5 pb-3 border-b border-[#2a2a2e]">
+        {phaseBand("00", "Studio header", "Command context — all sections below remain available.")}
+        <h1 className="text-base font-medium mb-0.5 text-[#e8e8ec]">LIGS Studio</h1>
+        <p className="text-[10px] text-[#6a6a70] mb-3">Launch control · preflight → registry → flight → telemetry</p>
+        <div className={panelSubtle}>
+        <p className="text-[10px] font-semibold text-[#8a8a90] uppercase tracking-widest mb-2">How to drive</p>
+        <ol className="text-xs text-[#b0b0b8] space-y-1 list-decimal list-inside leading-relaxed">
           <li><strong>Generate Background</strong> — DALL·E 3 creates the field (for Ignis: center void + radiating energy)</li>
           <li><strong>Compose Marketing Card</strong> — Adds archetype image anchor + headline/subhead/CTA over the background</li>
           <li><strong>Save</strong> — Exemplar Card (landing), Share Card, or Marketing Background</li>
@@ -1724,9 +1732,9 @@ export default function LigsStudio() {
         </div>
       </header>
 
-      {/* —— PRE-FLIGHT —— */}
+      {/* 01 — PRE-FLIGHT */}
       <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Pre-flight">
-        <p className={sectionLabel}>01 — Pre-flight</p>
+        {phaseBand("01", "Pre-flight", "Can the system run right now? Readiness + env flags.")}
       <div className="mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-2 text-[#c8c8cc]">
         <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Warning Lights</p>
         <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-[#c8c8cc]">
@@ -1805,40 +1813,40 @@ export default function LigsStudio() {
       </div>
       </section>
 
-      {/* —— REGISTRY / OPERATIONS —— */}
+      {/* 02 — REGISTRY / INTAKE */}
       <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Registry">
-        <p className={sectionLabel}>02 — Registry / operations</p>
+        {phaseBand("02", "Registry / intake", "What is entering the system? Waitlist + metrics + recent entries.")}
       <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
         <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Waitlist Registry (Internal)</p>
-        {waitlistLoading && <p className="text-sm text-sky-700">Loading…</p>}
-        {waitlistError && <p className="text-sm text-red-600 mb-2">{waitlistError}</p>}
+        {waitlistLoading && <p className="text-sm text-[#8a8a90]">Loading…</p>}
+        {waitlistError && <p className="text-sm text-red-400 mb-2">{waitlistError}</p>}
         {waitlistData && !waitlistLoading && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-              <div className="p-2 rounded bg-white border border-sky-200">
-                <span className="text-sky-600 block">Total</span>
-                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.total}</span>
+              <div className="p-2 rounded border border-[#2a2a2e] bg-[#141418]">
+                <span className="text-[#6a6a70] block">Total</span>
+                <span className="font-mono font-semibold text-[#e8e8ec]">{waitlistData.metrics.total}</span>
               </div>
-              <div className="p-2 rounded bg-white border border-sky-200">
-                <span className="text-sky-600 block">24h</span>
-                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.last24h}</span>
+              <div className="p-2 rounded border border-[#2a2a2e] bg-[#141418]">
+                <span className="text-[#6a6a70] block">24h</span>
+                <span className="font-mono font-semibold text-[#e8e8ec]">{waitlistData.metrics.last24h}</span>
               </div>
-              <div className="p-2 rounded bg-white border border-sky-200">
-                <span className="text-sky-600 block">7d</span>
-                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.last7d}</span>
+              <div className="p-2 rounded border border-[#2a2a2e] bg-[#141418]">
+                <span className="text-[#6a6a70] block">7d</span>
+                <span className="font-mono font-semibold text-[#e8e8ec]">{waitlistData.metrics.last7d}</span>
               </div>
-              <div className="p-2 rounded bg-white border border-sky-200">
-                <span className="text-sky-600 block">Origin %</span>
-                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.originTerminalPct ?? "—"}%</span>
+              <div className="p-2 rounded border border-[#2a2a2e] bg-[#141418]">
+                <span className="text-[#6a6a70] block">Origin %</span>
+                <span className="font-mono font-semibold text-[#e8e8ec]">{waitlistData.metrics.originTerminalPct ?? "—"}%</span>
               </div>
-              <div className="p-2 rounded bg-white border border-sky-200 col-span-2 sm:col-span-1">
-                <span className="text-sky-600 block">Nodes</span>
-                <span className="font-mono font-semibold text-sky-900">{waitlistData.metrics.total}</span>
+              <div className="p-2 rounded border border-[#2a2a2e] bg-[#141418] col-span-2 sm:col-span-1">
+                <span className="text-[#6a6a70] block">Nodes</span>
+                <span className="font-mono font-semibold text-[#e8e8ec]">{waitlistData.metrics.total}</span>
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-xs font-medium text-sky-800 mb-2">By source</p>
+                <p className="text-xs font-medium text-[#9a9aa0] mb-2">By source</p>
                 <ul className="space-y-1 text-xs font-mono">
                   {waitlistData.metrics.bySource.map(({ source, count, newestAt }) => (
                     <li key={source} className="flex justify-between gap-2 items-center">
@@ -1847,11 +1855,11 @@ export default function LigsStudio() {
                       {newestAt && <span className="text-sky-600 text-[10px]" title={newestAt}>{new Date(newestAt).toLocaleDateString()}</span>}
                     </li>
                   ))}
-                  {waitlistData.metrics.bySource.length === 0 && <li className="text-sky-600">—</li>}
+                  {waitlistData.metrics.bySource.length === 0 && <li className="text-[#6a6a70]">—</li>}
                 </ul>
               </div>
               <div>
-                <p className="text-xs font-medium text-sky-800 mb-2">Top archetypes</p>
+                <p className="text-xs font-medium text-[#9a9aa0] mb-2">Top archetypes</p>
                 <ul className="space-y-1 text-xs font-mono">
                   {waitlistData.metrics.byArchetype.slice(0, 8).map(({ archetype, count }) => (
                     <li key={archetype} className="flex justify-between gap-2">
@@ -1859,17 +1867,17 @@ export default function LigsStudio() {
                       <span>{count}</span>
                     </li>
                   ))}
-                  {waitlistData.metrics.byArchetype.length === 0 && <li className="text-sky-600">—</li>}
+                  {waitlistData.metrics.byArchetype.length === 0 && <li className="text-[#6a6a70]">—</li>}
                 </ul>
               </div>
             </div>
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <p className="text-xs font-medium text-sky-800">Recent entries</p>
+                <p className="text-xs font-medium text-[#9a9aa0]">Recent entries</p>
                 <select
                   value={waitlistSourceFilter}
                   onChange={(e) => setWaitlistSourceFilter(e.target.value)}
-                  className="text-xs rounded border border-sky-300 bg-white px-2 py-1"
+                  className="text-xs rounded border border-[#2a2a2e] bg-[#141418] text-[#e8e8ec] px-2 py-1"
                 >
                   <option value="">All sources</option>
                   {waitlistData.metrics.bySource.map(({ source }) => (
@@ -1877,9 +1885,9 @@ export default function LigsStudio() {
                   ))}
                 </select>
               </div>
-              <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-sky-200 bg-white">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-sky-50 border-b border-sky-200">
+              <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-[#2a2a2e] bg-[#141418]">
+                <table className="w-full text-xs text-[#c8c8cc]">
+                  <thead className="sticky top-0 bg-[#1a1a1e] border-b border-[#2a2a2e]">
                     <tr>
                       <th className="text-left p-2 font-medium">Email</th>
                       <th className="text-left p-2 font-medium">Source</th>
@@ -1891,7 +1899,7 @@ export default function LigsStudio() {
                     {waitlistData.recent
                       .filter((e) => !waitlistSourceFilter || e.source === waitlistSourceFilter)
                       .map((e, i) => (
-                        <tr key={`${e.email}-${i}`} className="border-b border-sky-100 last:border-0">
+                        <tr key={`${e.email}-${i}`} className="border-b border-[#2a2a2e] last:border-0">
                           <td className="p-2 font-mono truncate max-w-[160px]" title={e.email}>{e.email}</td>
                           <td className="p-2">{e.source}</td>
                           <td className="p-2">{e.preview_archetype ?? "—"}</td>
@@ -1909,9 +1917,9 @@ export default function LigsStudio() {
       </div>
       </section>
 
-      {/* —— FLIGHT / DELIVERY —— */}
-      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Flight">
-        <p className={sectionLabel}>03 — Flight / delivery</p>
+      {/* 03–05 — Operator console (flight → telemetry → engine notes; DOM order preserved) */}
+      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Operator console">
+        {phaseBand("03–05", "Operator console", "Flight controls, telemetry, engine notes — scroll for Report Only, DRY/LIVE controls, Results, LatestRunOutputPanel, VoiceProfile grid.")}
       {lastGenerateDebug && !effectiveDryRun && (
         <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
           <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Last Response Debug (Generate)</p>
@@ -1942,15 +1950,15 @@ export default function LigsStudio() {
         </div>
       )}
       {composeResult && !effectiveDryRun && (
-        <div className="mb-4 p-4 rounded border-2 border-emerald-200 bg-emerald-50/50">
-          <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wide mb-3">Last Response Debug (Compose)</p>
+        <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
+          <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Last Response Debug (Compose)</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs font-mono">
-            <div><span className="text-emerald-700">requestId</span> {String(composeResult.requestId ?? "—")}</div>
-            <div><span className="text-emerald-700">composedUrl</span> {(composeResult.composedUrl as string)?.startsWith("data:") ? "data:image/png;base64,..." : String(composeResult.composedUrl ?? "—")}</div>
-            <div><span className="text-emerald-700">logoUsed</span> {String(composeResult.logoUsed ?? "—")}</div>
-            <div><span className="text-emerald-700">glyphUsed</span> {String(composeResult.glyphUsed ?? "—")}</div>
-            <div><span className="text-emerald-700">textRendered</span> {String(composeResult.textRendered ?? "—")}</div>
-            <div><span className="text-emerald-700">dryRun</span> {String(composeResult.dryRun ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">requestId</span> {String(composeResult.requestId ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">composedUrl</span> {(composeResult.composedUrl as string)?.startsWith("data:") ? "data:image/png;base64,..." : String(composeResult.composedUrl ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">logoUsed</span> {String(composeResult.logoUsed ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">glyphUsed</span> {String(composeResult.glyphUsed ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">textRendered</span> {String(composeResult.textRendered ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">dryRun</span> {String(composeResult.dryRun ?? "—")}</div>
           </div>
         </div>
       )}
@@ -1972,9 +1980,10 @@ export default function LigsStudio() {
           <p className="text-sm font-semibold">PROOF ONLY: All live calls blocked. No DALL·E, no background generation, no compose API. Use &quot;Render Proof Card (FREE)&quot; to verify archetype image + overlay locally.</p>
         </div>
       )}
-      <div className="mb-4 p-4 rounded border-2 border-teal-300 bg-teal-50 space-y-3">
-        <p className="text-xs font-semibold text-teal-800 uppercase tracking-wide">Report Only (no images)</p>
-        <p className="text-sm text-teal-700">Generate a full field-resolution report. Stops at report text; no DALL·E or compose.</p>
+      {phaseBand("03", "Flight controls", "What can I run — report-only and run triggers below.")}
+      <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-3 text-[#c8c8cc]">
+        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Report Only (no images)</p>
+        <p className="text-xs text-[#8a8a90]">Generate a full field-resolution report. Stops at report text; no DALL·E or compose.</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           <div>
             <label className="block text-gray-600 text-xs mb-0.5">fullName</label>
@@ -2057,6 +2066,8 @@ export default function LigsStudio() {
         )}
       </div>
       {(effectiveDryRun || PROOF_ONLY) && (
+        <>
+        {phaseBand("05", "Engine notes / reference", "Glyph source-of-truth audit — internal rules and asset checks.")}
         <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc] space-y-3">
           <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>
           <p className="text-xs text-slate-700">Candidate files: <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code> (canonical), <code className="bg-slate-200 px-1 rounded">public/icons/ignis_icon.svg</code> (UI icon)</p>
@@ -2117,6 +2128,7 @@ export default function LigsStudio() {
             </div>
           )}
         </div>
+        </>
       )}
       {(effectiveDryRun || PROOF_ONLY) && (
         <div className="mb-4 p-4 rounded border-2 border-emerald-600 bg-emerald-50 space-y-3">
@@ -2536,8 +2548,9 @@ export default function LigsStudio() {
               <p className="text-red-600 text-xs">{liveOnceError}</p>
             )}
           </div>
-          <div className="mb-4 p-4 rounded border border-gray-300 bg-gray-50 space-y-3">
-            <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Results</p>
+          {phaseBand("04", "Results / telemetry", "What just happened — viewer links, artifacts, manifest, overlay spec.")}
+          <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-3 text-[#c8c8cc]">
+            <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Results</p>
             {!lastReportId && !imageResult && !composeResult ? (
               <p className="text-sm text-gray-500">No results yet.</p>
             ) : (

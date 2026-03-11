@@ -409,6 +409,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 **Read-only audit:** WAITLIST_ONLY gates waitlist vs checkout in OriginTerminalIntake and BeautyLandingClient. Stripe create-checkout-session uses kill switch, STRIPE_SECRET_KEY, stripeTestModeRequired (blocks sk_live in non-prod); success_url `/beauty/success?session_id=…`, cancel_url `/beauty/cancel`. Webhook on `checkout.session.completed`: prePurchase → 200 only; report checkout → load profile + POST send-beauty-profile. verify-session returns paid + reportId/prePurchase for success page; success page calls setBeautyUnlocked then /beauty/start. **Blocker:** middleware always redirected `/beauty` → `/origin`, so enabling purchase via NEXT_PUBLIC_WAITLIST_ONLY=0 alone could not surface /beauty. **Change:** middleware redirects /beauty only when `NEXT_PUBLIC_WAITLIST_ONLY !== "0"` (same conditional as clients). No live checkout run. Build passes.
 
+## Verification Log – 2026‑03‑11 (Studio phase hierarchy polish)
+
+**LigsStudio UI only:** Phase bands 00–05 with sublines (pre-flight / registry / flight / telemetry / engine notes). Header lightened (`panelSubtle`, smaller How to drive). Waitlist registry inner chrome normalized to dark cells (`#141418` / `#2a2a2e`) for one spine. Compose debug panel matched to Generate debug dark shell. Report Only wrapper border normalized. No logic/API/auth changes. Build passes.
+
 ## Verification Log – 2026‑03‑11 (Studio launch-control layout)
 
 **LigsStudio UI reorganization only:** Black shell (`#0a0a0b`), monospace, left-aligned sections. **01 Pre-flight:** Warning Lights + Pipeline status (unchanged behavior). **02 Registry / operations:** Waitlist Registry block. **03 Flight / delivery:** Generate/Compose debug, Ignis anchor, PROOF_ONLY banner, Report Only, DRY RUN branch, LIVE branch, Results, LatestRunOutputPanel, VoiceProfile grid, Save buttons, Compare, Marketing layer, etc. — all preserved; no tools removed. Section borders `border-[#2a2a2e]`; labels `01—04` style. No API changes. Build passes.
