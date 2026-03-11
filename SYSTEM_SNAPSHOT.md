@@ -368,7 +368,7 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 |---------|-----|
 | **OpenAI** | GPT-4o (report, image prompts, vector zero, E.V.E. filter), DALL·E 3 (images) |
 | **Wikimedia/Wikipedia** | On-this-day API (api.wikimedia.org, fallback en.wikipedia.org REST) — factual world history context for report prompts; free, no API key; 24h cache |
-| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json`, exemplars `ligs-exemplars/{archetype}/{version}/{slug}.png` and `manifest.json` |
+| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json`, exemplars `ligs-exemplars/{archetype}/{version}/{slug}.png` and `manifest.json`, waitlist `ligs-waitlist/entries/{key}.json`, idempotency cache `ligs-runs/{route}/{uuid}.json`, health check `health/{timestamp}.txt`. **Manual inventory/cleanup:** `npm run blob:inventory`; conservative purge only `health/` via `npm run blob:cleanup-health:dry` then `npm run blob:cleanup-health` (no auto cron). |
 | **Stripe** | Checkout Session, webhook `checkout.session.completed` |
 | **Resend or SendGrid** | Post-purchase email with view link and optional image |
 
