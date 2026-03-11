@@ -1701,23 +1701,35 @@ export default function LigsStudio() {
 
   const canSaveMarketingBackground = !!backgroundDisplayUrl;
 
+  const shell = "min-h-screen bg-[#0a0a0b] text-[#c8c8cc] p-4 md:p-6 text-sm font-mono";
+  const sectionLabel = "text-[10px] uppercase tracking-widest text-[#6a6a70] mb-3";
+  const panel = "mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#e8e8ec]";
+
   return (
-    <div className="min-h-screen bg-white text-black p-4 md:p-6 text-sm">
-      <h1 className="text-xl font-semibold mb-2 text-black">LIGS Studio</h1>
-      <div className="mb-4 p-4 rounded border-2 border-indigo-200 bg-indigo-50">
-        <p className="text-xs font-semibold text-indigo-900 uppercase tracking-wide mb-2">How to drive</p>
-        <ol className="text-sm text-indigo-900 space-y-1 list-decimal list-inside">
+    <div className={shell}>
+      {/* —— STUDIO HEADER / CONTROL BAR —— */}
+      <header className="mb-6 pb-4 border-b border-[#2a2a2e]">
+        <h1 className="text-lg font-medium mb-1 text-[#e8e8ec]">LIGS Studio — launch control</h1>
+        <p className="text-[11px] text-[#8a8a90] mb-3">Light Report preflight + delivery pipeline. All tools below; nothing removed.</p>
+        <div className={panel}>
+        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-2">How to drive</p>
+        <ol className="text-sm text-[#c8c8cc] space-y-1 list-decimal list-inside">
           <li><strong>Generate Background</strong> — DALL·E 3 creates the field (for Ignis: center void + radiating energy)</li>
           <li><strong>Compose Marketing Card</strong> — Adds archetype image anchor + headline/subhead/CTA over the background</li>
           <li><strong>Save</strong> — Exemplar Card (landing), Share Card, or Marketing Background</li>
         </ol>
-        <p className="text-xs text-indigo-800 mt-2">
-          <strong>Where do I add archetype visual?</strong> For Ignispectrum, the archetype image is added automatically in Compose. Set <code className="bg-indigo-100 px-1 rounded">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses <code className="bg-indigo-100 px-1 rounded">public/arc-static-images/ignispectrum-static1.png</code> and places it in the center void. No manual step.
+        <p className="text-xs text-[#9a9aa0] mt-2">
+          <strong className="text-[#c8c8cc]">Where do I add archetype visual?</strong> For Ignispectrum, the archetype image is added automatically in Compose. Set <code className="bg-[#1a1a1e] px-1 rounded text-[#c8c8cc]">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses <code className="bg-[#1a1a1e] px-1 rounded text-[#c8c8cc]">public/arc-static-images/ignispectrum-static1.png</code> and places it in the center void. No manual step.
         </p>
-      </div>
-      <div className="mb-4 p-3 rounded border border-gray-300 bg-gray-50 space-y-2">
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Warning Lights</p>
-        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-800">
+        </div>
+      </header>
+
+      {/* —— PRE-FLIGHT —— */}
+      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Pre-flight">
+        <p className={sectionLabel}>01 — Pre-flight</p>
+      <div className="mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-2 text-[#c8c8cc]">
+        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Warning Lights</p>
+        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-[#c8c8cc]">
           <input
             type="checkbox"
             checked={forceDryRun}
@@ -1742,7 +1754,7 @@ export default function LigsStudio() {
               → Set <code className="bg-amber-100 px-1 rounded">ALLOW_EXTERNAL_WRITES=true</code> in .env.local and restart.
             </span>
           )}
-          <span className="text-gray-600">
+          <span className="text-[#8a8a90]">
             Provider: {status?.provider ? `DALL·E ${status.provider.replace("dall-e-", "")}` : "—"}
           </span>
           <span
@@ -1756,12 +1768,12 @@ export default function LigsStudio() {
           >
             Logo: {status ? (status.logoConfigured ? "OK" : "missing") : "—"}
           </span>
-          <span className="text-gray-600">
+          <span className="text-[#8a8a90]">
             Cache: {lastCacheHit === true ? "hit" : lastCacheHit === false ? "miss" : "—"}
           </span>
-          <span className="text-gray-600 font-mono">Request: {lastRequestId || "—"}</span>
+          <span className="text-[#8a8a90] font-mono">Request: {lastRequestId || "—"}</span>
           {lastGenerateDebug && (
-            <span className="text-xs font-mono text-gray-700 block sm:inline" title="Last Generate Background response">
+            <span className="text-xs font-mono text-[#9a9aa0] block sm:inline" title="Last Generate Background response">
               Last: purpose={String(lastGenerateDebug.purpose ?? "—")} provider={String(lastGenerateDebug.providerUsed ?? "—")} glyphBranch={String(lastGenerateDebug.glyphBranchUsed ?? "—")} mode={lastGenerateDebug.dryRun ? "dry" : "live"}
             </span>
           )}
@@ -1772,13 +1784,13 @@ export default function LigsStudio() {
           )}
         </div>
       </div>
-      <div className="mb-4 p-3 rounded border border-gray-300 bg-gray-50 space-y-1">
-        <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Pipeline status (paid / delivery)</p>
+      <div className="mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-1 text-[#c8c8cc]">
+        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Pipeline status (paid / delivery)</p>
         {pipelineStatusError && (
-          <p className="text-xs text-amber-800">{pipelineStatusError}</p>
+          <p className="text-xs text-amber-600">{pipelineStatusError}</p>
         )}
         {pipelineStatus && !pipelineStatusError && (
-          <ul className="text-xs text-gray-700 font-mono space-y-0.5 list-none">
+          <ul className="text-xs text-[#c8c8cc] font-mono space-y-0.5 list-none">
             <li>LIGS_API_OFF: {pipelineStatus.ligsApiOff ? "on" : "off"}</li>
             <li>WAITLIST_ONLY: {pipelineStatus.waitlistOnly ? "on" : "off"}</li>
             <li>Stripe configured: {pipelineStatus.stripeConfigured ? "yes" : "no"}</li>
@@ -1791,8 +1803,13 @@ export default function LigsStudio() {
           </ul>
         )}
       </div>
-      <div className="mb-4 p-4 rounded border-2 border-sky-200 bg-sky-50">
-        <p className="text-xs font-semibold text-sky-900 uppercase tracking-wide mb-3">Waitlist Registry (Internal)</p>
+      </section>
+
+      {/* —— REGISTRY / OPERATIONS —— */}
+      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Registry">
+        <p className={sectionLabel}>02 — Registry / operations</p>
+      <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
+        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Waitlist Registry (Internal)</p>
         {waitlistLoading && <p className="text-sm text-sky-700">Loading…</p>}
         {waitlistError && <p className="text-sm text-red-600 mb-2">{waitlistError}</p>}
         {waitlistData && !waitlistLoading && (
@@ -1890,25 +1907,30 @@ export default function LigsStudio() {
           </div>
         )}
       </div>
+      </section>
+
+      {/* —— FLIGHT / DELIVERY —— */}
+      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Flight">
+        <p className={sectionLabel}>03 — Flight / delivery</p>
       {lastGenerateDebug && !effectiveDryRun && (
-        <div className="mb-4 p-4 rounded border-2 border-slate-300 bg-slate-50">
-          <p className="text-xs font-semibold text-slate-800 uppercase tracking-wide mb-3">Last Response Debug (Generate)</p>
+        <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
+          <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Last Response Debug (Generate)</p>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 text-xs font-mono">
-            <div><span className="text-slate-500">providerUsed</span> {lastGenerateDebug.providerUsed ?? "—"}</div>
-            <div><span className="text-slate-500">purpose (echoed)</span> {lastGenerateDebug.purposeEchoed ?? lastGenerateDebug.purpose ?? "—"}</div>
-            <div><span className="text-slate-500">cacheHit</span> {String(lastGenerateDebug.cacheHit ?? "—")}</div>
-            <div><span className="text-slate-500">glyphBranchUsed</span> {String(lastGenerateDebug.glyphBranchUsed ?? "—")}</div>
-            <div><span className="text-slate-500">requestId</span> {lastGenerateDebug.requestId ?? "—"}</div>
-            <div><span className="text-slate-500">buildSha</span> {lastGenerateDebug.buildSha ?? "—"}</div>
+            <div><span className="text-[#6a6a70]">providerUsed</span> {lastGenerateDebug.providerUsed ?? "—"}</div>
+            <div><span className="text-[#6a6a70]">purpose (echoed)</span> {lastGenerateDebug.purposeEchoed ?? lastGenerateDebug.purpose ?? "—"}</div>
+            <div><span className="text-[#6a6a70]">cacheHit</span> {String(lastGenerateDebug.cacheHit ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">glyphBranchUsed</span> {String(lastGenerateDebug.glyphBranchUsed ?? "—")}</div>
+            <div><span className="text-[#6a6a70]">requestId</span> {lastGenerateDebug.requestId ?? "—"}</div>
+            <div><span className="text-[#6a6a70]">buildSha</span> {lastGenerateDebug.buildSha ?? "—"}</div>
             {lastGenerateDebug.validation && (
-              <div><span className="text-slate-500">validation</span> pass={String(lastGenerateDebug.validation.pass ?? "—")} score={lastGenerateDebug.validation.score ?? "—"}</div>
+              <div><span className="text-[#6a6a70]">validation</span> pass={String(lastGenerateDebug.validation.pass ?? "—")} score={lastGenerateDebug.validation.score ?? "—"}</div>
             )}
             {lastGenerateDebug.error && <div className="col-span-full text-red-600">error: {lastGenerateDebug.error}</div>}
             {lastGenerateDebug.imageUrl && (
               <div className="col-span-full">
                 <span className="text-slate-500">image URL</span>{" "}
                 {lastGenerateDebug.imageUrl.startsWith("data:") ? (
-                  <span className="text-slate-700">{lastGenerateDebug.imageUrl}</span>
+                  <span className="text-[#9a9aa0]">{lastGenerateDebug.imageUrl}</span>
                 ) : (
                   <a href={lastGenerateDebug.imageUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate max-w-full inline-block">
                     {lastGenerateDebug.imageUrl}
@@ -2035,8 +2057,8 @@ export default function LigsStudio() {
         )}
       </div>
       {(effectiveDryRun || PROOF_ONLY) && (
-        <div className="mb-4 p-4 rounded border-2 border-slate-400 bg-slate-50 space-y-3">
-          <p className="text-xs font-semibold text-slate-800 uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>
+        <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc] space-y-3">
+          <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>
           <p className="text-xs text-slate-700">Candidate files: <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code> (canonical), <code className="bg-slate-200 px-1 rounded">public/icons/ignis_icon.svg</code> (UI icon)</p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -2939,6 +2961,7 @@ export default function LigsStudio() {
       </div>
         </>
       )}
+      </section>
     </div>
   );
 }
