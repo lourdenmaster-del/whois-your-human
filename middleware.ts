@@ -32,8 +32,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(new URL("/origin", request.url));
   }
 
-  // 3) /beauty, /beauty/ → /origin
-  if (pathname === "/beauty" || pathname === "/beauty/") {
+  // 3) /beauty, /beauty/ → /origin when waitlist-only (default). When NEXT_PUBLIC_WAITLIST_ONLY=0,
+  //    purchase flow may use /beauty again; do not redirect so BeautyLandingClient can render.
+  const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
+  if (waitlistOnly && (pathname === "/beauty" || pathname === "/beauty/")) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
   }
 

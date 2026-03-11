@@ -27,7 +27,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 **Production entry points:**
 - `/` → 308 redirect to `/origin` (middleware)
 - `/origin` — Canonical public landing. Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
-- `/beauty`, `/beauty/` → 308 redirect to `/origin` (middleware; most reliable on Vercel)
+- `/beauty`, `/beauty/` → 308 redirect to `/origin` **only when** `NEXT_PUBLIC_WAITLIST_ONLY` is not `"0"` (middleware). When `NEXT_PUBLIC_WAITLIST_ONLY=0`, `/beauty` is not redirected so purchase UI can load.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
@@ -49,7 +49,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308). Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308) **only if** `NEXT_PUBLIC_WAITLIST_ONLY !== "0"`. When waitlist-only is off, `/beauty` passes through. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -62,7 +62,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/origin/page.jsx` | Server | Renders `BeautyLandingClient`. Canonical public landing. |
 | `app/origin/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent. |
 
-**Beauty section** (nested under `app/beauty/` — `/beauty` 301 → `/origin`):
+**Beauty section** (nested under `app/beauty/` — `/beauty` redirects to `/origin` only when waitlist-only; see middleware):
 
 | Path | Type | Purpose |
 |------|------|--------|
