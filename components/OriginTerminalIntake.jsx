@@ -897,17 +897,44 @@ export default function OriginTerminalIntake() {
             </p>
             <p className="text-[11px] uppercase tracking-[0.1em] opacity-80">Preview Extract</p>
             <p className="text-[13px] leading-relaxed">
-              The following extract continues the registry record above. Full analytical sections are withheld until the authorized report release.
+              The following extract follows the WHOIS Human Registration Report section order. Full analytical depth is withheld until authorized release.
             </p>
+            {/* Section order aligned with full report: Archetype Summary → Field Expression → Cosmic Twin Relation → Field Conditions → Interpretive Status */}
             <div className="space-y-2 pt-4">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                IDENTITY ARCHITECTURE
+                ARCHETYPE SUMMARY
               </p>
               <p className="text-[13px] leading-relaxed">
-                The registry identifies stable identity patterns arising within the field of forces present at birth.
+                {previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
+                  ? previewTeaser.civilizationFunction
+                  : archetypeExpressionLines?.line1
+                    ? archetypeExpressionLines.line1
+                    : "Archetype summary expands in the full report; provisional extract only."}
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                FIELD EXPRESSION
               </p>
               <p className="text-[13px] leading-relaxed">
-                Structural orientation is derived from the environmental and cosmic field structure recorded for this node—not from a single-variable reading.
+                {archetypeExpressionLines?.line2
+                  ? archetypeExpressionLines.line2
+                  : previewTeaser?.humanExpression && previewTeaser.humanExpression !== "—"
+                    ? previewTeaser.humanExpression
+                    : previewTeaser?.environments && previewTeaser.environments !== "—"
+                      ? previewTeaser.environments
+                      : "Field expression notes publish with the expanded registry extract."}
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                COSMIC TWIN RELATION
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Cosmic twin relation is not computed in this extract.
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Pairing and analogue mapping are reserved for the full report; no specific astrophysical mapping is published here.
               </p>
             </div>
             <div className="space-y-2 pt-2">
@@ -915,40 +942,18 @@ export default function OriginTerminalIntake() {
                 FIELD CONDITIONS
               </p>
               <p className="text-[13px] leading-relaxed">
-                Archetypal behavior class is resolved from the field conditions present at birth, including entropic and environmental force structure.
+                Field conditions at birth inform archetypal resolution.
               </p>
               <p className="text-[13px] leading-relaxed">
-                {previewTeaser?.environments && previewTeaser.environments !== "—"
-                  ? `Observed expression contexts (preview): ${previewTeaser.environments}`
-                  : "Expanded field-condition mapping will be included in the full registry release."}
+                Expanded force-structure mapping ships with the authorized release.
               </p>
-            </div>
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                ARCHETYPE BEHAVIOR CLASS
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                {archetypeExpressionLines?.line1
-                  ? archetypeExpressionLines.line1
-                  : previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
-                    ? previewTeaser.civilizationFunction
-                    : previewTeaser?.humanExpression && previewTeaser.humanExpression !== "—"
-                      ? previewTeaser.humanExpression
-                      : "Behavior-class interpretation will be published with the expanded registry extract."}
-              </p>
-              {archetypeExpressionLines?.line2 && (
-                <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
-              )}
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
                 INTERPRETIVE STATUS
               </p>
               <p className="text-[13px] leading-relaxed">
-                This identity is provisionally registered. Expanded analytical WHOIS sections will be released when registry compliance and authorization are complete.
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                The full WHOIS Human Registration Report remains not yet released; no further intake is required when available.
+                Provisionally registered. Expanded analytical sections release when registry compliance and authorization are complete.
               </p>
               <p className="text-[12px] opacity-90 pt-2">
                 Registered users will be notified when full reports become available.
