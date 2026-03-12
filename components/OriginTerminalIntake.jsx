@@ -17,6 +17,7 @@ import {
 } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
+import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
 
 const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 
@@ -203,6 +204,20 @@ function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
   return params.get("dryRun") === "1" || params.get("dryRun") === "true";
+}
+
+/** Second artifact: prime URL 404s on live if assets not deployed — fallback to committed static. */
+function PrimeArtifactImg({ primeUrl, archetype }) {
+  const [src, setSrc] = useState(primeUrl);
+  const fallback = getArchetypeStaticImagePathOrFallback(archetype || "Ignispectrum");
+  return (
+    <img
+      src={src}
+      alt=""
+      className="w-full max-w-[200px] rounded border border-[#2a2a2e] object-cover opacity-90"
+      onError={() => setSrc(fallback)}
+    />
+  );
 }
 
 export default function OriginTerminalIntake() {
@@ -686,7 +701,7 @@ export default function OriginTerminalIntake() {
     const bright = "rgba(232,232,236,0.95)";
     return (
       <div
-        className="min-h-screen flex flex-col items-stretch p-4 sm:p-6 overflow-x-hidden whois-origin"
+        className="min-h-screen flex flex-col items-stretch py-4 px-5 sm:py-6 sm:px-8 overflow-x-hidden whois-origin"
         style={{ background: "#000", position: "relative", fontFamily: mono }}
       >
         <div
@@ -696,7 +711,7 @@ export default function OriginTerminalIntake() {
             animation: "whois-field-pulse 10s ease-in-out infinite",
           }}
         />
-        <div className="relative z-10 w-full max-w-[min(100vw-2rem,1000px)] mx-auto flex flex-col gap-8 flex-1">
+        <div className="relative z-10 w-full max-w-[min(100vw-2.5rem,1000px)] mx-auto flex flex-col gap-8 flex-1 min-w-0">
           {/* Terminal handshake line (unchanged visual: single line) */}
           <div
             className="whois-aperture w-full min-w-0"
@@ -789,10 +804,9 @@ export default function OriginTerminalIntake() {
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] uppercase tracking-[0.08em] mb-1">Archetype Field Visualization</p>
                     {primeUrl ? (
-                      <img
-                        src={primeUrl}
-                        alt=""
-                        className="w-full max-w-[200px] rounded border border-[#2a2a2e] object-cover opacity-90"
+                      <PrimeArtifactImg
+                        primeUrl={primeUrl}
+                        archetype={archetypeForCompletion}
                       />
                     ) : (
                       <p className="text-[12px] opacity-80">Prime set unavailable.</p>
