@@ -853,13 +853,13 @@ export default function OriginTerminalIntake() {
               >
                 Official WHOIS Human Registration Report — Not Yet Released
               </span>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-4 items-center">
-                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
+              <div className="flex flex-col gap-3 pt-4 items-start sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
+                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
                   ← Return to Origin
                 </a>
                 <a
                   href="#whois-preview"
-                  className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e]"
+                  className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
                 >
                   View Your Human WHOIS Record Preview
                 </a>
@@ -918,7 +918,7 @@ export default function OriginTerminalIntake() {
               <p className="text-[13px] leading-relaxed">
                 {previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
                   ? `Registry extract: ${previewTeaser.civilizationFunction}`
-                  : "Provisional registry extract pending full analytical release."}
+                  : "Provisional metadata has been registered. Expanded analytical fields will appear in the full registry release."}
               </p>
             </div>
             <div className="space-y-2 pt-2">
@@ -938,7 +938,7 @@ export default function OriginTerminalIntake() {
                   ? archetypeExpressionLines.line1
                   : previewTeaser?.humanExpression && previewTeaser.humanExpression !== "—"
                     ? previewTeaser.humanExpression
-                    : "Expression context deferred to full registry interpretation notes."}
+                    : "Functional expression notes will be published with the expanded registry interpretation."}
               </p>
               {archetypeExpressionLines?.line2 && (
                 <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
@@ -951,7 +951,7 @@ export default function OriginTerminalIntake() {
               <p className="text-[13px] leading-relaxed">
                 {previewTeaser?.environments && previewTeaser.environments !== "—"
                   ? `Observed contexts: ${previewTeaser.environments}`
-                  : "Environmental mapping available in expanded solar and field registry sections on release."}
+                  : "Expanded environmental field mapping will be included in the full registry release."}
               </p>
             </div>
             <div className="space-y-2 pt-6 border-t border-[#2a2a2e]">
