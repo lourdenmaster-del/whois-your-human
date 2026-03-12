@@ -651,6 +651,8 @@ export default function OriginTerminalIntake() {
     archetypeForCompletion
   );
   const archetypeExpressionLines = getArchetypeExpressionLines(archetypeForCompletion);
+  /** Preview section copy: teaser from contract; fallbacks when fields are "—". Only read when registryReveal + showCTA. */
+  const previewTeaser = getArchetypePreviewConfig(archetypeForCompletion).teaser;
 
   /** In-page reveal below terminal; router.push removed — CTA links to WHOIS Registration Report. */
   if (phase === "registryReveal") {
@@ -851,9 +853,15 @@ export default function OriginTerminalIntake() {
               >
                 Official WHOIS Human Registration Report — Not Yet Released
               </span>
-              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-1 pt-4 items-center">
                 <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
                   ← Return to Origin
+                </a>
+                <a
+                  href="#whois-preview"
+                  className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e]"
+                >
+                  View Your Human WHOIS Record Preview
                 </a>
               </div>
             </section>
@@ -872,6 +880,92 @@ export default function OriginTerminalIntake() {
             <br />
             LIGS Human Identity Registry
           </footer>
+        )}
+
+        {/* Human WHOIS preview: continuation below fold; anchor target for in-page CTA. */}
+        {showCTA && (
+          <section
+            id="whois-preview"
+            className="relative z-10 w-full max-w-[min(100vw-2.5rem,1000px)] mx-auto flex flex-col gap-4 text-left px-4 sm:px-5 pt-10 pb-12 border-t border-[#2a2a2e] mt-8"
+            style={{
+              color: muted,
+              fontFamily: mono,
+            }}
+          >
+            <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+              HUMAN WHOIS RECORD PREVIEW
+            </p>
+            <p className="text-[13px] leading-relaxed">
+              The Human WHOIS system reveals the cosmic metadata encoded into the biological identity.
+            </p>
+            <p className="text-[13px] leading-relaxed">
+              These markers describe the environmental light conditions present at birth.
+            </p>
+            <div className="space-y-1 text-[13px] pt-2">
+              <p className="text-[11px] uppercase tracking-[0.08em] opacity-80">Record summary</p>
+              <p>Subject: {formData.name || "—"}</p>
+              <p>Archetype classification: {archetypeForCompletion}</p>
+              <p>Birth date: {formData.birthDate || "—"}</p>
+              <p>Birth location: {formData.birthLocation || "—"}</p>
+              <p>Birth time: {formData.birthTime || "—"}</p>
+              <p>Record status: Provisional</p>
+              <p>Generated date: {new Date().toISOString().slice(0, 10)}</p>
+            </div>
+            <div className="space-y-2 pt-4">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                COSMIC METADATA
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                {previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
+                  ? `Registry extract: ${previewTeaser.civilizationFunction}`
+                  : "Provisional registry extract pending full analytical release."}
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                ARCHETYPE CLASSIFICATION
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Solar signature locked to {archetypeForCompletion}. Expanded classification fields ship with the authorized registration report.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                FUNCTIONAL EXPRESSION
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                {archetypeExpressionLines?.line1
+                  ? archetypeExpressionLines.line1
+                  : previewTeaser?.humanExpression && previewTeaser.humanExpression !== "—"
+                    ? previewTeaser.humanExpression
+                    : "Expression context deferred to full registry interpretation notes."}
+              </p>
+              {archetypeExpressionLines?.line2 && (
+                <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
+              )}
+            </div>
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                ENVIRONMENTAL FIELD CONDITIONS
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                {previewTeaser?.environments && previewTeaser.environments !== "—"
+                  ? `Observed contexts: ${previewTeaser.environments}`
+                  : "Environmental mapping available in expanded solar and field registry sections on release."}
+              </p>
+            </div>
+            <div className="space-y-2 pt-6 border-t border-[#2a2a2e]">
+              <p className="text-[13px] leading-relaxed">
+                This identity has been provisionally registered in the Human WHOIS Registry.
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Expanded analytical reports will be made available once registry compliance and release procedures are complete.
+              </p>
+              <p className="text-[12px] opacity-90 pt-2">
+                Registered users will be notified when full reports become available.
+              </p>
+            </div>
+          </section>
         )}
       </div>
     );
