@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <!--
+    GLYPH RADIAL GRID  Master design reference for archetype glyphs.
+    12 solar segments, center angles, dominant axis guides.
+    See docs/GLYPH-ORIENTATION.md for coordinate convention.
+  -->
+
+  <!-- Light background -->
+  <rect width="1000" height="1000" fill="#fafafa"/>
+
+  <!-- 12 segment boundary lines (from center to outer edge) -->
+  <g stroke="#999" stroke-width="1" fill="none">
+    <!-- r=350: 0�, 30�, 60�, 90�, 120�, 150�, 180�, 210�, 240�, 270�, 300�, 330� -->
+    <line x1="500" y1="500" x2="500" y2="150"/>   <!-- 0� -->
+    <line x1="500" y1="500" x2="675" y2="197"/>  <!-- 30� -->
+    <line x1="500" y1="500" x2="803" y2="325"/>  <!-- 60� -->
+    <line x1="500" y1="500" x2="850" y2="500"/>  <!-- 90� -->
+    <line x1="500" y1="500" x2="803" y2="675"/> <!-- 120� -->
+    <line x1="500" y1="500" x2="675" y2="803"/> <!-- 150� -->
+    <line x1="500" y1="500" x2="500" y2="850"/> <!-- 180� -->
+    <line x1="500" y1="500" x2="325" y2="803"/> <!-- 210� -->
+    <line x1="500" y1="500" x2="197" y2="675"/> <!-- 240� -->
+    <line x1="500" y1="500" x2="150" y2="500"/> <!-- 270� -->
+    <line x1="500" y1="500" x2="197" y2="325"/> <!-- 300� -->
+    <line x1="500" y1="500" x2="325" y2="197"/> <!-- 330� -->
+  </g>
+
+  <!-- Dominant axis guide lines (dashed, extend to r=380) -->
+  <!-- Segment center rays + multi-fold axes: 15�, 45�, 75�, 105�, 135�, 165�, 195�, 225�, 255�, 285�, 315�, 345� -->
+  <!-- Cardinals for grid archetypes: 0�, 90�, 180�, 270� (already drawn as boundaries; add dashed emphasis) -->
+  <g stroke="#6b8cce" stroke-width="1" stroke-dasharray="6 4" fill="none" opacity="0.7">
+    <line x1="500" y1="500" x2="583" y2="191"/>  <!-- 15� -->
+    <line x1="500" y1="500" x2="726" y2="274"/>  <!-- 45� -->
+    <line x1="500" y1="500" x2="809" y2="417"/>  <!-- 75� -->
+    <line x1="500" y1="500" x2="809" y2="583"/>  <!-- 105� -->
+    <line x1="500" y1="500" x2="726" y2="726"/>  <!-- 135� -->
+    <line x1="500" y1="500" x2="583" y2="809"/>  <!-- 165� -->
+    <line x1="500" y1="500" x2="383" y2="809"/>  <!-- 195� -->
+    <line x1="500" y1="500" x2="274" y2="726"/>  <!-- 225� -->
+    <line x1="500" y1="500" x2="191" y2="583"/>  <!-- 255� -->
+    <line x1="500" y1="500" x2="191" y2="274"/>  <!-- 285� -->
+    <line x1="500" y1="500" x2="274" y2="191"/>  <!-- 315� -->
+    <line x1="500" y1="500" x2="383" y2="191"/>  <!-- 345� -->
+  </g>
+
+  <!-- Cardinal axis emphasis (Precisura grid) -->
+  <g stroke="#4a7ab8" stroke-width="1.5" stroke-dasharray="8 4" fill="none" opacity="0.5">
+    <line x1="500" y1="500" x2="500" y2="150"/>  <!-- 0� -->
+    <line x1="500" y1="500" x2="850" y2="500"/>  <!-- 90� -->
+    <line x1="500" y1="500" x2="500" y2="850"/>  <!-- 180� -->
+    <line x1="500" y1="500" x2="150" y2="500"/>  <!-- 270� -->
+  </g>
+
+  <!-- Canonical glyph-law ring -->
+  <circle cx="500" cy="500" r="205" fill="none" stroke="#333" stroke-width="56"/>
+
+  <!-- Canonical glyph-law center dot -->
+  <circle cx="500" cy="500" r="85" fill="#333"/>
+
+  <!-- Center angle marks (small circles on ring at each segment center) -->
+  <g fill="#555" stroke="none">
+    <circle cx="553" cy="302" r="4"/>   <!-- 15� -->
+    <circle cx="645" cy="355" r="4"/>  <!-- 45� -->
+    <circle cx="695" cy="448" r="4"/>  <!-- 75� -->
+    <circle cx="695" cy="552" r="4"/>  <!-- 105� -->
+    <circle cx="645" cy="645" r="4"/>  <!-- 135� -->
+    <circle cx="553" cy="698" r="4"/>  <!-- 165� -->
+    <circle cx="447" cy="698" r="4"/>  <!-- 195� -->
+    <circle cx="355" cy="645" r="4"/>  <!-- 225� -->
+    <circle cx="305" cy="552" r="4"/>  <!-- 255� -->
+    <circle cx="305" cy="448" r="4"/>  <!-- 285� -->
+    <circle cx="355" cy="355" r="4"/>  <!-- 315� -->
+    <circle cx="447" cy="302" r="4"/>  <!-- 345� -->
+  </g>
+
+  <!-- Archetype labels (at r=320, rotated to segment center) -->
+  <g font-family="system-ui, sans-serif" font-size="22" font-weight="500" fill="#222">
+    <text transform="translate(583,191) rotate(15)" text-anchor="start">Ignispectrum</text>
+    <text transform="translate(726,274) rotate(45)" text-anchor="start">Stabiliora</text>
+    <text transform="translate(809,417) rotate(75)" text-anchor="start">Duplicaris</text>
+    <text transform="translate(809,583) rotate(105)" text-anchor="start">Tenebris</text>
+    <text transform="translate(726,726) rotate(135)" text-anchor="start">Radiantis</text>
+    <text transform="translate(583,809) rotate(165)" text-anchor="start">Precisura</text>
+    <text transform="translate(383,809) rotate(195)" text-anchor="start">Aequilibris</text>
+    <text transform="translate(274,726) rotate(225)" text-anchor="start">Obscurion</text>
+    <text transform="translate(191,583) rotate(255)" text-anchor="start">Vectoris</text>
+    <text transform="translate(191,274) rotate(285)" text-anchor="start">Structoris</text>
+    <text transform="translate(274,191) rotate(315)" text-anchor="start">Innovaris</text>
+    <text transform="translate(383,191) rotate(345)" text-anchor="start">Fluxionis</text>
+  </g>
+
+  <!-- Center angle labels (degrees) - small, near ring -->
+  <g font-family="monospace" font-size="12" fill="#666">
+    <text x="565" y="275" text-anchor="middle">15&#176;</text>
+    <text x="655" y="330" text-anchor="middle">45&#176;</text>
+    <text x="718" y="420" text-anchor="middle">75&#176;</text>
+    <text x="718" y="580" text-anchor="middle">105&#176;</text>
+    <text x="655" y="670" text-anchor="middle">135&#176;</text>
+    <text x="565" y="740" text-anchor="middle">165&#176;</text>
+    <text x="435" y="740" text-anchor="middle">195&#176;</text>
+    <text x="345" y="670" text-anchor="middle">225&#176;</text>
+    <text x="282" y="580" text-anchor="middle">255&#176;</text>
+    <text x="282" y="420" text-anchor="middle">285&#176;</text>
+    <text x="345" y="330" text-anchor="middle">315&#176;</text>
+    <text x="435" y="275" text-anchor="middle">345&#176;</text>
+  </g>
+
+  <!-- Legend (bottom) -->
+  <g font-family="system-ui, sans-serif" font-size="14" fill="#555">
+    <line x1="100" y1="920" x2="130" y2="920" stroke="#999" stroke-width="1"/>
+    <text x="140" y="925" text-anchor="start">Segment boundary</text>
+    <line x1="320" y1="920" x2="355" y2="920" stroke="#6b8cce" stroke-width="1" stroke-dasharray="6 4"/>
+    <text x="365" y="925" text-anchor="start">Dominant axis</text>
+    <line x1="520" y1="920" x2="555" y2="920" stroke="#4a7ab8" stroke-width="1.5" stroke-dasharray="8 4"/>
+    <text x="565" y="925" text-anchor="start">Cardinal (grid)</text>
+    <circle cx="750" cy="920" r="102" fill="none" stroke="#333" stroke-width="28"/>
+    <text x="870" y="925" text-anchor="start">Glyph-law ring + dot</text>
+  </g>
+</svg>

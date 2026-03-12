@@ -3,7 +3,7 @@
  * Table-like structure: email, created_at, source, preview_archetype, solar_season.
  */
 
-import { put, head } from "@vercel/blob";
+import { put, head, del, get } from "@vercel/blob";
 import { createHash } from "crypto";
 
 const BLOB_PREFIX = "ligs-waitlist/entries/";
@@ -78,4 +78,57 @@ export async function insertWaitlistEntry(
     return { ok: true, alreadyRegistered: true };
   }
   return { ok: true };
+}
+
+/** Path for a normalized email (internal use; same as insert). */
+function pathForEmail(email: string): string {
+  const normalized = email.trim().toLowerCase();
+  return `${BLOB_PREFIX}${emailToKey(normalized)}.json`;
+}
+
+/**
+ * Internal/operator only: delete waitlist blob for exact normalized email.
+ * No effect if entry does not exist.
+ */
+export async function deleteWaitlistEntryByEmail(
+  email: string
+): Promise<{ deleted: boolean; email: string }> {
+  const normalized = email.trim().toLowerCase();
+  const path = pathForEmail(normalized);
+  try {
+    await head(path);
+  } catch {
+    return { deleted: false, email: normalized };
+  }
+  await del(path);
+  return { deleted: true, email: normalized };
+}
+
+/**
+ * Internal/operator only: load entry payload by exact normalized email for resend.
+ */
+export async function getWaitlistEntryByEmail(
+  email: string
+): Promise<WaitlistEntry | null> {
+  const normalized = email.trim().toLowerCase();
+  const path = pathForEmail(normalized);
+  try {
+    const result = await get(path, { access: "public" });
+    if (!result || result.statusCode !== 200 || !result.stream) return null;
+    const text = await new Response(result.stream).text();
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    return {
+      email: String(parsed.email ?? normalized),
+      created_at: String(parsed.created_at ?? new Date().toISOString()),
+      source: String(parsed.source ?? "beauty"),
+      preview_archetype:
+        typeof parsed.preview_archetype === "string"
+          ? parsed.preview_archetype
+          : undefined,
+      solar_season:
+        typeof parsed.solar_season === "string" ? parsed.solar_season : undefined,
+    };
+  } catch {
+    return null;
+  }
 }

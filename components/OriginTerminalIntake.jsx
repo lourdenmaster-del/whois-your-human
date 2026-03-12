@@ -21,6 +21,20 @@ import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-im
 
 const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 
+/** Operator-readable label for waitlist confirmationReason (API machine strings). */
+function waitlistConfirmationLabel(reason) {
+  if (reason == null || reason === "") return "unknown";
+  const map = {
+    sent: "sent",
+    duplicate_skipped: "skipped (already registered)",
+    provider_rejected: "failed (provider rejected)",
+    provider_error: "failed (provider error)",
+    provider_key_missing: "failed (provider not configured)",
+    blob_not_configured: "failed (waitlist not configured)",
+  };
+  return map[reason] ?? "unknown";
+}
+
 /** Single active field during intake. Order: name → birthDate → birthPlace → birthTime → email. */
 const INTAKE_FIELDS = ["name", "birthDate", "birthPlace", "birthTime", "email"];
 const INTAKE_PROMPTS = {
@@ -244,6 +258,8 @@ export default function OriginTerminalIntake() {
   const [processingIndex, setProcessingIndex] = useState(0);
   const [archetypePreviewShown, setArchetypePreviewShown] = useState(false);
   const [waitlistState, setWaitlistState] = useState("idle");
+  /** Observability only — last waitlist POST outcome for dev/debug; does not block reveal. */
+  const [waitlistConfirmation, setWaitlistConfirmation] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
   const [showRegistry, setShowRegistry] = useState(false);
@@ -493,6 +509,24 @@ export default function OriginTerminalIntake() {
           setPhase("completeAwaitingEnterRedirect");
           return;
         }
+        if (typeof window !== "undefined") {
+          const reason = data?.confirmationReason ?? "unknown";
+          const sent = data?.confirmationSent === true;
+          const dup = data?.alreadyRegistered === true;
+          setWaitlistConfirmation({
+            confirmationSent: sent,
+            confirmationReason: reason,
+            alreadyRegistered: dup,
+          });
+          const label = waitlistConfirmationLabel(reason);
+          if (dup) {
+            console.info("[waitlist] already registered; confirmation skipped — " + label);
+          } else if (sent) {
+            console.info("[waitlist] registered + confirmation sent — " + label);
+          } else {
+            console.info("[waitlist] registered + confirmation not sent — " + label);
+          }
+        }
         beginRegistryReveal();
         return;
       }
@@ -620,6 +654,24 @@ export default function OriginTerminalIntake() {
       .then(({ ok, status, data }) => {
         if (cancelled) return;
         if (ok) {
+          if (typeof window !== "undefined") {
+            const reason = data?.confirmationReason ?? "unknown";
+            const sent = data?.confirmationSent === true;
+            const dup = data?.alreadyRegistered === true;
+            setWaitlistConfirmation({
+              confirmationSent: sent,
+              confirmationReason: reason,
+              alreadyRegistered: dup,
+            });
+            const label = waitlistConfirmationLabel(reason);
+            if (dup) {
+              console.info("[waitlist] already registered; confirmation skipped — " + label);
+            } else if (sent) {
+              console.info("[waitlist] registered + confirmation sent — " + label);
+            } else {
+              console.info("[waitlist] registered + confirmation not sent — " + label);
+            }
+          }
           beginRegistryReveal();
         } else {
           if (typeof window !== "undefined") {
@@ -879,6 +931,15 @@ export default function OriginTerminalIntake() {
             Registry Nodes Recorded: {registryCount ?? "—"}
             <br />
             LIGS Human Identity Registry
+            {waitlistConfirmation && (
+              <>
+                <br />
+                <span className="block mt-2 text-[11px] opacity-70">
+                  Confirmation dispatch:{" "}
+                  {waitlistConfirmationLabel(waitlistConfirmation.confirmationReason)}
+                </span>
+              </>
+            )}
           </footer>
         )}
 

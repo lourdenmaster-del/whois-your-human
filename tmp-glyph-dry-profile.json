@@ -1,0 +1,37 @@
+{
+  "profile": {
+    "id": "exemplar_Ignispectrum_v1",
+    "version": "1.0.0",
+    "created_at": "2025-01-01T00:00:00.000Z",
+    "owner_user_id": "beauty_engine",
+    "brand": { "name": "LIGS", "products": [], "audience": "" },
+    "ligs": { "primary_archetype": "Ignispectrum", "secondary_archetype": null, "blend_weights": {} },
+    "descriptors": ["Ignispectrum", "archetypal", "distinct"],
+    "cadence": {
+      "sentence_length": { "target_words": 12, "range": [6, 24] },
+      "paragraph_length": { "target_sentences": 3, "range": [2, 6] },
+      "rhythm_notes": ""
+    },
+    "lexicon": { "preferred_words": [], "avoid_words": [], "banned_words": [] },
+    "formatting": {
+      "emoji_policy": "none",
+      "exclamation_policy": "rare",
+      "capitalization": "standard",
+      "bullets": "allowed",
+      "headline_style": "clean minimal"
+    },
+    "claims_policy": {
+      "medical_claims": "prohibited",
+      "before_after_promises": "prohibited",
+      "substantiation_required": true,
+      "allowed_phrasing": []
+    },
+    "channel_adapters": {},
+    "examples": { "do": [], "dont": [] }
+  },
+  "purpose": "archetype_background_from_glyph",
+  "image": { "aspectRatio": "1:1", "size": "1024", "count": 1 },
+  "variationKey": "exemplar-v1",
+  "archetype": "Ignispectrum",
+  "idempotencyKey": "00000000-0000-4000-8000-000000000001"
+}

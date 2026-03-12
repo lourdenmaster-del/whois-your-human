@@ -714,6 +714,25 @@ export default function LigsStudio() {
   const [waitlistLoading, setWaitlistLoading] = useState(false);
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [waitlistSourceFilter, setWaitlistSourceFilter] = useState<string>("");
+  /** Internal operator waitlist actions — resend/reset; not shown on /origin. */
+  const [waitlistOperatorMessage, setWaitlistOperatorMessage] = useState<string | null>(null);
+  const [waitlistActionEmail, setWaitlistActionEmail] = useState<string | null>(null);
+
+  const loadWaitlist = useCallback(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    setWaitlistLoading(true);
+    setWaitlistError(null);
+    fetch(`${base}/api/waitlist/list`, { credentials: "include" })
+      .then((r) => {
+        if (r.ok) return r.json();
+        if (r.status === 403) return Promise.reject(new Error("Access denied."));
+        if (r.status === 503) return Promise.reject(new Error("Blob not configured."));
+        return Promise.reject(new Error("Failed to load"));
+      })
+      .then(setWaitlistData)
+      .catch((err) => setWaitlistError(err?.message ?? "Failed to load"))
+      .finally(() => setWaitlistLoading(false));
+  }, []);
 
   const [pipelineStatus, setPipelineStatus] = useState<{
     stripeConfigured?: boolean;
@@ -759,6 +778,64 @@ export default function LigsStudio() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  const waitlistResend = useCallback(
+    (email: string) => {
+      const base = typeof window !== "undefined" ? window.location.origin : "";
+      setWaitlistActionEmail(email);
+      setWaitlistOperatorMessage(null);
+      fetch(`${base}/api/waitlist/resend`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+        .then(async (r) => {
+          const data = await r.json().catch(() => ({}));
+          if (r.status === 404) {
+            setWaitlistOperatorMessage("Resend: entry not found");
+            return;
+          }
+          if (!r.ok) {
+            setWaitlistOperatorMessage("Resend failed: " + (data.error || r.status));
+            return;
+          }
+          setWaitlistOperatorMessage(
+            "Resend: " + (data.confirmationSent ? "sent" : "not sent") + " (" + (data.confirmationReason ?? "—") + ")"
+          );
+        })
+        .catch(() => setWaitlistOperatorMessage("Resend: network error"))
+        .finally(() => setWaitlistActionEmail(null));
+    },
+    []
+  );
+
+  const waitlistReset = useCallback(
+    (email: string) => {
+      if (!window.confirm("Reset removes this waitlist entry from Blob. Re-register from /origin to test again. Continue?")) return;
+      const base = typeof window !== "undefined" ? window.location.origin : "";
+      setWaitlistActionEmail(email);
+      setWaitlistOperatorMessage(null);
+      fetch(`${base}/api/waitlist/reset`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+        .then(async (r) => {
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) {
+            setWaitlistOperatorMessage("Reset failed: " + (data.error || r.status));
+            return;
+          }
+          setWaitlistOperatorMessage("Reset: " + (data.deleted ? "deleted" : "no entry (already absent)") + " — list refreshed");
+          loadWaitlist();
+        })
+        .catch(() => setWaitlistOperatorMessage("Reset: network error"))
+        .finally(() => setWaitlistActionEmail(null));
+    },
+    [loadWaitlist]
+  );
 
   useEffect(() => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
@@ -1885,6 +1962,9 @@ export default function LigsStudio() {
                   ))}
                 </select>
               </div>
+              {waitlistOperatorMessage && (
+                <p className="text-[11px] font-mono text-[#8a8a90] mb-2 opacity-90">{waitlistOperatorMessage}</p>
+              )}
               <div className="overflow-x-auto max-h-64 overflow-y-auto rounded border border-[#2a2a2e] bg-[#141418]">
                 <table className="w-full text-xs text-[#c8c8cc]">
                   <thead className="sticky top-0 bg-[#1a1a1e] border-b border-[#2a2a2e]">
@@ -1893,6 +1973,7 @@ export default function LigsStudio() {
                       <th className="text-left p-2 font-medium">Source</th>
                       <th className="text-left p-2 font-medium">Archetype</th>
                       <th className="text-left p-2 font-medium">Created</th>
+                      <th className="text-left p-2 font-medium text-[#6a6a70]">Operator</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1905,6 +1986,24 @@ export default function LigsStudio() {
                           <td className="p-2">{e.preview_archetype ?? "—"}</td>
                           <td className="p-2" title={e.created_at}>
                             {new Date(e.created_at).toLocaleString()}
+                          </td>
+                          <td className="p-2 whitespace-nowrap">
+                            <button
+                              type="button"
+                              disabled={waitlistActionEmail === e.email}
+                              className="mr-2 text-[10px] px-1.5 py-0.5 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#8a8a90] hover:text-[#b8b8bc] disabled:opacity-50"
+                              onClick={() => waitlistResend(e.email)}
+                            >
+                              Resend confirmation
+                            </button>
+                            <button
+                              type="button"
+                              disabled={waitlistActionEmail === e.email}
+                              className="text-[10px] px-1.5 py-0.5 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#8a8a90] hover:text-[#b8b8bc] disabled:opacity-50"
+                              onClick={() => waitlistReset(e.email)}
+                            >
+                              Reset entry
+                            </button>
                           </td>
                         </tr>
                       ))}

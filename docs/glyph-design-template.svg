@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+  <!--
+    GLYPH DESIGN TEMPLATE  LIGS Archetype Glyph Law
+    Use this template to design new archetype glyphs.
+    See docs/GLYPH-LAW.md for canonical geometry specification.
+  -->
+
+  <!-- Layer 1: Outer ring (glyph-law constant  DO NOT MODIFY) -->
+  <circle cx="500" cy="500" r="205" fill="none" stroke="currentColor" stroke-width="56"/>
+
+  <!--
+    Layer 2: ARCHETYPE GEOMETRY  PLACE YOUR SHAPES HERE
+    Constraints:
+    - Centered around (500, 500)
+    - Must stay inside inner ring boundary (r=205)
+    - Must NOT intersect center dot (r=85)
+    - Safe design region: annulus between r=85 and r=205
+    - Use rotational or axial symmetry where appropriate
+    - Stroke weight should visually match ring (56)
+    - 24 primitive shapes max
+    - Legible at ~40px
+  -->
+  <!-- <polygon points="..." fill="currentColor" transform="rotate(0 500 500)"/> -->
+  <!-- Add your archetype geometry above this comment -->
+
+  <!-- Layer 3: Center dot (glyph-law constant  DO NOT MODIFY) -->
+  <circle cx="500" cy="500" r="85" fill="currentColor"/>
+
+  <!-- ========== DESIGN GUIDES (remove or hide for final glyph) ========== -->
+  <g stroke="#999" stroke-width="1" stroke-dasharray="4 4" fill="none" opacity="0.6">
+    <!-- Crosshair through center -->
+    <line x1="0" y1="500" x2="1000" y2="500"/>
+    <line x1="500" y1="0" x2="500" y2="1000"/>
+    <!-- Inner boundary: geometry must NOT extend inside this (center dot) -->
+    <circle cx="500" cy="500" r="85"/>
+    <!-- Outer boundary: geometry must stay inside this (inner edge of ring) -->
+    <circle cx="500" cy="500" r="205"/>
+    <!-- 120 deg symmetry guides (for 3-fold rotational designs like Ignis) -->
+    <line x1="500" y1="500" x2="500" y2="0"/>
+    <line x1="500" y1="500" x2="250" y2="933"/>
+    <line x1="500" y1="500" x2="250" y2="67"/>
+  </g>
+
+  <!-- Safe design region: annulus between r=85 and r=205 (subtle fill) -->
+  <circle cx="500" cy="500" r="145" fill="none" stroke="rgba(100,150,255,0.12)" stroke-width="120"/>
+</svg>

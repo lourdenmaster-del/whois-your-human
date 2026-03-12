@@ -492,8 +492,8 @@ body {
   --registry-text: #c8c8cc;
   --registry-text-muted: #9a9aa0;
   --registry-text-bright: #e8e8ec;
-  --registry-accent: #7A4FFF;
-  --registry-accent-muted: rgba(122, 79, 255, 0.4);
+  --registry-accent: #a8a8b2;
+  --registry-accent-muted: rgba(168, 170, 176, 0.45);
   --beauty-cream: #0d0d0f;
   --artifact-panel-bg: #0d0d0f;
   --artifact-panel-border: #2a2a2e;
@@ -743,8 +743,8 @@ body {
 .beauty-theme.beauty-page input:focus,
 .beauty-theme.beauty-page textarea:focus {
   outline: none;
-  border-color: rgba(122, 79, 255, 0.4) !important;
-  box-shadow: 0 0 0 3px rgba(122, 79, 255, 0.1);
+  border-color: rgba(160, 162, 170, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(160, 162, 170, 0.12);
 }
 
 .beauty-theme.beauty-page label {
@@ -832,8 +832,8 @@ body {
   --registry-text: #c8c8cc;
   --registry-text-muted: #9a9aa0;
   --registry-text-bright: #e8e8ec;
-  --registry-accent: #7A4FFF;
-  --registry-accent-muted: rgba(122, 79, 255, 0.4);
+  --registry-accent: #a8a8b2;
+  --registry-accent-muted: rgba(168, 170, 176, 0.45);
   --registry-font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", monospace;
 }
 
@@ -871,6 +871,7 @@ body {
 
 .registry-view a:hover {
   text-decoration: underline;
+  color: var(--registry-text-bright) !important;
 }
 
 /* Registry panels — dark, bordered, structured */
@@ -913,6 +914,7 @@ body {
 .registry-view select:focus {
   outline: none !important;
   border-color: var(--registry-accent-muted) !important;
+  box-shadow: 0 0 0 1px var(--registry-accent-muted);
 }
 
 /* Buttons — restrained, terminal-style */
@@ -932,12 +934,13 @@ body {
 }
 
 .registry-view .registry-btn-primary {
-  background: linear-gradient(135deg, #3a2a6a 0%, #2a1a5a 100%);
-  border: 1px solid var(--registry-accent-muted);
-  color: #f0f0f4;
+  background: var(--registry-panel);
+  border: 1px solid var(--registry-border);
+  color: var(--registry-text-bright);
 }
 
 .registry-view .registry-btn-primary:hover {
+  border-color: var(--registry-accent-muted);
   opacity: 0.95;
 }
 
@@ -949,6 +952,28 @@ body {
   --artifact-value: var(--registry-text-bright);
   --artifact-scrim: rgba(13, 11, 16, 0.7);
   --artifact-scrim-light: rgba(253, 248, 245, 0.15);
+}
+
+/* Protocol nav — in-world links, monochrome, subtle (origin / preview / report) */
+.whois-origin .protocol-nav a {
+  color: #9a9aa0 !important;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  text-decoration: none;
+  font-size: 11px;
+}
+.whois-origin .protocol-nav a:hover {
+  color: #c8c8cc !important;
+  text-decoration: underline;
+}
+.registry-view .protocol-nav a {
+  color: var(--registry-text-muted) !important;
+  font-family: var(--registry-font-mono);
+  text-decoration: none;
+  font-size: 11px;
+}
+.registry-view .protocol-nav a:hover {
+  color: var(--registry-text-bright) !important;
+  text-decoration: underline;
 }
 
 /* ========== ORIGIN LANDING OVERRIDES — MUST COME LAST ==========

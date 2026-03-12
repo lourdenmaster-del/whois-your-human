@@ -102,7 +102,7 @@ export default function LightIdentityForm({
             onChange={handleChange}
             required
             disabled={loading}
-            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#7A4FFF] focus:ring-1 focus:ring-[#7A4FFF]/50 transition-colors duration-200 disabled:opacity-50"
+            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#5a5a62] focus:ring-1 focus:ring-[#5a5a62]/30 transition-colors duration-200 disabled:opacity-50"
             placeholder=""
           />
         </div>
@@ -121,7 +121,7 @@ export default function LightIdentityForm({
             required
             disabled={loading}
             placeholder="e.g. 1990-01-15 or Jan 15, 1990"
-            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#7A4FFF] focus:ring-1 focus:ring-[#7A4FFF]/50 transition-colors duration-200 disabled:opacity-50"
+            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#5a5a62] focus:ring-1 focus:ring-[#5a5a62]/30 transition-colors duration-200 disabled:opacity-50"
           />
           <p className="mt-1.5 text-xs text-[#F5F5F5]/50 font-normal">
             Any clear date format is fine (e.g. 15 January 1990, 01/15/1990, 1990-01-15).
@@ -140,7 +140,7 @@ export default function LightIdentityForm({
             value={formData.birthTime}
             onChange={handleChange}
             disabled={loading}
-            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal focus:outline-none focus:border-[#7A4FFF] focus:ring-1 focus:ring-[#7A4FFF]/50 transition-colors duration-200 disabled:opacity-50"
+            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal focus:outline-none focus:border-[#5a5a62] focus:ring-1 focus:ring-[#5a5a62]/30 transition-colors duration-200 disabled:opacity-50"
           />
         </div>
 
@@ -157,7 +157,7 @@ export default function LightIdentityForm({
             onChange={handleChange}
             required
             disabled={loading}
-            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#7A4FFF] focus:ring-1 focus:ring-[#7A4FFF]/50 transition-colors duration-200 disabled:opacity-50"
+            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#5a5a62] focus:ring-1 focus:ring-[#5a5a62]/30 transition-colors duration-200 disabled:opacity-50"
             placeholder=""
           />
         </div>
@@ -175,7 +175,7 @@ export default function LightIdentityForm({
             onChange={handleChange}
             required
             disabled={loading}
-            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#7A4FFF] focus:ring-1 focus:ring-[#7A4FFF]/50 transition-colors duration-200 disabled:opacity-50"
+            className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#5a5a62] focus:ring-1 focus:ring-[#5a5a62]/30 transition-colors duration-200 disabled:opacity-50"
             placeholder=""
           />
         </div>
@@ -193,7 +193,7 @@ export default function LightIdentityForm({
               onChange={handleChange}
               disabled={loading}
               rows={3}
-              className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#7A4FFF] focus:ring-1 focus:ring-[#7A4FFF]/50 transition-colors duration-200 disabled:opacity-50 resize-y"
+              className="w-full px-4 py-3 bg-[#0A0F1C]/80 border border-[#F5F5F5]/25 text-[#F5F5F5] text-base font-normal placeholder:text-[#F5F5F5]/50 focus:outline-none focus:border-[#5a5a62] focus:ring-1 focus:ring-[#5a5a62]/30 transition-colors duration-200 disabled:opacity-50 resize-y"
               placeholder="Any context you’d like to share (optional)"
             />
           </div>
@@ -208,7 +208,7 @@ export default function LightIdentityForm({
                 type="button"
                 disabled={loading}
                 onClick={handleDryRunClick}
-                className="w-full px-6 py-3 border border-[#7A4FFF] text-[#7A4FFF] text-sm font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#7A4FFF]/10"
+                className="w-full px-6 py-3 border border-[#2a2a2e] text-[#c8c8cc] text-sm font-semibold transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:border-[#5a5a62] hover:bg-[#1a1a1e]"
               >
                 {loading ? "..." : "Dry run (no API)"}
               </button>

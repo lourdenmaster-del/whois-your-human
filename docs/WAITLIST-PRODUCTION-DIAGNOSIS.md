@@ -36,7 +36,7 @@ On production:
    - Redeploy on Vercel if the current deploy is older.
 
 2. **Environment variables (Vercel)**
-   - `BLOB_READ_WRITE_TOKEN` — required for waitlist Blob and for `getWaitlistCount()`.
+   - **`BLOB_READ_WRITE_TOKEN`** — Required. Without it: POST `/api/waitlist` returns 503 (signups do nothing), GET `/api/waitlist/list` returns 503 (studio waitlist dashboard shows "Not configured").
    - `RESEND_API_KEY` **or** `SENDGRID_API_KEY` — required for confirmation email.
    - `EMAIL_FROM` — optional; default used if unset.
 

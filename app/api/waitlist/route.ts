@@ -6,8 +6,14 @@
  * Body: { email: string, source?: string, birthDate?: string, preview_archetype?: string, solar_season?: string }
  *
  * When birthDate (YYYY-MM-DD) is provided, preview_archetype and solar_season are computed server-side.
- * Duplicate emails return 200 { ok: true, alreadyRegistered: true } — no confirmation resend.
- * New signups receive confirmation email via Resend or SendGrid.
+ * Duplicate emails return 200 { ok, alreadyRegistered, confirmationSent, confirmationReason } — no confirmation resend.
+ * New signups: insert then send; confirmationSent/confirmationReason reflect email outcome only — registration already persisted.
+ *
+ * Response shape (success paths):
+ * - ok: boolean
+ * - alreadyRegistered: boolean (true = duplicate, no insert)
+ * - confirmationSent: boolean
+ * - confirmationReason: sent | duplicate_skipped | provider_key_missing | blob_not_configured | provider_rejected | provider_error
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -17,6 +23,15 @@ import { sendWaitlistConfirmation } from "@/lib/email-waitlist-confirmation";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
 import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
+
+/** Machine-readable why confirmation was or was not sent. */
+export type WaitlistConfirmationReason =
+  | "sent"
+  | "duplicate_skipped"
+  | "provider_key_missing"
+  | "blob_not_configured"
+  | "provider_rejected"
+  | "provider_error";
 
 /** Simple email validation — basic regex, keep it minimal. */
 function isValidEmail(email: string): boolean {
@@ -57,8 +72,17 @@ export async function POST(req: NextRequest) {
     process.env.BLOB_READ_WRITE_TOKEN.length > 0;
 
   if (!hasBlobToken) {
+    console.warn(
+      "[waitlist] structured reason=blob_not_configured blob_insert=n/a duplicate=n/a to=n/a"
+    );
     return NextResponse.json(
-      { error: "Waitlist not configured" },
+      {
+        error: "Waitlist not configured",
+        ok: false,
+        alreadyRegistered: false,
+        confirmationSent: false,
+        confirmationReason: "blob_not_configured" satisfies WaitlistConfirmationReason,
+      },
       { status: 503 }
     );
   }
@@ -119,28 +143,58 @@ export async function POST(req: NextRequest) {
     });
 
     if (result.alreadyRegistered) {
-      return NextResponse.json({ ok: true, alreadyRegistered: true });
+      console.log(
+        "[waitlist] structured reason=duplicate_skipped blob_insert=skipped duplicate=true to=" +
+          maskEmail(email)
+      );
+      return NextResponse.json({
+        ok: true,
+        alreadyRegistered: true,
+        confirmationSent: false,
+        confirmationReason: "duplicate_skipped" satisfies WaitlistConfirmationReason,
+      });
     }
 
     const createdAt = new Date().toISOString();
     console.log("[waitlist] entry_received to=" + maskEmail(email));
+
     let confirmationSent = false;
+    let confirmationReason: WaitlistConfirmationReason = "provider_key_missing";
+
     try {
-      confirmationSent = await sendWaitlistConfirmation(email, {
+      const sendResult = await sendWaitlistConfirmation(email, {
         created_at: createdAt,
         ...(preview_archetype && { preview_archetype }),
         ...(solar_season && { solar_season }),
       });
+      confirmationSent = sendResult.sent;
+      confirmationReason = sendResult.reason as WaitlistConfirmationReason;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[waitlist] confirmation_email_error to=" + maskEmail(email) + " error=" + msg.slice(0, 120));
+      confirmationReason = "provider_error";
+      console.error(
+        "[waitlist] structured reason=provider_error blob_insert=ok duplicate=false to=" +
+          maskEmail(email) +
+          " error=" +
+          msg.slice(0, 120)
+      );
     }
-    if (confirmationSent) {
-      console.log("[waitlist] signup_ok confirmation_sent to=" + maskEmail(email));
-    } else {
-      console.warn("[waitlist] signup_ok confirmation_not_sent to=" + maskEmail(email));
-    }
-    return NextResponse.json({ ok: true, confirmationSent });
+
+    console.log(
+      "[waitlist] structured reason=" +
+        confirmationReason +
+        " blob_insert=ok duplicate=false confirmationSent=" +
+        confirmationSent +
+        " to=" +
+        maskEmail(email)
+    );
+
+    return NextResponse.json({
+      ok: true,
+      alreadyRegistered: false,
+      confirmationSent,
+      confirmationReason,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (process.env.NODE_ENV === "development") {

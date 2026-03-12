@@ -140,7 +140,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `lib/engine/constraintGate.ts` | `scanForbidden(text)` — scans full_report for forbidden terms (chakra, kabbalah, sacred geometry, etc.); `redactForbidden(text, keys)` — replaces matches with [removed]. Engine/generate runs one repair OpenAI pass when hits > 0; re-scan; if hits remain, redacts in dev. |
 | `lib/idempotency-store.ts` | Blob-backed idempotency at `ligs-runs/{route}/{idempotencyKey}.json`. `getIdempotentResult`, `setIdempotentResult`, `isValidIdempotencyKey`, `deriveIdempotencyKey` (deterministic sub-keys for marketing/share replays). Routes: engine-generate, engine, marketing-generate, image-generate. In-memory fallback when no Blob. |
 | `lib/waitlist-store.ts` | Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. `insertWaitlistEntry(payload)` → `{ ok, alreadyRegistered? }`; uses `head()` before `put()` for duplicate check. Payload: email, created_at, source, preview_archetype?, solar_season?. Used by `/api/waitlist`. |
-| `lib/email-waitlist-confirmation.ts` | `sendWaitlistConfirmation(email)` — LIGS-voice confirmation via Resend or SendGrid. Subject: "Your identity query has been logged". Uses `RESEND_API_KEY` or `SENDGRID_API_KEY`, `EMAIL_FROM`. Used by `/api/waitlist` for new signups only. |
+| `lib/email-waitlist-confirmation.ts` | `sendWaitlistConfirmation(email, payload?)` → `Promise<{ sent, reason }>`. Resend preferred if key set, else SendGrid. Subject: "Your identity query has been logged". Uses `RESEND_API_KEY` / `SENDGRID_API_KEY`, `EMAIL_FROM`. Production checklist comment at top. Used by `/api/waitlist` for new signups only. |
 
 ### 1.5 Voice Profile (LIGS)
 
@@ -214,9 +214,11 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/waitlist` | Email capture with duplicate check and confirmation. Body: `{ email: string, source?: string, birthDate?: string, ... }` (server may set `preview_archetype` / `solar_season` from `birthDate`). Validates email; rate limit 5 req/60s per IP+UA. Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. Duplicate → 200 `{ ok: true, alreadyRegistered: true }` (no confirmation resend). New signup → `insertWaitlistEntry` → `await sendWaitlistConfirmation` → 200 `{ ok: true, confirmationSent }` (boolean; false when keys missing or provider non-OK). Server logs: `signup_ok confirmation_sent` / `signup_ok confirmation_not_sent`; lib logs `confirmation_email_sent` / `confirmation_email_failed` / `confirmation_email_error`. Requires `BLOB_READ_WRITE_TOKEN`. One of `RESEND_API_KEY` or `SENDGRID_API_KEY` for confirmation. |
+| POST | `/api/waitlist` | Email capture with duplicate check and confirmation. Body: `{ email, source?, birthDate?, ... }` (server may set `preview_archetype` / `solar_season` from `birthDate`). Rate limit 5/60s per IP+UA. Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. **Success JSON always includes:** `ok`, `alreadyRegistered`, `confirmationSent`, `confirmationReason` (`sent` \| `duplicate_skipped` \| `provider_key_missing` \| `blob_not_configured` \| `provider_rejected` \| `provider_error`). Duplicate → 200, no resend. New signup → insert then send; **registration succeeds even if email fails** (confirmationSent false + reason). 503 when Blob token missing — body includes same fields where applicable. Structured server logs `[waitlist] structured reason=… blob_insert=… duplicate=… to=masked`. `sendWaitlistConfirmation` returns `{ sent, reason }`; lib logs provider_selected + from_attempt (no keys). |
 | GET | `/api/waitlist/count` | **Public.** Returns `{ total: number }` only. Uses `getWaitlistCount()` from `lib/waitlist-list` (list blob keys, no content fetch). No auth. Used by `/origin` for registry readout. |
 | GET | `/api/waitlist/list` | **Internal/admin only.** List waitlist entries from Blob. Returns `{ total, recent, metrics }`. When `LIGS_STUDIO_TOKEN` is set, requires HttpOnly cookie only (set via POST `/api/studio-auth` after `/ligs-studio/login`). No `?token=` or Bearer. 403 when protected and unauthenticated. Requires `BLOB_READ_WRITE_TOKEN`. |
+| POST | `/api/waitlist/reset` | **Internal/operator only.** Body `{ email }`. Deletes waitlist blob for normalized email (`lib/waitlist-store.deleteWaitlistEntryByEmail`). Returns `{ ok, deleted, email }`. Same cookie gate as list. Does not affect `/origin` duplicate logic until next signup. |
+| POST | `/api/waitlist/resend` | **Internal/operator only.** Body `{ email }`. Loads entry via `getWaitlistEntryByEmail`; calls `sendWaitlistConfirmation` with stored payload. 404 if not found. Returns `{ ok, confirmationSent, confirmationReason, email }`. Same cookie gate as list. |
 
 ### 2.4 Stripe
 
@@ -298,7 +300,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | `ALLOW_PREVIEW_LIVE_TEST` | `/api/dev/preflight`, `/api/dev/beauty-live-once`, `/api/dev/verify-report` | `"1"` = allow dev routes on Vercel Preview (NODE_ENV=production). Use for full-cylinders LIVE test on Preview. |
 | `NEXT_PUBLIC_SHOW_DEV_CONTROLS` | (other pages) | `"1"` = show dev controls. Conversion-first Beauty landing no longer renders Dev Live pipeline section. |
 | `NEXT_PUBLIC_WAITLIST_ONLY` | `BeautyLandingClient.jsx` | `"0"` = re-enable purchase flow. Default (unset) = waitlist-only. |
-| `LIGS_STUDIO_TOKEN` | `lib/studio-auth.ts`, middleware, `/api/waitlist/list`, `/api/studio-auth` | When set, `/ligs-studio` requires cookie only; unauthenticated users are redirected to `/ligs-studio/login` → POST `/api/studio-auth` sets cookie. `/api/waitlist/list` accepts cookie only. Unset = no protection. |
+| `LIGS_STUDIO_TOKEN` | `lib/studio-auth.ts`, middleware, `/api/waitlist/list`, `/api/waitlist/reset`, `/api/waitlist/resend`, `/api/studio-auth` | When set, `/ligs-studio` requires cookie only; unauthenticated users are redirected to `/ligs-studio/login` → POST `/api/studio-auth` sets cookie. Waitlist internal routes accept cookie only. Unset = no protection. |
 | *(removed)* `BRAND_LOGO_PATH` | — | No longer used. Compose always uses `GLOBAL_LOGO_PATH` from `lib/brand.ts`. |
 | `ENABLE_PLACEHOLDER_LOGO` | `/api/image/compose`, `/api/ligs/status` | `"true"` = use "(L)" SVG placeholder when global logo file missing. Default false. Demo-safe. |
 | `BLOB_READ_WRITE_TOKEN` | `lib/report-store.ts`, `lib/beauty-profile-store.ts` | Vercel Blob for reports, beauty profiles, images; if unset, reports in-memory, beauty profiles unavailable (E.V.E. still needs Blob for production) |
@@ -402,6 +404,24 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 - [ ] **Dry run:** `DRY_RUN=1` skips OpenAI and returns mock report from `/api/engine`.
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
+
+---
+
+## Verification Log – 2026‑03‑12 (Waitlist operator tools — reset + resend)
+
+**POST `/api/waitlist/reset`** and **POST `/api/waitlist/resend`**: Same studio cookie gate as `/api/waitlist/list`. Reset uses `@vercel/blob` `del` on exact pathname from `emailToKey`; resend reuses `sendWaitlistConfirmation` only. LigsStudio Waitlist Registry table: per-row **Resend confirmation** and **Reset entry** (confirm on reset); inline status message; list refetch after reset. No change to `/origin` or public duplicate suppression. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑12 (Waitlist confirmation — API signaling + client observability)
+
+**POST `/api/waitlist`:** Response always includes `ok`, `alreadyRegistered`, `confirmationSent`, `confirmationReason` on success paths; 503 when Blob missing includes `confirmationReason: blob_not_configured`. Registration independent of email outcome. `lib/email-waitlist-confirmation.ts` returns `WaitlistConfirmationResult`; provider-selection and from-address logged without secrets. `OriginTerminalIntake` logs concise waitlist outcome to console after POST; optional state `waitlistConfirmation` for future UI. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑12 (WHOIS Human Registration Report — canonical MVP schema)
+
+**Canonical spec added:** `docs/WHOIS-HUMAN-REGISTRATION-REPORT-MVP.md` — official field structure, naming, section order for free (WHOIS Human Registry Record) vs paid (WHOIS Human Registration Report); WHOIS mirror first, LIGS expansion second; banned legacy terms for user-facing copy (beauty, dossier, reading, etc.); CTA language rules; formatting (left-aligned, monospace-friendly). No code changes in this entry; future UI/report/artifact work must conform unless explicitly revised.
 
 ---
 
@@ -643,7 +663,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ## Verification Log – 2026‑03‑07 (Waitlist email confirmation)
 
-**Waitlist email capture and confirmation:** `lib/waitlist-store.ts` — Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`; `insertWaitlistEntry` with duplicate check via `head()` before `put()`. Stored fields: email, created_at, source, preview_archetype?, solar_season?. `lib/email-waitlist-confirmation.ts` — `sendWaitlistConfirmation` via Resend or SendGrid; returns boolean; logs sent/failed per provider. **API:** POST `/api/waitlist` accepts `birthDate`; computes preview_archetype/solar_season server-side. Duplicate → 200 `{ ok: true, alreadyRegistered: true }`. New signup → await `sendWaitlistConfirmation` → 200 `{ ok: true, confirmationSent }` (false if keys missing or provider rejects). **OriginTerminalIntake (current copy):** "Identity query already recorded." / "Identity query recorded."; if `confirmationSent` then "Confirmation signal transmitted."; if not then "Confirmation signal not transmitted — check configuration or retry later." Client `console.warn` when signup OK without email. **Post-purchase email:** `/api/email/send-beauty-profile` returns 500 on provider failure; webhook logs `email_delivery_failed` and returns non-200 so Stripe retries.
+**Waitlist email capture and confirmation:** `lib/waitlist-store.ts` — Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`; `insertWaitlistEntry` with duplicate check via `head()` before `put()`. Stored fields: email, created_at, source, preview_archetype?, solar_season?. `lib/email-waitlist-confirmation.ts` — `sendWaitlistConfirmation` via Resend or SendGrid; returns `{ sent, reason }`; provider/from logging without keys. **API:** POST `/api/waitlist` accepts `birthDate`; computes preview_archetype/solar_season server-side. Duplicate → 200 with `confirmationReason: duplicate_skipped`. New signup → insert then send → 200 always includes `confirmationSent` + `confirmationReason` (registration succeeds even if email fails). **OriginTerminalIntake (current copy):** "Identity query already recorded." / "Identity query recorded."; if `confirmationSent` then "Confirmation signal transmitted."; if not then "Confirmation signal not transmitted — check configuration or retry later." Client `console.warn` when signup OK without email. **Post-purchase email:** `/api/email/send-beauty-profile` returns 500 on provider failure; webhook logs `email_delivery_failed` and returns non-200 so Stripe retries.
 
 ## Verification Log – 2026‑03‑07 (Archetype preview refactor)
 

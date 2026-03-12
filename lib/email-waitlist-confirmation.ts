@@ -7,7 +7,19 @@
  * Sender verification:
  * - Resend: Default FROM (onboarding@resend.dev) is allowed without verification. Custom domain/address must be verified in Resend dashboard.
  * - SendGrid: The FROM address (or domain) must be a verified sender identity in SendGrid. Unverified sender causes reject or non-delivery.
+ *
+ * PRODUCTION CHECKLIST (confirmation email sends):
+ * - BLOB_READ_WRITE_TOKEN — required in /api/waitlist before insert (not in this module).
+ * - RESEND_API_KEY or SENDGRID_API_KEY — required; otherwise send skipped with reason provider_key_missing.
+ * - EMAIL_FROM — optional; unverified sender causes provider_rejected.
+ * - NEXT_PUBLIC_SITE_URL or VERCEL_URL — optional; fallback https://ligs.io for absolute artifact URLs in HTML.
  */
+
+/** Result of sendWaitlistConfirmation — machine-readable reason for API/client observability. */
+export type WaitlistConfirmationResult = {
+  sent: boolean;
+  reason: "sent" | "provider_key_missing" | "provider_rejected" | "provider_error";
+};
 
 import { IGNIS_V1_ARTIFACTS } from "@/lib/exemplar-store";
 import {
@@ -196,12 +208,21 @@ export function buildWaitlistConfirmationText(payload?: WaitlistConfirmationPayl
 export async function sendWaitlistConfirmation(
   email: string,
   payload?: WaitlistConfirmationPayload | null
-): Promise<boolean> {
+): Promise<WaitlistConfirmationResult> {
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
+
+  /** Mask for logs only — never log API keys. */
+  const maskedTo =
+    email.length > 4 ? email.charAt(0) + "***@" + (email.split("@")[1] ?? "") : "***";
+
   if (!resendKey && !sendgridKey) {
-    console.warn("[waitlist] SKIP_CONFIRMATION_EMAIL: RESEND_API_KEY and SENDGRID_API_KEY not set");
-    return false;
+    console.warn(
+      "[waitlist] confirmation provider=none reason=provider_key_missing to=" +
+        maskedTo +
+        " from_attempt=n/a"
+    );
+    return { sent: false, reason: "provider_key_missing" };
   }
 
   const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
@@ -210,13 +231,18 @@ export async function sendWaitlistConfirmation(
   const html = buildWaitlistConfirmationHtml(payload, artifactImageUrl);
   const text = buildWaitlistConfirmationText(payload);
 
-  /** Mask for logs: "x***@domain.com" */
-  const maskedTo = email.length > 4 ? email.charAt(0) + "***@" + (email.split("@")[1] ?? "") : "***";
-
   if (resendKey) {
     const fromValue = from.includes("<") ? from : `LIGS <${from}>`;
-    console.log("[waitlist] sending_confirmation provider=resend to=" + maskedTo);
-    const res = await fetch("https://api.resend.com/emails", {
+    const fromForLog = fromValue.replace(/</g, "").replace(/>/g, "");
+    console.log(
+      "[waitlist] confirmation provider_selected=resend to=" +
+        maskedTo +
+        " from_attempt=" +
+        fromForLog
+    );
+    let res: Response;
+    try {
+      res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${resendKey}`,
@@ -230,6 +256,18 @@ export async function sendWaitlistConfirmation(
         text,
       }),
     });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(
+        "[waitlist] confirmation provider=resend reason=provider_error to=" +
+          maskedTo +
+          " from_attempt=" +
+          fromForLog +
+          " error=" +
+          msg.slice(0, 120)
+      );
+      return { sent: false, reason: "provider_error" };
+    }
     const bodyText = await res.text();
     let bodyJson: { id?: string } | null = null;
     try {
@@ -239,19 +277,41 @@ export async function sendWaitlistConfirmation(
     }
     if (res.ok) {
       console.log(
-        "[waitlist] confirmation_email_sent provider=resend from=" + fromValue.replace(/</g, "").replace(/>/g, "") + " to=" + maskedTo + " status=" + res.status + (bodyJson?.id ? " id=" + bodyJson.id : "")
+        "[waitlist] confirmation reason=sent provider=resend to=" +
+          maskedTo +
+          " from=" +
+          fromForLog +
+          " status=" +
+          res.status +
+          (bodyJson?.id ? " id=" + bodyJson.id : "")
       );
-      return true;
+      return { sent: true, reason: "sent" };
     }
     console.error(
-      "[waitlist] confirmation_email_failed provider=resend from=" + fromValue.replace(/</g, "").replace(/>/g, "") + " to=" + maskedTo + " status=" + res.status + " body=" + bodyText.slice(0, 200)
+      "[waitlist] confirmation reason=provider_rejected provider=resend to=" +
+        maskedTo +
+        " from=" +
+        fromForLog +
+        " status=" +
+        res.status +
+        " body=" +
+        bodyText.slice(0, 200)
     );
-    return false;
+    return { sent: false, reason: "provider_rejected" };
   }
+
+  console.log(
+    "[waitlist] confirmation provider_selected=sendgrid to=" +
+      maskedTo +
+      " from_attempt=" +
+      (from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from)
+  );
 
   const fromEmail = from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from;
   const fromName = from.includes("<") ? from.replace(/\s*<[^>]+>$/, "").trim() : "LIGS";
-  const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+  let res: Response;
+  try {
+    res = await fetch("https://api.sendgrid.com/v3/mail/send", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${sendgridKey}`,
@@ -266,15 +326,39 @@ export async function sendWaitlistConfirmation(
       ],
     }),
   });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(
+      "[waitlist] confirmation reason=provider_error provider=sendgrid to=" +
+        maskedTo +
+        " from=" +
+        fromEmail +
+        " error=" +
+        msg.slice(0, 120)
+    );
+    return { sent: false, reason: "provider_error" };
+  }
   const bodyText = await res.text();
   if (res.ok) {
     console.log(
-      "[waitlist] confirmation_email_sent provider=sendgrid from=" + fromEmail + " to=" + maskedTo + " status=" + res.status
+      "[waitlist] confirmation reason=sent provider=sendgrid to=" +
+        maskedTo +
+        " from=" +
+        fromEmail +
+        " status=" +
+        res.status
     );
-    return true;
+    return { sent: true, reason: "sent" };
   }
   console.error(
-    "[waitlist] confirmation_email_failed provider=sendgrid from=" + fromEmail + " to=" + maskedTo + " status=" + res.status + " body=" + bodyText.slice(0, 200)
+    "[waitlist] confirmation reason=provider_rejected provider=sendgrid to=" +
+      maskedTo +
+      " from=" +
+      fromEmail +
+      " status=" +
+      res.status +
+      " body=" +
+      bodyText.slice(0, 200)
   );
-  return false;
+  return { sent: false, reason: "provider_rejected" };
 }

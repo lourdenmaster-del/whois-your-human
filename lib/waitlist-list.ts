@@ -136,8 +136,10 @@ export async function listWaitlistEntries(): Promise<WaitlistListResult> {
     .map(([archetype, count]) => ({ archetype, count }))
     .sort((a, b) => b.count - a.count);
 
-  const originCount = sourceCount.get("origin-terminal") ?? 0;
-  const originTerminalPct = entries.length > 0 ? Math.round((100 * originCount) / entries.length) : null;
+  const originTerminalCount = sourceCount.get("origin-terminal") ?? 0;
+  const originHeroCount = sourceCount.get("origin") ?? 0;
+  const originTotalCount = originTerminalCount + originHeroCount;
+  const originTerminalPct = entries.length > 0 ? Math.round((100 * originTotalCount) / entries.length) : null;
 
   return {
     total,

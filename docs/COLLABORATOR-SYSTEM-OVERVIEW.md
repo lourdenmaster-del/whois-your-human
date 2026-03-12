@@ -1,11 +1,8 @@
-# LIGS — Full System Overview for Collaborators
+# LIGS — System Summary for Collaborators
 
-**Purpose:** Get a new collaborator aligned on what we're building, how it fits together, and where to find things.
+**Purpose:** Align collaborators on what we're building, how it fits together, and where to find things. Keep this in sync with **SYSTEM_SNAPSHOT.md** (authoritative for routes, env, integrations).
 
-**References:**
-- **SYSTEM_SNAPSHOT.md** — Authoritative reference for routes, env vars, integrations. Update it when making structural changes.
-- **docs/LIGS-VOICE-ENGINE-SPEC.md** — Canonical Voice Profile spec.
-- **SYSTEM_OVERVIEW.md** — LIGS pipeline deep-dive (Voice, Image, Marketing).
+**References:** SYSTEM_SNAPSHOT.md (structural truth), docs/LIGS-VOICE-ENGINE-SPEC.md (Voice Profile), SYSTEM_OVERVIEW.md (pipeline deep-dive).
 
 ---
 
@@ -13,230 +10,110 @@
 
 LIGS is a **light-identity / beauty profile** system. Users provide birth data (date, time, location). The system produces:
 
-1. **Light Identity Report** — A structured report with archetype, deviations, corrective vectors, and aesthetic descriptions.
-2. **Beauty Profile** — A curated experience with emotional snippet, imagery (Vector Zero, Light Signature, Final Beauty), and full report.
-3. **Marketing assets** — Archetype-driven visuals (logo marks, backgrounds) and overlay copy for cards.
+1. **Light Identity Report** — Structured report with archetype, deviations, corrective vectors, aesthetic descriptions.
+2. **Beauty Profile** — Curated experience: emotional snippet, imagery (Vector Zero, Light Signature, Final Beauty), full report.
+3. **Marketing assets** — Archetype-driven visuals and overlay copy for cards.
 
-Everything is **archetype-driven**: 12 canonical archetypes (Stabiliora, Radiantis, Tenebris, Ignispectrum, etc.) determine voice, visuals, and marketing tone.
+Everything is **archetype-driven**: 12 canonical archetypes (Ignispectrum, Stabiliora, Radiantis, Tenebris, Duplicaris, Precisura, Aequilibris, Obscurion, Vectoris, Structoris, Innovaris, Fluxionis) drive voice, visuals, and tone.
 
 ---
 
 ## 2. Architecture at a Glance
 
-| Layer | Stack |
-|-------|--------|
-| **Frontend** | Next.js 16, React 19, App Router |
-| **Backend** | Next.js API routes (serverless) |
-| **AI** | OpenAI GPT-4o (reports, voice, E.V.E. filter), DALL·E 3 (images) |
-| **Storage** | Vercel Blob (reports, beauty profiles, images) |
-| **Payments** | Stripe Checkout + webhook |
-| **Email** | Resend or SendGrid |
+| Layer    | Stack |
+|----------|--------|
+| Frontend | Next.js 16, React 19, App Router |
+| Backend  | Next.js API routes (serverless) |
+| AI       | OpenAI GPT-4o (reports, voice, E.V.E.), DALL·E 3 (images) |
+| Storage  | Vercel Blob (reports, beauty profiles, images, waitlist) |
+| Payments | Stripe Checkout + webhook (when waitlist-only disabled) |
+| Email    | Resend or SendGrid (waitlist confirmation, post-purchase) |
 
 ---
 
-## 3. User-Facing Flows
+## 3. Public Surface (Current Design)
 
-### Main Landing (`/`)
+- **`/`** — Rewritten to `/origin` (no redirect). No standalone root page.
+- **`/origin`** — **Canonical public landing.** WHOIS-style terminal: **OriginTerminalIntake** (idle → Enter → intake: name, date, time, place, email → processing → waitlist or CTA). Black full-screen, aperture law, monospace. Registry counter at bottom ("Registry nodes recorded: {count}" + annotation). Protocol nav (e.g. View Dossier). No marketing nav; restrained, protocol-native.
+- **`/beauty`**, **`/beauty/`** — 308 redirect to `/origin`. Beauty landing is not the main public entry.
+- **`/api/waitlist`** — POST; email capture; rate limited; Blob-backed; duplicate check; confirmation email (white-paper registry notice, archetype-based artifact image).
+- **`/api/waitlist/count`** — GET; public-safe; returns `{ total }` only (real count + seed); used by `/origin` registry readout.
+- **`/api/exemplars`** — GET; exemplar manifests for landing/grid.
+- **Not linked from origin:** `/beauty/start`, `/beauty/view`, `/dossier`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
 
-- Form: name, birth date/time, location, email.
-- Submit → `POST /api/engine/generate` or `POST /api/engine` (E.V.E.).
-- Report stored in Blob; user gets `reportId`.
-- Previews show report cards; "Pay to Unlock" → Stripe Checkout.
-
-### Beauty Landing (`/beauty`)
-
-- Same form; submit → `POST /api/beauty/submit` (runs `deriveFromBirthData` for astrology, Sun/Moon, On This Day context, then forwards to engine).
-- Engine generates report → **Constraint Gate** (scans for forbidden terms; one repair pass if needed) → **E.V.E.** (OpenAI filter) → **Beauty Profile V1** saved to Blob.
-- When `allowExternalWrites`: 3 images generated (Vector Zero, Light Signature, Final Beauty) and saved.
-- Client uses in-line report data from submit response when available (dry-run, UNSAVED dev fallback); otherwise fetches `GET /api/report/[reportId]`.
-- User sees previews → Stripe Checkout → success → email with link to `/beauty/view?reportId=…`.
-
-### Beauty View (`/beauty/view?reportId=…`)
-
-- Loads Beauty Profile from Blob.
-- Renders: carousel (3 images), emotional snippet, ShareCard (archetype + tagline + hit points), full report accordion.
-- Post-purchase email includes this link.
-
-### DRY_RUN Mode (`?dryRun=1` or `DRY_RUN=1`)
-
-- Skips OpenAI; uses mock data.
-- Saves minimal Beauty Profile to Blob so previews and view work locally for **$0**.
-- Essential for local dev and demos.
+**Waitlist-only default:** With `NEXT_PUBLIC_WAITLIST_ONLY` not set to `"0"`, origin flow completes with waitlist signup and redirect to exemplar view (`/beauty/view?reportId=exemplar-{archetype}`). Set to `"0"` to re-enable purchase/Stripe flow.
 
 ---
 
-## 4. Internal Flows (Simplified)
+## 4. User-Facing Flows
 
-```
-Form Submit
-    → POST /api/engine/generate (report only)
-    → saveReportAndConfirm (Blob)
-    → returns reportId
+### Origin (canonical landing)
 
-Beauty Flow
-    → POST /api/beauty/submit (deriveFromBirthData, Sun/Moon, On This Day → forward)
-    → POST /api/engine (E.V.E. pipeline)
-    → POST /api/engine/generate (report → Constraint Gate if forbidden hits → image prompts, vector zero)
-    → GET /api/report/{reportId}
-    → OpenAI E.V.E. filter
-    → saveBeautyProfileV1 (Blob)
-    → (if allowExternalWrites) POST /api/generate-image × 3
-    → images saved to Blob
+- **OriginTerminalIntake** (`components/OriginTerminalIntake.jsx`): Idle → "Press ENTER to begin" → boot lines → intake (name, date with confirm, time, place, email) → processing lines → archetype line → waitlist POST or CTA. On success: "Contact node recorded", redirect to exemplar view (waitlist-only) or checkout path. Registry count fetched from `/api/waitlist/count`; displayed below aperture/footer. Protocol nav (e.g. View Dossier). Visual law: black field, silver/gray text, no purple residue.
 
-Stripe Success
-    → Webhook checkout.session.completed
-    → loadBeautyProfileV1
-    → POST /api/email/send-beauty-profile
-```
+### Beauty view (preview / report)
+
+- **`/beauty/view?reportId=…`** — **BeautyViewClient**: For exemplar reportIds, **PreviewRevealSequence** (aperture law, init → archetype cycle → family cycle → artifact → continue) then **InteractiveReportSequence**. For real reports, **InteractiveReportSequence** only. Same aperture/terminal styling as origin. Footer: "Human WHOIS protocol", "Return to Origin", "View Dossier". Links and focus use gray/silver (no purple).
+
+### Dossier
+
+- **`/dossier`** — Static sample Identity Dossier (white-paper style). Registry block, six sections, CTA to /origin. Protocol nav ("Return to Origin").
+
+### Other
+
+- **`/beauty/start`** — Birth form (LightIdentityForm); requires unlocked; redirects to /origin if not. Terminal-aligned.
+- **`/beauty/success`**, **`/beauty/cancel`** — Post-Stripe and cancelled; terminal-aligned, link back to /origin.
+- **`/ligs-studio`** — Internal tool (image vertical slice, compose, marketing). Token-gated when `LIGS_STUDIO_TOKEN` set.
+- **`/voice`** — VoiceProfileBuilder (local state).
 
 ---
 
-## 5. Key Concepts
+## 5. Key Back-End Flows
 
-### Archetypes
-
-- **Single source of truth:** `src/ligs/archetypes/contract.ts` — `ARCHETYPE_CONTRACT_MAP`
-- 12 archetypes: Stabiliora, Radiantis, Tenebris, Ignispectrum, Duplicaris, Precisura, Aequilibris, Obscurion, Vectoris, Structoris, Innovaris, Fluxionis.
-- Each has: **voice** (tone, rhythm), **visual** (palette, lighting, flow_lines), **marketingDescriptor** (label, tagline, hit points, CTA), **marketingVisuals** (keywords, palette, motion).
-- Unknown archetypes fall back to **NEUTRAL_FALLBACK** (premium, minimal, refined).
-- Adapters in `src/ligs/archetypes/adapters.ts` expose data to legacy modules.
-- **Legacy maps** (`archetype-visual-map.ts`, `archetypeAnchors.ts`, `archetype-copy-map.ts`) are thin re-exports — DO NOT EDIT; edit contract.ts only.
-
-### Constraint Gate (`lib/engine/constraintGate.ts`)
-
-- Post-generation scan for forbidden terms in `full_report` (chakra, kabbalah, sacred geometry, Schumann, etc.).
-- If hits: one repair OpenAI call to rewrite without them; re-scan; if hits remain, redact in dev.
-- Non-production responses include `meta.forbiddenHitsDetected` when repair was triggered.
-
-### E.V.E. (Extract, Validate, Emit)
-
-- OpenAI filter that turns a raw Light Identity Report into a structured **Beauty Profile**.
-- Extracts subject name, emotional snippet, image prompts, vector zero.
-- Runs in `POST /api/engine` after report generation.
-
-### Runtime Mode (`lib/runtime-mode.ts`)
-
-- **ALLOW_EXTERNAL_WRITES** — `"true"` = real OpenAI/Stripe/Blob; else DRY_RUN.
-- **DRY_RUN** — Mock reports, no real LLM/image calls.
-- **stripeTestModeRequired** — Non-prod rejects `sk_live_` keys.
-- These are **server-side only**; never client-controlled.
-
-### Marketing Layer
-
-- **Descriptor** — Archetype → label, tagline, hit points, CTA (`lib/marketing/descriptor.ts`).
-- **Visuals** — Logo mark + header background via `POST /api/marketing/visuals` (calls image/generate twice).
-- **Glyph field** — `buildGlyphFieldPrompt()` for the canonical "(L)" glyph with archetype-driven field (`lib/marketing/glyphField.ts`).
-- **MarketingHeader** — UI component; used in Beauty and LIGS Studio.
-- See **docs/MARKETING-LAYER.md**.
-
-### LIGS Studio (`/ligs-studio`)
-
-- Internal tool for running image vertical slice: generate background, compose marketing card, generate marketing, compare runs.
-- **Live Test (costs money):** fullName, birthDate, birthTime, birthLocation inputs → "Run LIVE ONCE" button → `POST /api/dev/live-once` (dev-only, 1 per server restart) → **Latest Run Output** panel with full report, snippet, vector zero, image prompts, savedToBlob status, "Verify saved to Blob" button (`POST /api/dev/verify-saved`). Set `DEBUG_PROMPT_AUDIT=1` to log prompt audit in terminal.
-- Warning Lights show: Mode (LIVE/DRY_RUN), Provider, Logo status, Cache.
-- Session-only state; no persistence.
+- **Waitlist:** POST `/api/waitlist` (body: email, source?, birthDate?; server can set preview_archetype, solar_season) → Blob at `ligs-waitlist/entries/{hash}.json` → fire-and-forget **sendWaitlistConfirmation(email, { created_at, preview_archetype?, solar_season? })**. Confirmation email: white-paper notice, facts block, **one artifact image** chosen by **getRegistryArtifactImageUrl(preview_archetype, email)** (Ignis v1 share card for Ignispectrum; otherwise archetype public shareCard/exemplarCard with deterministic seed `email:archetype:registry-email`; fallback Ignis). Subject: "Your identity query has been logged". CTA: "Return to the registry" → site URL.
+- **Engine:** POST `/api/engine/generate` (report only); POST `/api/engine` (E.V.E. pipeline). Constraint Gate on report; E.V.E. filter → Beauty Profile V1 → Blob. When allowExternalWrites: image generation, compose, share card.
+- **Beauty:** POST `/api/beauty/create` (or dry-run), GET `/api/beauty/[reportId]`. Load/save Beauty Profile V1, exemplar manifests, image URLs.
+- **Stripe:** Checkout session, webhook → post-purchase email (send-beauty-profile).
 
 ---
 
-## 6. Where Things Live
+## 6. Where Things Live (high level)
 
-### Frontend
-
-| Area | Path | Notes |
-|------|------|--------|
-| Root layout | `app/layout.tsx` | Fonts, metadata, `globals.css` |
-| Main landing | `app/page.tsx`, `app/LandingPage.jsx` | Form → engine |
-| Beauty landing | `app/beauty/page.jsx`, `app/beauty/BeautyLandingClient.jsx` | Form, results, PayUnlock |
-| Beauty view | `app/beauty/view/BeautyViewClient.jsx` | Carousel, snippet, ShareCard, accordion |
-| LIGS Studio | `app/ligs-studio/page.tsx`, `components/LigsStudio.tsx` | Internal dev tool |
-| Voice builder | `app/voice/page.jsx`, `components/VoiceProfileBuilder.jsx` | 5-step wizard |
-
-### API Routes
-
-| Route | File | Purpose |
-|-------|------|---------|
-| `POST /api/engine/generate` | `app/api/engine/generate/route.ts` | Report only; saves to Blob |
-| `POST /api/engine` | `app/api/engine/route.ts` | Full E.V.E. pipeline |
-| `POST /api/beauty/submit` | `app/api/beauty/submit/route.ts` | Beauty flow entry; deriveFromBirthData → engine |
-| `POST /api/beauty/dry-run` | `app/api/beauty/dry-run/route.ts` | Mock Beauty Profile, no OpenAI |
-| `GET /api/beauty/[reportId]` | `app/api/beauty/[reportId]/route.ts` | Load Beauty Profile |
-| `GET /api/report/[reportId]` | `app/api/report/[reportId]/route.ts` | Load Light Identity Report |
-| `POST /api/stripe/create-checkout-session` | `app/api/stripe/...` | Stripe Checkout |
-| `POST /api/stripe/webhook` | `app/api/stripe/...` | Post-purchase email |
-| `POST /api/image/generate` | `app/api/image/generate/route.ts` | DALL·E 3; cache; DRY_RUN |
-| `POST /api/image/compose` | `app/api/image/compose/route.ts` | 1:1 square card compositor |
-| `POST /api/voice/generate` | `app/api/voice/generate/route.ts` | Voice copy generation |
-| `POST /api/marketing/generate` | `app/api/marketing/generate/route.ts` | Descriptor + assets |
-| `POST /api/marketing/visuals` | `app/api/marketing/visuals/route.ts` | Logo mark + background |
-| `POST /api/dev/live-once` | `app/api/dev/live-once/route.ts` | Dev-only; 1 live report run per server; bypasses DRY_RUN |
-| `POST /api/dev/verify-saved` | `app/api/dev/verify-saved/route.ts` | Dev-only; verifies report in Blob/memory; UNSAVED→unsaved, else getReport |
-
-### Core Logic
-
-| Module | Purpose |
-|--------|---------|
-| `src/ligs/archetypes/contract.ts` | Archetype data; `getArchetypeOrFallback()` |
-| `src/ligs/archetypes/adapters.ts` | Adapters for voice, visual, marketing |
-| `src/ligs/voice/schema.ts` | VoiceProfile Zod schema |
-| `src/ligs/image/buildImagePromptSpec.ts` | Profile + archetype → ImagePromptSpec |
-| `src/ligs/marketing/` | Overlay spec, templates, validation |
-| `lib/marketing/` | Descriptor, visuals, glyph field prompts |
-| `lib/engine-client.js` | `submitToBeautySubmit`, `submitToBeautyDryRun`, `submitToEngine` |
-| `lib/report-store.ts` | Blob report read/write |
-| `lib/beauty-profile-store.ts` | Blob Beauty Profile read/write |
-| `lib/runtime-mode.ts` | `allowExternalWrites`, `isProd`, etc. |
-| `lib/astrology/deriveFromBirthData.ts` | Birth data → lat/lon, timezone, sun/moon/rising, solar/lunar context |
-| `lib/history/onThisDay.ts` | "On this day" events from Wikimedia; used in birthContext |
-| `lib/astronomy/computeSunMoonContext.ts` | Sun/Moon altitude, azimuth, twilight, phase from astronomy-engine |
-| `lib/engine/constraintGate.ts` | `scanForbidden`, `redactForbidden`; post-generation forbidden-term gate |
+- **Canonical landing:** `app/origin/page.jsx` (renders **OriginTerminalIntake**), `app/origin/layout.jsx`. No `app/page.tsx`; middleware rewrites `/` to `/origin`.
+- **Beauty:** `app/beauty/page.jsx` (BeautyLandingClient), `app/beauty/view/BeautyViewClient.jsx`, `app/beauty/view/PreviewRevealSequence.jsx`, `app/beauty/view/InteractiveReportSequence.jsx`, `app/beauty/start/page.jsx`, success/cancel pages.
+- **Waitlist / email:** `app/api/waitlist/route.ts`, `app/api/waitlist/count/route.ts`, `lib/waitlist-store.ts`, `lib/waitlist-list.ts` (getWaitlistCount, listWaitlistEntries), **lib/email-waitlist-confirmation.ts** (buildWaitlistConfirmationHtml/Text, getRegistryArtifactImageUrl, sendWaitlistConfirmation).
+- **Archetype assets:** `lib/archetype-public-assets.ts` (getArchetypePublicAssetUrlsWithRotation, shareCard/exemplarCard), `lib/exemplar-store.ts` (IGNIS_V1_ARTIFACTS, etc.).
+- **Contract / engine:** `src/ligs/archetypes/contract.ts`, engine routes, E.V.E., Constraint Gate, runtime-mode, beauty-profile store, report store.
 
 ---
 
-## 7. Environment Variables
+## 7. Design and Conventions
 
-| Variable | Purpose |
-|----------|---------|
-| `OPENAI_API_KEY` | GPT-4o, DALL·E 3 |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (reports, beauty, images) |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Checkout + webhook |
-| `RESEND_API_KEY` or `SENDGRID_API_KEY` | Post-purchase email |
-| `ALLOW_EXTERNAL_WRITES` | `"true"` = live; else DRY_RUN |
-| `DRY_RUN` | `"1"` = mock report, no OpenAI |
-| `BRAND_LOGO_PATH` | Logo for compose (optional) |
-| `ENABLE_PLACEHOLDER_LOGO` | `"true"` = "(L)" SVG when no brand logo |
-| `DEBUG_PROMPT_AUDIT` | `"1"` = log prompt audit before OpenAI in engine/generate |
-| `DEBUG_PERSISTENCE` | `"1"` = when Blob write fails, return 200 with UNSAVED reportId (dev fallback) |
-
-See **SYSTEM_SNAPSHOT.md** §3 for full list and usage.
+- **Origin law:** Black field, silver/gray/off-white text, protocol/registry feel. No purple accents on origin/preview/report; links and focus use gray/silver. Protocol nav: small monospace links (e.g. Return to Origin, View Dossier).
+- **Aperture:** whois-aperture, whois-origin; one protocol state at a time; no terminal chrome.
+- **Landing lock:** Do not redesign or refactor `app/origin/page.jsx`, `app/origin/layout.jsx`, `components/OriginTerminalIntake.jsx`, `app/beauty/BeautyLandingClient.jsx`, `components/LandingPreviews.jsx`, origin/landing sections of `app/globals.css` without explicit request.
+- **SYSTEM_SNAPSHOT.md** is authoritative for routes, env, integrations; update it when making structural changes.
 
 ---
 
-## 8. How to Run Locally
+## 8. Environment (summary)
 
-```bash
-npm install
-npm run dev
-```
-
-- **Beauty with DRY_RUN:** `http://localhost:3000/beauty?dryRun=1` — form saves mock profile; view works.
-- **LIGS Studio:** `http://localhost:3000/ligs-studio` — test image generation, compose, marketing.
-- **Tests:** `npm run test:run` — full suite.
-
-**To test full flow (real OpenAI/Blob):**
-
-- Set `BLOB_READ_WRITE_TOKEN`, `OPENAI_API_KEY`, `ALLOW_EXTERNAL_WRITES=true`.
-- Use Stripe test keys for checkout.
+- **OPENAI_API_KEY**, **BLOB_READ_WRITE_TOKEN** — Core.
+- **RESEND_API_KEY** or **SENDGRID_API_KEY**, **EMAIL_FROM** — Waitlist confirmation + post-purchase.
+- **NEXT_PUBLIC_WAITLIST_ONLY** — Unset or non-`"0"` = waitlist-only; `"0"` = re-enable purchase.
+- **LIGS_STUDIO_TOKEN** — When set, gates /ligs-studio and /api/waitlist/list.
+- **STRIPE_*** — When purchase flow enabled.
+- See SYSTEM_SNAPSHOT.md for full list.
 
 ---
 
-## 9. Verification Checklist
+## 9. Run / Verify
 
-- [ ] `/` loads landing; form submits.
-- [ ] `/beauty` loads Beauty landing; form with `?dryRun=1` saves mock profile.
-- [ ] `/beauty/view?reportId=…` shows carousel + report (if profile exists in Blob).
-- [ ] `npm run test:run` — all tests pass.
-- [ ] `GET /api/report/debug` — shows storage type.
-- [ ] **Monitoring:** Alert on `REPORT_NOT_FOUND` / `report_blob_write_failed` (see **docs/REPORT-PERSISTENCE-ALERTING.md**).
+- `npm install` then `npm run dev`. Visit `/origin` for canonical landing.
+- `npm run build` — must pass.
+- Tests: `npm run test:run`. Origin/collaborator checks as needed.
+
+*Keep this doc aligned with SYSTEM_SNAPSHOT.md and the codebase after structural or product changes.*
 
 ---
 
@@ -248,23 +125,8 @@ npm run dev
 | **docs/COLLABORATOR-SYSTEM-OVERVIEW.md** | This file — onboarding |
 | **docs/LIGS-VOICE-ENGINE-SPEC.md** | Voice Profile spec |
 | **docs/MARKETING-LAYER.md** | Marketing descriptor, visuals, MarketingHeader |
-| **docs/PRE-PUSH-SANITY-CHECKLIST.md** | Pre-deploy verification |
-| **docs/REPORT-PERSISTENCE-ALERTING.md** | Monitoring and alerting |
 | **SYSTEM_OVERVIEW.md** | LIGS pipeline (Voice, Image, Marketing) |
 
 ---
 
-## 11. Recent Changes (2026-02-24)
-
-| Change | Impact |
-|--------|--------|
-| **Constraint Gate** | `full_report` scanned for forbidden terms; one repair pass if hits; redact or error in dev. Non-prod: `meta.forbiddenHitsDetected`. |
-| **Live Test (LigsStudio)** | "Run LIVE ONCE" button → `POST /api/dev/live-once`; dev-only, 1 per server restart. `DEBUG_PROMPT_AUDIT=1` for prompt audit in terminal. |
-| **UNSAVED reportId fix** | BeautyLandingClient uses in-line report data from submit response when available (dry-run, UNSAVED dev fallback); avoids 404 on `GET /api/report/UNSAVED:xxx`. |
-| **Birth context** | `deriveFromBirthData` (astrology), `computeSunMoonContext` (astronomy-engine), `getOnThisDayContext` (Wikimedia) enrich report prompt via beauty/submit. |
-| **DEBUG_PROMPT_AUDIT, DEBUG_PERSISTENCE** | Dev env vars for prompt audit and Blob-failure fallback. |
-| **Full Output Viewer (LigsStudio)** | After Run LIVE ONCE: Latest Run Output panel (full report, snippet, vector zero, image prompts, savedToBlob). "Verify saved to Blob" button → `POST /api/dev/verify-saved`. |
-
----
-
-*Last updated: 2026-02-24*
+*Last updated: 2026-03-09*
