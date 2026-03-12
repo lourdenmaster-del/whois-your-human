@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { parseDate, parseTime } from "@/lib/terminal-intake/parseInputs";
-import { resolveArchetypeFromDate, getArchetypeAndSegmentFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
+import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import {
   submitToBeautySubmit,
   submitToBeautyDryRun,
@@ -222,7 +222,6 @@ function PrimeArtifactImg({ primeUrl, archetype }) {
 
 export default function OriginTerminalIntake() {
   const inputRef = useRef(null);
-  const continuePromptRef = useRef(null);
   const lastEnterHandledRef = useRef(0);
   const ctaSubmittingRef = useRef(false);
   const redirectFiredRef = useRef(false);
@@ -241,12 +240,10 @@ export default function OriginTerminalIntake() {
     birthLocation: "",
     email: "",
   });
-  const [dateNeedsConfirm, setDateNeedsConfirm] = useState(null);
   const [resolvedArchetypeFromDate, setResolvedArchetypeFromDate] = useState(null);
   const [processingIndex, setProcessingIndex] = useState(0);
   const [archetypePreviewShown, setArchetypePreviewShown] = useState(false);
   const [waitlistState, setWaitlistState] = useState("idle");
-  const [countdownRemaining, setCountdownRemaining] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
   const [showRegistry, setShowRegistry] = useState(false);
@@ -301,7 +298,6 @@ export default function OriginTerminalIntake() {
   const beginRegistryReveal = useCallback(() => {
     if (redirectFiredRef.current) return;
     redirectFiredRef.current = true;
-    setCountdownRemaining(null);
     saveOriginIntake(formDataRef.current ?? {});
     setShowRegistry(false);
     setShowConfirmation(false);
@@ -349,28 +345,7 @@ export default function OriginTerminalIntake() {
     setCtaError(message);
     setTerminalLine(`${message} Press ENTER to continue.`);
     setPhase("completeAwaitingEnterRedirect");
-    setCountdownRemaining(null);
   }, []);
-
-  const handleDateConfirm = useCallback(() => {
-    if (currentField !== "birthDate" || !dateNeedsConfirm) {
-      if (typeof window !== "undefined") {
-        console.debug("[OriginIntake] Date confirm skipped", { currentField, dateNeedsConfirm: !!dateNeedsConfirm });
-      }
-      return;
-    }
-    const iso = dateNeedsConfirm.iso;
-    setFormData((f) => ({ ...f, birthDate: iso }));
-    setDateNeedsConfirm(null);
-    setInputValue("");
-    const { archetype } = getArchetypeAndSegmentFromDate(iso);
-    setResolvedArchetypeFromDate(archetype);
-    setTerminalLine("Solar signature resolved. Base archetype locked.");
-    const nextIdx = INTAKE_FIELDS.indexOf("birthDate") + 1;
-    const nextField = INTAKE_FIELDS[nextIdx];
-    setCurrentField(nextField);
-    setTimeout(() => setTerminalLine(""), 1200);
-  }, [currentField, dateNeedsConfirm]);
 
   const advanceToProcessing = useCallback(() => {
     setPhase("processing");
@@ -385,19 +360,13 @@ export default function OriginTerminalIntake() {
     phase !== "registryReveal" &&
     phase !== "executing" &&
     !terminalLine;
-  const showCompleteEnterPrompt = phase === "completeAwaitingEnterRedirect" && countdownRemaining == null;
-  const showDateConfirmTap = false;
 
   useEffect(() => {
-    if (showCompleteEnterPrompt && continuePromptRef.current) {
-      const id = requestAnimationFrame(() => continuePromptRef.current?.focus());
-      return () => cancelAnimationFrame(id);
-    }
     if (showInputRow && inputRef.current) {
       const id = requestAnimationFrame(() => inputRef.current?.focus());
       return () => cancelAnimationFrame(id);
     }
-  }, [showInputRow, showCompleteEnterPrompt, currentField, phase]);
+  }, [showInputRow, currentField, phase]);
 
   /* completeAwaitingEnterRedirect: error-only; no redirect on key (links only). */
 
@@ -485,15 +454,7 @@ export default function OriginTerminalIntake() {
         }
       }
     },
-    [
-      phase,
-      currentField,
-      inputValue,
-      dateNeedsConfirm,
-      countdownRemaining,
-      handleDateConfirm,
-      advanceToProcessing,
-    ]
+    [phase, currentField, inputValue, advanceToProcessing]
   );
 
   const handleRunWhoisClick = useCallback(async () => {
@@ -530,7 +491,6 @@ export default function OriginTerminalIntake() {
           }
           setTerminalLine("Registry channel unavailable.");
           setPhase("completeAwaitingEnterRedirect");
-          setCountdownRemaining(null);
           return;
         }
         beginRegistryReveal();
@@ -667,7 +627,6 @@ export default function OriginTerminalIntake() {
           }
           setTerminalLine("Registry channel unavailable.");
           setPhase("completeAwaitingEnterRedirect");
-          setCountdownRemaining(null);
         }
         setWaitlistState("done");
       })
@@ -678,7 +637,6 @@ export default function OriginTerminalIntake() {
         }
         setTerminalLine("Registry channel unavailable.");
         setPhase("completeAwaitingEnterRedirect");
-        setCountdownRemaining(null);
         setWaitlistState("done");
       });
     return () => {
@@ -954,7 +912,7 @@ export default function OriginTerminalIntake() {
   /** Single-line aperture: one row only — status line and input row are mutually exclusive where possible. */
   const showStatusOnly =
     !showInputRow &&
-    (phase === "processing" || phase === "executing" || (terminalLine && !showCompleteEnterPrompt));
+    (phase === "processing" || phase === "executing" || terminalLine);
 
   return (
     <div
@@ -985,20 +943,7 @@ export default function OriginTerminalIntake() {
               lineHeight: 1.9,
             }}
           >
-            {showCompleteEnterPrompt && (
-              <div
-                ref={continuePromptRef}
-                className="min-h-[2.2em] flex flex-col justify-center gap-2 text-left"
-                style={{ color: "rgba(232,232,236,0.95)" }}
-              >
-                <span className="whitespace-pre-wrap break-words">{terminalLine}</span>
-                <span className="text-[11px] font-mono text-[#9a9aa0] w-fit">
-                  Full WHOIS Human Registration Report — Not Yet Released
-                </span>
-              </div>
-            )}
-
-            {!showCompleteEnterPrompt && showStatusOnly && (
+            {showStatusOnly && (
               <div
                 className="min-h-[2.2em] flex items-center whitespace-pre-wrap break-words"
                 style={{ color: "rgba(154,154,160,0.9)" }}
@@ -1007,22 +952,9 @@ export default function OriginTerminalIntake() {
               </div>
             )}
 
-            {!showCompleteEnterPrompt && showInputRow && (
+            {showInputRow && (
               <div
                 className="flex items-center gap-1 min-h-[2.2em]"
-                onClick={showDateConfirmTap ? handleDateConfirm : undefined}
-                onKeyDown={
-                  showDateConfirmTap
-                    ? (e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          handleDateConfirm();
-                        }
-                      }
-                    : undefined
-                }
-                role={showDateConfirmTap ? "button" : undefined}
-                tabIndex={showDateConfirmTap ? 0 : undefined}
                 aria-label={currentField ? `Enter ${currentField}` : undefined}
               >
                 <span style={{ color: "rgba(232,232,236,0.95)" }}>&gt;</span>
