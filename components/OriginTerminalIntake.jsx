@@ -897,10 +897,18 @@ export default function OriginTerminalIntake() {
             </p>
             <p className="text-[11px] uppercase tracking-[0.1em] opacity-80">Preview Extract</p>
             <p className="text-[13px] leading-relaxed">
-              The following extract follows the WHOIS Human Registration Report section order. Full analytical depth is withheld until authorized release.
+              Preview extract mirrors the implemented report sequence (see lib/report-sections). Full depth withheld until authorized release.
             </p>
-            {/* Section order aligned with full report: Archetype Summary → Field Expression → Cosmic Twin Relation → Field Conditions → Interpretive Status */}
+            {/* Section order matches getReportSections(profile): ARCHETYPE RESOLVED → SUMMARY → LIGHT EXPRESSION → COSMIC TWIN → ARTIFACT REVEAL → RETURN TO COHERENCE */}
             <div className="space-y-2 pt-4">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                ARCHETYPE RESOLVED
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Registry node resolved to structural regime {archetypeForCompletion}. Expanded opening narrative ships with the full report.
+              </p>
+            </div>
+            <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
                 ARCHETYPE SUMMARY
               </p>
@@ -914,7 +922,7 @@ export default function OriginTerminalIntake() {
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                FIELD EXPRESSION
+                LIGHT EXPRESSION
               </p>
               <p className="text-[13px] leading-relaxed">
                 {archetypeExpressionLines?.line2
@@ -923,7 +931,7 @@ export default function OriginTerminalIntake() {
                     ? previewTeaser.humanExpression
                     : previewTeaser?.environments && previewTeaser.environments !== "—"
                       ? previewTeaser.environments
-                      : "Field expression notes publish with the expanded registry extract."}
+                      : "Light expression notes publish with the expanded registry extract."}
               </p>
             </div>
             <div className="space-y-2 pt-2">
@@ -931,29 +939,26 @@ export default function OriginTerminalIntake() {
                 COSMIC TWIN RELATION
               </p>
               <p className="text-[13px] leading-relaxed">
-                Cosmic twin relation is not computed in this extract.
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Pairing and analogue mapping are reserved for the full report; no specific astrophysical mapping is published here.
+                Cosmic twin analogue is not computed in this extract. Full report publishes pairing and structural analogue when authorized—no specific mapping asserted here.
               </p>
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                FIELD CONDITIONS
+                ARTIFACT REVEAL
               </p>
               <p className="text-[13px] leading-relaxed">
-                Field conditions at birth inform archetypal resolution.
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Expanded force-structure mapping ships with the authorized release.
+                Artifact attachments for this record appear in the Registry Artifacts section above; no additional figure is repeated in this extract.
               </p>
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                INTERPRETIVE STATUS
+                RETURN TO COHERENCE
               </p>
               <p className="text-[13px] leading-relaxed">
                 Provisionally registered. Expanded analytical sections release when registry compliance and authorization are complete.
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Full WHOIS Human Registration Report not yet released; no further intake required when available.
               </p>
               <p className="text-[12px] opacity-90 pt-2">
                 Registered users will be notified when full reports become available.
