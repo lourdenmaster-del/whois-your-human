@@ -690,14 +690,20 @@ export default function OriginTerminalIntake() {
               }}
             >
               <p className="text-[11px] uppercase tracking-[0.15em]" style={{ color: bright }}>
-                WHOIS HUMAN REGISTRY
+                WHOIS HUMAN REGISTRY RECORD
+              </p>
+              <p className="text-[13px]" style={{ color: bright }}>
+                Query: {formData.name || "—"}
+              </p>
+              <p className="text-[13px]" style={{ color: bright }}>
+                Registry: LIGS Human Identity Registry
               </p>
               <p className="text-[13px]" style={{ color: bright }}>
                 Registry Record
               </p>
               <hr className="border-0 border-t border-[#2a2a2e] my-2" />
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-[13px]">
-                <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Name</dt>
+                <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Subject Name</dt>
                 <dd style={{ color: bright }}>{formData.name || "—"}</dd>
                 <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Birth Date</dt>
                 <dd style={{ color: bright }}>{formData.birthDate || "—"}</dd>
@@ -708,10 +714,11 @@ export default function OriginTerminalIntake() {
               </dl>
               <p className="text-[11px] uppercase tracking-[0.08em] pt-2">Solar Signature</p>
               <p className="text-[13px]" style={{ color: bright }}>
-                Archetype Class: {archetypeForCompletion}
+                Archetype Classification: {archetypeForCompletion}
               </p>
               <p className="text-[13px] pt-1">Registry Status: Registered</p>
-              <p className="text-[12px]">Record Created</p>
+              <p className="text-[13px]">Created Date: {new Date().toISOString().slice(0, 10)}</p>
+              <p className="text-[13px]">Record Authority: LIGS Human Identity Registry</p>
               <p className="text-[12px]">Registry Node</p>
             </section>
           )}
@@ -891,7 +898,7 @@ export default function OriginTerminalIntake() {
               fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace",
             }}
           >
-            <p className="text-[11px] uppercase tracking-[0.15em]">WHOIS REGISTRY RECORD — RESOLVED</p>
+            <p className="text-[11px] uppercase tracking-[0.15em]">WHOIS HUMAN REGISTRY RECORD</p>
             <p className="text-[13px]">Identity registration complete.</p>
             <p className="mt-4 text-[11px] uppercase tracking-[0.12em]">ARCHETYPE</p>
             <p className="text-lg font-medium" style={{ color: "rgba(232,232,236,0.95)" }}>{archetypeForCompletion.toUpperCase()}</p>
