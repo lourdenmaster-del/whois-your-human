@@ -669,7 +669,7 @@ export default function OriginTerminalIntake() {
             animation: "whois-field-pulse 10s ease-in-out infinite",
           }}
         />
-        <div className="relative z-10 w-full max-w-[min(100vw-2.5rem,1000px)] mx-auto flex flex-col gap-8 flex-1 min-w-0">
+        <div className="relative z-10 w-full max-w-[min(100vw-2.5rem,1000px)] mx-auto flex flex-col gap-8 flex-1 min-w-0 px-4 sm:px-5">
           {/* Terminal handshake line (unchanged visual: single line) */}
           <div
             className="whois-aperture w-full min-w-0"
