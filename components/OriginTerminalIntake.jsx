@@ -893,52 +893,48 @@ export default function OriginTerminalIntake() {
             }}
           >
             <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-              HUMAN WHOIS RECORD PREVIEW
+              WHOIS HUMAN REGISTRATION REPORT
             </p>
+            <p className="text-[11px] uppercase tracking-[0.1em] opacity-80">Preview Extract</p>
             <p className="text-[13px] leading-relaxed">
-              The Human WHOIS system reveals the cosmic metadata encoded into the biological identity.
+              The following extract continues the registry record above. Full analytical sections are withheld until the authorized report release.
             </p>
-            <p className="text-[13px] leading-relaxed">
-              These markers describe the environmental light conditions present at birth.
-            </p>
-            <div className="space-y-1 text-[13px] pt-2">
-              <p className="text-[11px] uppercase tracking-[0.08em] opacity-80">Record summary</p>
-              <p>Subject: {formData.name || "—"}</p>
-              <p>Archetype classification: {archetypeForCompletion}</p>
-              <p>Birth date: {formData.birthDate || "—"}</p>
-              <p>Birth location: {formData.birthLocation || "—"}</p>
-              <p>Birth time: {formData.birthTime || "—"}</p>
-              <p>Record status: Provisional</p>
-              <p>Generated date: {new Date().toISOString().slice(0, 10)}</p>
-            </div>
             <div className="space-y-2 pt-4">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                COSMIC METADATA
+                IDENTITY ARCHITECTURE
               </p>
               <p className="text-[13px] leading-relaxed">
-                {previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
-                  ? `Registry extract: ${previewTeaser.civilizationFunction}`
-                  : "Provisional metadata has been registered. Expanded analytical fields will appear in the full registry release."}
+                The registry identifies stable identity patterns arising within the field of forces present at birth.
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                Structural orientation is derived from the environmental and cosmic field structure recorded for this node—not from a single-variable reading.
               </p>
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                ARCHETYPE CLASSIFICATION
+                FIELD CONDITIONS
               </p>
               <p className="text-[13px] leading-relaxed">
-                Solar signature locked to {archetypeForCompletion}. Expanded classification fields ship with the authorized registration report.
+                Archetypal behavior class is resolved from the field conditions present at birth, including entropic and environmental force structure.
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                {previewTeaser?.environments && previewTeaser.environments !== "—"
+                  ? `Observed expression contexts (preview): ${previewTeaser.environments}`
+                  : "Expanded field-condition mapping will be included in the full registry release."}
               </p>
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                FUNCTIONAL EXPRESSION
+                ARCHETYPE BEHAVIOR CLASS
               </p>
               <p className="text-[13px] leading-relaxed">
                 {archetypeExpressionLines?.line1
                   ? archetypeExpressionLines.line1
-                  : previewTeaser?.humanExpression && previewTeaser.humanExpression !== "—"
-                    ? previewTeaser.humanExpression
-                    : "Functional expression notes will be published with the expanded registry interpretation."}
+                  : previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
+                    ? previewTeaser.civilizationFunction
+                    : previewTeaser?.humanExpression && previewTeaser.humanExpression !== "—"
+                      ? previewTeaser.humanExpression
+                      : "Behavior-class interpretation will be published with the expanded registry extract."}
               </p>
               {archetypeExpressionLines?.line2 && (
                 <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
@@ -946,20 +942,13 @@ export default function OriginTerminalIntake() {
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                ENVIRONMENTAL FIELD CONDITIONS
+                INTERPRETIVE STATUS
               </p>
               <p className="text-[13px] leading-relaxed">
-                {previewTeaser?.environments && previewTeaser.environments !== "—"
-                  ? `Observed contexts: ${previewTeaser.environments}`
-                  : "Expanded environmental field mapping will be included in the full registry release."}
-              </p>
-            </div>
-            <div className="space-y-2 pt-6 border-t border-[#2a2a2e]">
-              <p className="text-[13px] leading-relaxed">
-                This identity has been provisionally registered in the Human WHOIS Registry.
+                This identity is provisionally registered. Expanded analytical WHOIS sections will be released when registry compliance and authorization are complete.
               </p>
               <p className="text-[13px] leading-relaxed">
-                Expanded analytical reports will be made available once registry compliance and release procedures are complete.
+                The full WHOIS Human Registration Report remains not yet released; no further intake is required when available.
               </p>
               <p className="text-[12px] opacity-90 pt-2">
                 Registered users will be notified when full reports become available.
