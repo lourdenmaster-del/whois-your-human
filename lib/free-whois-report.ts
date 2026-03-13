@@ -5,28 +5,33 @@
  */
 
 import { generateLirId } from "@/src/ligs/marketing/identity-spec";
-import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
 
 /**
- * Canonical 12-segment solar-physics season display labels.
- * Index 0–11 from floor(sunLongitude/30); lon 0° = vernal equinox (March Equinox segment).
- * Aligned with SOLAR_SEASONS longitude bands (e.g. index 6 = 180–210° = September Equinox).
+ * Tropical-zodiac date scaffold for Solar Signature (calendar/segment field).
+ * Ignispectrum = Aries; remaining LIGS archetypes follow 12-sign order.
+ * Only LIGS names are displayed; zodiac names are not used in the report.
+ *
+ * Date ranges (inclusive; approximate standard tropical):
+ *   Mar 21–Apr 19 → Ignispectrum   |  Apr 20–May 20 → Stabiliora   |  May 21–Jun 20 → Duplicaris
+ *   Jun 21–Jul 22 → Tenebris      |  Jul 23–Aug 22 → Radiantis     |  Aug 23–Sep 22 → Precisura
+ *   Sep 23–Oct 22 → Aequilibris   |  Oct 23–Nov 21 → Obscurion     |  Nov 22–Dec 21 → Vectoris
+ *   Dec 22–Jan 19 → Structoris    |  Jan 20–Feb 18 → Innovaris     |  Feb 19–Mar 20 → Fluxionis
  */
-const SOLAR_SEGMENT_DISPLAY_LABELS: readonly string[] = [
-  "March Equinox",     // 0–30°
-  "Early-Spring",      // 30–60°
-  "Mid-Spring",        // 60–90°
-  "Late-Spring",       // 90–120°
-  "June Solstice",     // 120–150°
-  "Early-Summer",      // 150–180°
-  "September Equinox", // 180–210°
-  "Early-Autumn",      // 210–240°
-  "Mid-Autumn",        // 240–270°
-  "Late-Summer",       // 270–300°
-  "Late-Winter",       // 300–330°
-  "Late-Winter",       // 330–360°
+const ZODIAC_DATE_TO_LIGS: readonly { startMd: number; endMd: number; ligs: string }[] = [
+  { startMd: 321, endMd: 419, ligs: "Ignispectrum" },   // Mar 21 – Apr 19
+  { startMd: 420, endMd: 520, ligs: "Stabiliora" },     // Apr 20 – May 20
+  { startMd: 521, endMd: 620, ligs: "Duplicaris" },     // May 21 – Jun 20
+  { startMd: 621, endMd: 722, ligs: "Tenebris" },       // Jun 21 – Jul 22
+  { startMd: 723, endMd: 822, ligs: "Radiantis" },     // Jul 23 – Aug 22
+  { startMd: 823, endMd: 922, ligs: "Precisura" },     // Aug 23 – Sep 22
+  { startMd: 923, endMd: 1022, ligs: "Aequilibris" },  // Sep 23 – Oct 22
+  { startMd: 1023, endMd: 1121, ligs: "Obscurion" },   // Oct 23 – Nov 21
+  { startMd: 1122, endMd: 1221, ligs: "Vectoris" },    // Nov 22 – Dec 21
+  { startMd: 120, endMd: 218, ligs: "Innovaris" },     // Jan 20 – Feb 18
+  { startMd: 219, endMd: 320, ligs: "Fluxionis" },     // Feb 19 – Mar 20
+  // Structoris (Dec 22 – Jan 19) handled below
 ];
 
 export interface FreeWhoisReportData {
@@ -58,19 +63,28 @@ export interface FreeWhoisReport {
 }
 
 /**
- * Derive Solar Signature from birth date: 12-segment solar-physics season label + " Segment".
- * Uses approximateSunLongitudeFromDate and season index = floor(lon/30), 0–11.
- * Returns "—" when birth date is missing or unparseable.
+ * Derive Solar Signature from birth date using tropical-zodiac date windows.
+ * Returns the LIGS segment name for the calendar window (no zodiac names in report).
+ * Solar Signature = calendar/segment; Archetype Classification = resolved archetype (same LIGS naming).
  */
 function deriveSolarSignature(birthDate: string | undefined): string {
-  const raw = birthDate?.trim();
+  const raw = birthDate?.trim().slice(0, 10);
   if (!raw) return "—";
-  const lon = approximateSunLongitudeFromDate(raw);
-  if (lon == null) return "—";
-  const seasonIndex = Math.min(Math.floor(lon / 30), 11);
-  const label = SOLAR_SEGMENT_DISPLAY_LABELS[seasonIndex];
-  if (!label) return "—";
-  return `${label} Segment`;
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "—";
+  const month = parseInt(m[2], 10);
+  const day = parseInt(m[3], 10);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return "—";
+
+  // Structoris window (Dec 22 – Jan 19) spans year
+  if (month === 12 && day >= 22) return "Structoris";
+  if (month === 1 && day <= 19) return "Structoris";
+
+  const md = month * 100 + day;
+  for (const { startMd, endMd, ligs } of ZODIAC_DATE_TO_LIGS) {
+    if (md >= startMd && md <= endMd) return ligs;
+  }
+  return "—";
 }
 
 const DEFAULT_SITE_URL = "https://ligs.io";
