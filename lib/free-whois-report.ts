@@ -167,7 +167,8 @@ export function renderFreeWhoisReport(
       <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
     </div>`;
 
-  const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl);
+  const vectorZeroSeed = report.registryId || report.created_at;
+  const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl, vectorZeroSeed);
   const vectorZeroImageBlock =
     vectorZeroImageUrl
       ? `<div style="margin:20px 0;text-align:center;"><img src="${escapeHtml(vectorZeroImageUrl)}" alt="Vector Zero" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" /></div>`
@@ -297,8 +298,8 @@ export function renderFreeWhoisReportText(
     "",
     "VECTOR ZERO",
     "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
-    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl)
-      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl)]
+    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)
+      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)]
       : []),
     "",
     "Return to the registry: " + siteUrl,
@@ -313,8 +314,8 @@ export function renderFreeWhoisReportText(
     "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
     "",
     "Archetype Classification: " + report.archetypeClassification,
-    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl)
-      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl)]
+    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)
+      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)]
       : []),
   ];
   return lines.join("\n");
