@@ -6,10 +6,28 @@
 
 import { generateLirId } from "@/src/ligs/marketing/identity-spec";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
-import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
-import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
+
+/**
+ * Canonical 12-segment solar-physics season display labels.
+ * Index 0–11 from floor(sunLongitude/30); lon 0° = vernal equinox (March Equinox segment).
+ * Aligned with SOLAR_SEASONS longitude bands (e.g. index 6 = 180–210° = September Equinox).
+ */
+const SOLAR_SEGMENT_DISPLAY_LABELS: readonly string[] = [
+  "March Equinox",     // 0–30°
+  "Early-Spring",      // 30–60°
+  "Mid-Spring",        // 60–90°
+  "Late-Spring",       // 90–120°
+  "June Solstice",     // 120–150°
+  "Early-Summer",      // 150–180°
+  "September Equinox", // 180–210°
+  "Early-Autumn",      // 210–240°
+  "Mid-Autumn",        // 240–270°
+  "Late-Summer",       // 270–300°
+  "Late-Winter",       // 300–330°
+  "Late-Winter",       // 330–360°
+];
 
 export interface FreeWhoisReportData {
   email: string;
@@ -39,30 +57,20 @@ export interface FreeWhoisReport {
   artifactImageUrl?: string;
 }
 
-/** Derive solar segment (archetype name) from birthDate using same logic as preview archetype system. Never returns "(none)". */
-function deriveSolarSegmentFromBirthDate(birthDate: string | undefined): string | null {
+/**
+ * Derive Solar Signature from birth date: 12-segment solar-physics season label + " Segment".
+ * Uses approximateSunLongitudeFromDate and season index = floor(lon/30), 0–11.
+ * Returns "—" when birth date is missing or unparseable.
+ */
+function deriveSolarSignature(birthDate: string | undefined): string {
   const raw = birthDate?.trim();
-  if (!raw) return null;
+  if (!raw) return "—";
   const lon = approximateSunLongitudeFromDate(raw);
-  if (lon == null) return null;
-  const archetype = getPrimaryArchetypeFromSolarLongitude(lon);
+  if (lon == null) return "—";
   const seasonIndex = Math.min(Math.floor(lon / 30), 11);
-  const entry = SOLAR_SEASONS[seasonIndex];
-  return entry ? entry.archetype : archetype;
-}
-
-/** Normalize solar_season: strip " (none)" or use archetype; never output "(none)". */
-function normalizeSolarSegment(
-  solar_season: string | undefined,
-  preview_archetype: string | undefined,
-  birthDate: string | undefined
-): string {
-  const trimmed = solar_season?.trim().replace(/\s*\(none\)$/i, "")?.trim();
-  if (trimmed && trimmed !== "(none)") return trimmed;
-  if (preview_archetype?.trim()) return preview_archetype.trim();
-  const derived = deriveSolarSegmentFromBirthDate(birthDate);
-  if (derived) return derived;
-  return "—";
+  const label = SOLAR_SEGMENT_DISPLAY_LABELS[seasonIndex];
+  if (!label) return "—";
+  return `${label} Segment`;
 }
 
 const DEFAULT_SITE_URL = "https://ligs.io";
@@ -86,11 +94,7 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
   const registryId = generateLirId(seed);
 
   const archetypeClassification = data.preview_archetype?.trim() ?? "—";
-  const solarSignature = normalizeSolarSegment(
-    data.solar_season,
-    data.preview_archetype,
-    data.birthDate
-  );
+  const solarSignature = deriveSolarSignature(data.birthDate);
   const archForCosmic: LigsArchetype =
     archetypeClassification && archetypeClassification !== "—"
       ? (archetypeClassification as LigsArchetype)
