@@ -27,6 +27,8 @@ function waitlistConfirmationLabel(reason) {
   const map = {
     sent: "sent",
     duplicate_skipped: "skipped (already registered)",
+    duplicate_resent: "resent (already registered)",
+    duplicate_recently_sent: "skipped (recently sent)",
     provider_rejected: "failed (provider rejected)",
     provider_error: "failed (provider error)",
     provider_key_missing: "failed (provider not configured)",
@@ -324,6 +326,9 @@ export default function OriginTerminalIntake() {
     setShowRegistryCounter(false);
     setTerminalLine("Identity registration complete.");
     setPhase("registryReveal");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
   }, []);
 
   /** Sequential reveal timers when phase becomes registryReveal. */
@@ -497,6 +502,9 @@ export default function OriginTerminalIntake() {
             email: payload.email,
             source: "origin-terminal",
             birthDate: payload.birthDate || undefined,
+            ...(payload.name?.trim?.() ? { name: payload.name.trim() } : {}),
+            ...(payload.birthPlace?.trim?.() ? { birthPlace: payload.birthPlace.trim() } : {}),
+            ...(payload.birthTime?.trim?.() ? { birthTime: payload.birthTime.trim() } : {}),
             ...(resolvedArchetypeFromDate ? { preview_archetype: resolvedArchetypeFromDate } : {}),
           }),
         });
@@ -644,6 +652,9 @@ export default function OriginTerminalIntake() {
         email,
         source: "origin-terminal",
         birthDate: formData.birthDate || undefined,
+        ...(formData.name?.trim?.() ? { name: formData.name.trim() } : {}),
+        ...(formData.birthPlace?.trim?.() ? { birthPlace: formData.birthPlace.trim() } : {}),
+        ...(formData.birthTime?.trim?.() ? { birthTime: formData.birthTime.trim() } : {}),
         ...(resolvedArchetypeFromDate ? { preview_archetype: resolvedArchetypeFromDate } : {}),
       }),
     })
@@ -913,7 +924,7 @@ export default function OriginTerminalIntake() {
                   href="#whois-preview"
                   className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
                 >
-                  View Your Human WHOIS Record Preview
+                  View Your WHOIS Registration Report Preview
                 </a>
               </div>
             </section>
@@ -943,7 +954,7 @@ export default function OriginTerminalIntake() {
           </footer>
         )}
 
-        {/* Human WHOIS preview: continuation below fold; anchor target for in-page CTA. */}
+        {/* WHOIS report preview section: below fold; anchor #whois-preview for in-page CTA. */}
         {showCTA && (
           <section
             id="whois-preview"

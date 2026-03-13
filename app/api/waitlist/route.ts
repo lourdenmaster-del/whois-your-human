@@ -18,16 +18,21 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getRateLimitKey } from "@/lib/waitlist-rate-limit";
-import { insertWaitlistEntry } from "@/lib/waitlist-store";
+import { insertWaitlistEntry, getWaitlistEntryByEmail, recordConfirmationSent } from "@/lib/waitlist-store";
 import { sendWaitlistConfirmation } from "@/lib/email-waitlist-confirmation";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
 import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
 
+/** Resend cooldown for duplicate-path: allow resend after this many ms since last send. */
+const RESEND_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
+
 /** Machine-readable why confirmation was or was not sent. */
 export type WaitlistConfirmationReason =
   | "sent"
   | "duplicate_skipped"
+  | "duplicate_resent"
+  | "duplicate_recently_sent"
   | "provider_key_missing"
   | "blob_not_configured"
   | "provider_rejected"
@@ -93,6 +98,9 @@ export async function POST(req: NextRequest) {
     birthDate?: string;
     preview_archetype?: string;
     solar_season?: string;
+    name?: string;
+    birthPlace?: string;
+    birthTime?: string;
   };
   try {
     body = await req.json();
@@ -123,8 +131,26 @@ export async function POST(req: NextRequest) {
   let preview_archetype = typeof body.preview_archetype === "string" ? body.preview_archetype.slice(0, 64) : undefined;
   let solar_season = typeof body.solar_season === "string" ? body.solar_season.slice(0, 64) : undefined;
 
-  if (typeof body.birthDate === "string" && body.birthDate.trim()) {
-    const lon = approximateSunLongitudeFromDate(body.birthDate.trim());
+  /** Optional intake fields — persisted when provided; omitted when empty. */
+  const name =
+    typeof body.name === "string" && body.name.trim()
+      ? body.name.trim().slice(0, 128)
+      : undefined;
+  const birthDateRaw =
+    typeof body.birthDate === "string" && body.birthDate.trim()
+      ? body.birthDate.trim().slice(0, 64)
+      : undefined;
+  const birthPlace =
+    typeof body.birthPlace === "string" && body.birthPlace.trim()
+      ? body.birthPlace.trim().slice(0, 256)
+      : undefined;
+  const birthTime =
+    typeof body.birthTime === "string" && body.birthTime.trim()
+      ? body.birthTime.trim().slice(0, 64)
+      : undefined;
+
+  if (birthDateRaw) {
+    const lon = approximateSunLongitudeFromDate(birthDateRaw);
     if (lon != null) {
       const archetype = getPrimaryArchetypeFromSolarLongitude(lon);
       preview_archetype = archetype;
@@ -140,18 +166,82 @@ export async function POST(req: NextRequest) {
       source,
       ...(preview_archetype && { preview_archetype }),
       ...(solar_season && { solar_season }),
+      ...(name && { name }),
+      ...(birthDateRaw && { birthDate: birthDateRaw }),
+      ...(birthPlace && { birthPlace }),
+      ...(birthTime && { birthTime }),
     });
 
     if (result.alreadyRegistered) {
+      const entry = await getWaitlistEntryByEmail(email);
+      if (!entry) {
+        console.log(
+          "[waitlist] structured reason=duplicate_skipped blob_insert=skipped duplicate=true to=" +
+            maskEmail(email)
+        );
+        return NextResponse.json({
+          ok: true,
+          alreadyRegistered: true,
+          confirmationSent: false,
+          confirmationReason: "duplicate_skipped" satisfies WaitlistConfirmationReason,
+        });
+      }
+      const lastSentAt = entry.last_confirmation_sent_at;
+      const withinCooldown =
+        lastSentAt &&
+        (Date.now() - new Date(lastSentAt).getTime() < RESEND_COOLDOWN_MS);
+      if (withinCooldown) {
+        console.log(
+          "[waitlist] structured reason=duplicate_recently_sent duplicate=true to=" + maskEmail(email)
+        );
+        return NextResponse.json({
+          ok: true,
+          alreadyRegistered: true,
+          confirmationSent: false,
+          confirmationReason: "duplicate_recently_sent" satisfies WaitlistConfirmationReason,
+        });
+      }
+      let dupConfirmationSent = false;
+      let dupConfirmationReason: WaitlistConfirmationReason = "duplicate_skipped";
+      try {
+        const sendResult = await sendWaitlistConfirmation(entry.email, {
+          created_at: entry.created_at,
+          source: entry.source,
+          ...(entry.preview_archetype && { preview_archetype: entry.preview_archetype }),
+          ...(entry.solar_season && { solar_season: entry.solar_season }),
+          ...(entry.name && { name: entry.name }),
+          ...(entry.birthDate && { birthDate: entry.birthDate }),
+          ...(entry.birthPlace && { birthPlace: entry.birthPlace }),
+          ...(entry.birthTime && { birthTime: entry.birthTime }),
+        });
+        dupConfirmationSent = sendResult.sent;
+        dupConfirmationReason = sendResult.sent
+          ? ("duplicate_resent" satisfies WaitlistConfirmationReason)
+          : (sendResult.reason as WaitlistConfirmationReason);
+        if (sendResult.sent) await recordConfirmationSent(email);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        dupConfirmationReason = "provider_error";
+        console.error(
+          "[waitlist] structured reason=provider_error duplicate_resend to=" +
+            maskEmail(email) +
+            " error=" +
+            msg.slice(0, 120)
+        );
+      }
       console.log(
-        "[waitlist] structured reason=duplicate_skipped blob_insert=skipped duplicate=true to=" +
+        "[waitlist] structured reason=" +
+          dupConfirmationReason +
+          " duplicate=true confirmationSent=" +
+          dupConfirmationSent +
+          " to=" +
           maskEmail(email)
       );
       return NextResponse.json({
         ok: true,
         alreadyRegistered: true,
-        confirmationSent: false,
-        confirmationReason: "duplicate_skipped" satisfies WaitlistConfirmationReason,
+        confirmationSent: dupConfirmationSent,
+        confirmationReason: dupConfirmationReason,
       });
     }
 
@@ -164,11 +254,17 @@ export async function POST(req: NextRequest) {
     try {
       const sendResult = await sendWaitlistConfirmation(email, {
         created_at: createdAt,
+        source,
         ...(preview_archetype && { preview_archetype }),
         ...(solar_season && { solar_season }),
+        ...(name && { name }),
+        ...(birthDateRaw && { birthDate: birthDateRaw }),
+        ...(birthPlace && { birthPlace }),
+        ...(birthTime && { birthTime }),
       });
       confirmationSent = sendResult.sent;
       confirmationReason = sendResult.reason as WaitlistConfirmationReason;
+      if (sendResult.sent) await recordConfirmationSent(email);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       confirmationReason = "provider_error";
