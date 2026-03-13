@@ -59,6 +59,8 @@ export interface FreeWhoisReport {
   cosmicAnalogue: string;
   /** Set by caller (e.g. waitlist route) via getRegistryArtifactImageUrl(archetypeClassification, email). Rendered exactly once in renderFreeWhoisReport(). */
   artifactImageUrl?: string;
+  /** Optional. When set, Vector Zero variant = this value % 4 (rotation). Prefer registry count at send time. */
+  vectorZeroRotationIndex?: number;
 }
 
 const DEFAULT_SITE_URL = "https://ligs.io";
@@ -167,8 +169,11 @@ export function renderFreeWhoisReport(
       <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
     </div>`;
 
-  const vectorZeroSeed = report.registryId || report.created_at;
-  const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl, vectorZeroSeed);
+  const vectorZeroRotation =
+    typeof report.vectorZeroRotationIndex === "number"
+      ? report.vectorZeroRotationIndex
+      : (report.registryId || report.created_at);
+  const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl, vectorZeroRotation);
   const vectorZeroImageBlock =
     vectorZeroImageUrl
       ? `<div style="margin:20px 0;text-align:center;"><img src="${escapeHtml(vectorZeroImageUrl)}" alt="Vector Zero" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" /></div>`
@@ -223,10 +228,6 @@ ${artifactBlock || ""}
 
     <p style="${sectionHeading}">INTERPRETIVE NOTES</p>
     <p style="${sectionBody}">Expanded interpretive sections ship with the complete registration report.</p>
-
-    <p style="${sectionHeading}">VECTOR ZERO</p>
-    <p style="${sectionBody}">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>
-    ${vectorZeroImageBlock}
 
     <p style="margin:24px 0 0 0;font-size:13px;">
       <a href="${escapeHtml(siteUrl)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a>
@@ -296,12 +297,6 @@ export function renderFreeWhoisReportText(
     "INTERPRETIVE NOTES",
     "Expanded interpretive sections ship with the complete registration report.",
     "",
-    "VECTOR ZERO",
-    "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
-    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)
-      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)]
-      : []),
-    "",
     "Return to the registry: " + siteUrl,
     "",
     "LIGS Systems",
@@ -314,8 +309,24 @@ export function renderFreeWhoisReportText(
     "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
     "",
     "Archetype Classification: " + report.archetypeClassification,
-    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)
-      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl, report.registryId || report.created_at)]
+    ...(getVectorZeroImageUrl(
+      report.archetypeClassification,
+      siteUrl,
+      typeof report.vectorZeroRotationIndex === "number"
+        ? report.vectorZeroRotationIndex
+        : (report.registryId || report.created_at)
+    )
+      ? [
+          "",
+          "Vector Zero image: " +
+            getVectorZeroImageUrl(
+              report.archetypeClassification,
+              siteUrl,
+              typeof report.vectorZeroRotationIndex === "number"
+                ? report.vectorZeroRotationIndex
+                : (report.registryId || report.created_at)
+            ),
+        ]
       : []),
   ];
   return lines.join("\n");
