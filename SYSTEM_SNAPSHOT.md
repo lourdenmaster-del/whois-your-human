@@ -22,18 +22,17 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
-## 0.5 Public surface area (MVP waitlist-only)
+## 0.5 Public surface area (lockdown: /origin only)
 
 **Production entry points:**
-- `/` → 308 redirect to `/origin` (middleware)
-- `/origin` — Canonical public landing. Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
-- `/beauty`, `/beauty/` → 308 redirect to `/origin` **only when** `NEXT_PUBLIC_WAITLIST_ONLY` is not `"0"` (middleware). When `NEXT_PUBLIC_WAITLIST_ONLY=0`, `/beauty` is not redirected so purchase UI can load.
+- `/` → rewrite to `/origin` (middleware; URL stays `/`).
+- `/origin` — **Only public page.** Canonical landing: Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Not linked from /origin:** `/beauty/start`, `/beauty/view`, `/dossier`, `/ligs-studio`, `/voice`, `/api/dev/*`, Stripe checkout.
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. `/ligs-studio` and subpaths are reachable only when `LIGS_STUDIO_TOKEN` is set and request has valid studio cookie; otherwise redirect to `/origin`.
 
 ---
 
@@ -49,7 +48,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | Single-hop redirects: www→apex (308); /→rewrite /origin (no redirect); /beauty, /beauty/→/origin (308) **only if** `NEXT_PUBLIC_WAITLIST_ONLY !== "0"`. When waitlist-only is off, `/beauty` passes through. **`/ligs-studio` when `LIGS_STUDIO_TOKEN` set:** cookie-only; unauthenticated requests redirect to `/ligs-studio/login`. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | **Public-surface lockdown:** /origin is the only public page. www→apex (308); /→rewrite /origin (no redirect). All legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice; /ligs-studio and /ligs-studio/* redirect to /origin unless `LIGS_STUDIO_TOKEN` set and valid studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -62,7 +61,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 | `app/origin/page.jsx` | Server | Renders `BeautyLandingClient`. Canonical public landing. |
 | `app/origin/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent. |
 
-**Beauty section** (nested under `app/beauty/` — `/beauty` redirects to `/origin` only when waitlist-only; see middleware):
+**Beauty section** (nested under `app/beauty/` — all `/beauty` and `/beauty/*` redirect to `/origin` via middleware; see §0.5):
 
 | Path | Type | Purpose |
 |------|------|--------|
@@ -404,6 +403,12 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 - [ ] **Dry run:** `DRY_RUN=1` skips OpenAI and returns mock report from `/api/engine`.
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
+
+---
+
+## Verification Log – 2026‑03‑13 (Public-surface lockdown — Phase 1)
+
+**Middleware only:** /origin is the only public page. Redirect to /origin (308) for: /beauty, /beauty/*, /dossier, /voice, /ligs-studio, /ligs-studio/* (unless LIGS_STUDIO_TOKEN set and valid studio cookie). No changes to app/origin, app/layout.tsx, or origin dependency graph. Build passes.
 
 ---
 

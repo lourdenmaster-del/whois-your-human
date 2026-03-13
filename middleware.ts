@@ -10,11 +10,13 @@ const CANONICAL_HOST = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//,
 
 /**
  * Single-hop redirect/rewrite: canonical host ligs.io, one hop max.
+ * Public-surface lockdown: /origin is the only public page; all other legacy routes redirect to /origin.
  *
- * 1) www → apex (308): www.ligs.io/* → https://ligs.io/*
- * 2) / → rewrite to /origin (no redirect, URL stays /)
- * 3) /beauty, /beauty/ → /origin (308)
- * 4) /ligs-studio: when LIGS_STUDIO_TOKEN set, require cookie (set via POST /api/studio-auth from /ligs-studio/login)
+ * 1) www → apex (308)
+ * 2) / → rewrite to /origin (URL stays /)
+ * 3) /beauty, /beauty/* → /origin (308)
+ * 4) /dossier, /voice → /origin (308)
+ * 5) /ligs-studio, /ligs-studio/* → /origin (308) unless LIGS_STUDIO_TOKEN set and valid cookie (then allow)
  */
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
@@ -31,24 +33,25 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(new URL("/origin", request.url));
   }
 
-  // 3) /beauty, /beauty/ → /origin when waitlist-only (default). When NEXT_PUBLIC_WAITLIST_ONLY=0,
-  //    purchase flow may use /beauty again; do not redirect so BeautyLandingClient can render.
-  const waitlistOnly = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
-  if (waitlistOnly && (pathname === "/beauty" || pathname === "/beauty/")) {
+  // 3) /beauty and all /beauty/* → /origin (public-surface lockdown)
+  if (pathname === "/beauty" || pathname.startsWith("/beauty/")) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
   }
 
-  // 4) /ligs-studio: token gate when LIGS_STUDIO_TOKEN is set (cookie only; login at /ligs-studio/login)
-  if (isStudioProtected() && pathname.startsWith("/ligs-studio")) {
-    if (pathname === "/ligs-studio/login") {
-      return NextResponse.next();
-    }
-    if (pathname === "/ligs-studio" || pathname.startsWith("/ligs-studio/")) {
+  // 4) /dossier, /voice → /origin (public-surface lockdown)
+  if (pathname === "/dossier" || pathname === "/voice") {
+    return NextResponse.redirect(new URL("/origin", request.url), 308);
+  }
+
+  // 5) /ligs-studio: redirect to /origin unless token set and user has valid cookie (internal tool only)
+  if (pathname.startsWith("/ligs-studio")) {
+    if (isStudioProtected()) {
       const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
-      if (!verifyStudioAccess(cookieValue)) {
-        return NextResponse.redirect(new URL("/ligs-studio/login", request.url));
+      if (verifyStudioAccess(cookieValue)) {
+        return NextResponse.next();
       }
     }
+    return NextResponse.redirect(new URL("/origin", request.url), 308);
   }
 
   return NextResponse.next();
