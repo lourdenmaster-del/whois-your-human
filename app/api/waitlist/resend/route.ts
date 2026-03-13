@@ -8,7 +8,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isStudioProtected, verifyStudioAccess, COOKIE_NAME } from "@/lib/studio-auth";
 import { getWaitlistEntryByEmail } from "@/lib/waitlist-store";
-import { sendWaitlistConfirmation } from "@/lib/email-waitlist-confirmation";
+import { sendWaitlistConfirmation, getRegistryArtifactImageUrl } from "@/lib/email-waitlist-confirmation";
+import { buildFreeWhoisReport } from "@/lib/free-whois-report";
 
 export const dynamic = "force-dynamic";
 
@@ -53,11 +54,23 @@ export async function POST(request: Request) {
   }
 
   try {
-    const sendResult = await sendWaitlistConfirmation(entry.email, {
+    const payloadSolarSeason =
+      (entry.solar_season?.trim().replace(/\s*\(none\)$/i, "")?.trim()) ||
+      entry.preview_archetype ||
+      undefined;
+    const report = buildFreeWhoisReport({
+      email: entry.email,
       created_at: entry.created_at,
+      source: entry.source,
       ...(entry.preview_archetype && { preview_archetype: entry.preview_archetype }),
-      ...(entry.solar_season && { solar_season: entry.solar_season }),
+      ...(payloadSolarSeason && { solar_season: payloadSolarSeason }),
+      ...(entry.name && { name: entry.name }),
+      ...(entry.birthDate && { birthDate: entry.birthDate }),
+      ...(entry.birthPlace && { birthPlace: entry.birthPlace }),
+      ...(entry.birthTime && { birthTime: entry.birthTime }),
     });
+    report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, entry.email);
+    const sendResult = await sendWaitlistConfirmation(entry.email, report);
     return NextResponse.json({
       ok: true,
       confirmationSent: sendResult.sent,

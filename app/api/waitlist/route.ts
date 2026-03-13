@@ -19,7 +19,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getRateLimitKey } from "@/lib/waitlist-rate-limit";
 import { insertWaitlistEntry, getWaitlistEntryByEmail, recordConfirmationSent } from "@/lib/waitlist-store";
-import { sendWaitlistConfirmation } from "@/lib/email-waitlist-confirmation";
+import { sendWaitlistConfirmation, getRegistryArtifactImageUrl } from "@/lib/email-waitlist-confirmation";
+import { buildFreeWhoisReport } from "@/lib/free-whois-report";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
 import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
@@ -156,8 +157,13 @@ export async function POST(req: NextRequest) {
       preview_archetype = archetype;
       const seasonIndex = Math.min(Math.floor(lon / 30), 11);
       const entry = SOLAR_SEASONS[seasonIndex];
-      solar_season = entry ? `${entry.archetype} (${entry.anchorType})` : archetype;
+      // Use archetype name only for email (e.g. "Fluxionis") so template never shows "(none)" when anchorType is "none".
+      solar_season = entry ? entry.archetype : archetype;
     }
+  }
+  // When client sent preview_archetype but no birthDate (or solar_season not computed), pass archetype as solar segment for email.
+  if (preview_archetype && !solar_season) {
+    solar_season = preview_archetype;
   }
 
   try {
@@ -204,16 +210,23 @@ export async function POST(req: NextRequest) {
       let dupConfirmationSent = false;
       let dupConfirmationReason: WaitlistConfirmationReason = "duplicate_skipped";
       try {
-        const sendResult = await sendWaitlistConfirmation(entry.email, {
+        const payloadSolarSeason =
+          (entry.solar_season?.trim().replace(/\s*\(none\)$/i, "")?.trim()) ||
+          entry.preview_archetype ||
+          undefined;
+        const report = buildFreeWhoisReport({
+          email: entry.email,
           created_at: entry.created_at,
           source: entry.source,
           ...(entry.preview_archetype && { preview_archetype: entry.preview_archetype }),
-          ...(entry.solar_season && { solar_season: entry.solar_season }),
+          ...(payloadSolarSeason && { solar_season: payloadSolarSeason }),
           ...(entry.name && { name: entry.name }),
           ...(entry.birthDate && { birthDate: entry.birthDate }),
           ...(entry.birthPlace && { birthPlace: entry.birthPlace }),
           ...(entry.birthTime && { birthTime: entry.birthTime }),
         });
+        report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, entry.email);
+        const sendResult = await sendWaitlistConfirmation(entry.email, report);
         dupConfirmationSent = sendResult.sent;
         dupConfirmationReason = sendResult.sent
           ? ("duplicate_resent" satisfies WaitlistConfirmationReason)
@@ -248,20 +261,24 @@ export async function POST(req: NextRequest) {
     const createdAt = new Date().toISOString();
     console.log("[waitlist] entry_received to=" + maskEmail(email));
 
+    const report = buildFreeWhoisReport({
+      email,
+      created_at: createdAt,
+      source,
+      ...(preview_archetype && { preview_archetype }),
+      ...(solar_season && { solar_season }),
+      ...(name && { name }),
+      ...(birthDateRaw && { birthDate: birthDateRaw }),
+      ...(birthPlace && { birthPlace }),
+      ...(birthTime && { birthTime }),
+    });
+    report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, email);
+
     let confirmationSent = false;
     let confirmationReason: WaitlistConfirmationReason = "provider_key_missing";
 
     try {
-      const sendResult = await sendWaitlistConfirmation(email, {
-        created_at: createdAt,
-        source,
-        ...(preview_archetype && { preview_archetype }),
-        ...(solar_season && { solar_season }),
-        ...(name && { name }),
-        ...(birthDateRaw && { birthDate: birthDateRaw }),
-        ...(birthPlace && { birthPlace }),
-        ...(birthTime && { birthTime }),
-      });
+      const sendResult = await sendWaitlistConfirmation(email, report);
       confirmationSent = sendResult.sent;
       confirmationReason = sendResult.reason as WaitlistConfirmationReason;
       if (sendResult.sent) await recordConfirmationSent(email);
@@ -290,6 +307,7 @@ export async function POST(req: NextRequest) {
       alreadyRegistered: false,
       confirmationSent,
       confirmationReason,
+      report,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
