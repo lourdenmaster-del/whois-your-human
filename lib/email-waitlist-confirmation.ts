@@ -48,6 +48,11 @@ export interface WaitlistConfirmationPayload {
   created_at?: string;
   preview_archetype?: string;
   solar_season?: string;
+  source?: string;
+  name?: string;
+  birthDate?: string;
+  birthPlace?: string;
+  birthTime?: string;
 }
 
 /** Deterministic seed for registry email artifact selection. Same person + archetype → same image. */
