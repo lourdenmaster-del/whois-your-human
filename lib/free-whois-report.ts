@@ -99,7 +99,7 @@ function escapeHtml(s: string): string {
 
 /**
  * Build the canonical free WHOIS report object from intake/waitlist data.
- * Labels aligned to landing (OriginTerminalIntake.jsx). Cosmic analogue from getCosmicAnalogue(archetype).phenomenon.
+ * Free flow: Solar Signature and Archetype Classification both from calendar-based LIGS mapping when birthDate is present; otherwise Archetype Classification falls back to preview_archetype. Cosmic analogue from getCosmicAnalogue(archetype).phenomenon.
  * Caller should set report.artifactImageUrl when sending email (e.g. getRegistryArtifactImageUrl).
  */
 export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport {
@@ -107,8 +107,9 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
   const seed = `wl-${created_at}-${(data.email || "").toLowerCase()}`;
   const registryId = generateLirId(seed);
 
-  const archetypeClassification = data.preview_archetype?.trim() ?? "—";
   const solarSignature = deriveSolarSignature(data.birthDate);
+  const archetypeClassification =
+    solarSignature !== "—" ? solarSignature : (data.preview_archetype?.trim() ?? "—");
   const archForCosmic: LigsArchetype =
     archetypeClassification && archetypeClassification !== "—"
       ? (archetypeClassification as LigsArchetype)
