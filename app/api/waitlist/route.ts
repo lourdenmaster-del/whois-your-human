@@ -6,7 +6,7 @@
  * Body: { email: string, source?: string, birthDate?: string, preview_archetype?: string, solar_season?: string }
  *
  * When birthDate (YYYY-MM-DD) is provided, preview_archetype and solar_season are computed server-side.
- * Duplicate emails return 200 { ok, alreadyRegistered, confirmationSent, confirmationReason } — no confirmation resend.
+ * Duplicate emails return 200 { ok, alreadyRegistered, confirmationSent, confirmationReason, report } — report is authoritative for landing Solar Segment display.
  * New signups: insert then send; confirmationSent/confirmationReason reflect email outcome only — registration already persisted.
  *
  * Response shape (success paths):
@@ -185,11 +185,23 @@ export async function POST(req: NextRequest) {
           "[waitlist] structured reason=duplicate_skipped blob_insert=skipped duplicate=true to=" +
             maskEmail(email)
         );
+        const report = buildFreeWhoisReport({
+          email,
+          created_at: new Date().toISOString(),
+          source,
+          ...(preview_archetype && { preview_archetype }),
+          ...(solar_season && { solar_season }),
+          ...(name && { name }),
+          ...(birthDateRaw && { birthDate: birthDateRaw }),
+          ...(birthPlace && { birthPlace }),
+          ...(birthTime && { birthTime }),
+        });
         return NextResponse.json({
           ok: true,
           alreadyRegistered: true,
           confirmationSent: false,
           confirmationReason: "duplicate_skipped" satisfies WaitlistConfirmationReason,
+          report,
         });
       }
       const lastSentAt = entry.last_confirmation_sent_at;
@@ -200,17 +212,7 @@ export async function POST(req: NextRequest) {
         console.log(
           "[waitlist] structured reason=duplicate_recently_sent duplicate=true to=" + maskEmail(email)
         );
-        return NextResponse.json({
-          ok: true,
-          alreadyRegistered: true,
-          confirmationSent: false,
-          confirmationReason: "duplicate_recently_sent" satisfies WaitlistConfirmationReason,
-        });
-      }
-      let dupConfirmationSent = false;
-      let dupConfirmationReason: WaitlistConfirmationReason = "duplicate_skipped";
-      try {
-        const payloadSolarSeason =
+        const payloadSolarSeasonCooldown =
           (entry.solar_season?.trim().replace(/\s*\(none\)$/i, "")?.trim()) ||
           entry.preview_archetype ||
           undefined;
@@ -219,13 +221,39 @@ export async function POST(req: NextRequest) {
           created_at: entry.created_at,
           source: entry.source,
           ...(entry.preview_archetype && { preview_archetype: entry.preview_archetype }),
-          ...(payloadSolarSeason && { solar_season: payloadSolarSeason }),
+          ...(payloadSolarSeasonCooldown && { solar_season: payloadSolarSeasonCooldown }),
           ...(entry.name && { name: entry.name }),
-          ...(entry.birthDate && { birthDate: entry.birthDate }),
+          ...((entry.birthDate || birthDateRaw) && { birthDate: entry.birthDate || birthDateRaw }),
           ...(entry.birthPlace && { birthPlace: entry.birthPlace }),
           ...(entry.birthTime && { birthTime: entry.birthTime }),
         });
-        report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, entry.email);
+        return NextResponse.json({
+          ok: true,
+          alreadyRegistered: true,
+          confirmationSent: false,
+          confirmationReason: "duplicate_recently_sent" satisfies WaitlistConfirmationReason,
+          report,
+        });
+      }
+      let dupConfirmationSent = false;
+      let dupConfirmationReason: WaitlistConfirmationReason = "duplicate_skipped";
+      const payloadSolarSeason =
+        (entry.solar_season?.trim().replace(/\s*\(none\)$/i, "")?.trim()) ||
+        entry.preview_archetype ||
+        undefined;
+      const report = buildFreeWhoisReport({
+        email: entry.email,
+        created_at: entry.created_at,
+        source: entry.source,
+        ...(entry.preview_archetype && { preview_archetype: entry.preview_archetype }),
+        ...(payloadSolarSeason && { solar_season: payloadSolarSeason }),
+        ...(entry.name && { name: entry.name }),
+        ...((entry.birthDate || birthDateRaw) && { birthDate: entry.birthDate || birthDateRaw }),
+        ...(entry.birthPlace && { birthPlace: entry.birthPlace }),
+        ...(entry.birthTime && { birthTime: entry.birthTime }),
+      });
+      report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, entry.email);
+      try {
         const sendResult = await sendWaitlistConfirmation(entry.email, report);
         dupConfirmationSent = sendResult.sent;
         dupConfirmationReason = sendResult.sent
@@ -234,6 +262,7 @@ export async function POST(req: NextRequest) {
         if (sendResult.sent) await recordConfirmationSent(email);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        dupConfirmationSent = false;
         dupConfirmationReason = "provider_error";
         console.error(
           "[waitlist] structured reason=provider_error duplicate_resend to=" +
@@ -255,6 +284,7 @@ export async function POST(req: NextRequest) {
         alreadyRegistered: true,
         confirmationSent: dupConfirmationSent,
         confirmationReason: dupConfirmationReason,
+        report,
       });
     }
 
@@ -284,6 +314,7 @@ export async function POST(req: NextRequest) {
       if (sendResult.sent) await recordConfirmationSent(email);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      confirmationSent = false;
       confirmationReason = "provider_error";
       console.error(
         "[waitlist] structured reason=provider_error blob_insert=ok duplicate=false to=" +

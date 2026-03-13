@@ -2,36 +2,35 @@
  * Shared free WHOIS report — single source of truth for the free registry record.
  * Used by: (1) waitlist confirmation email, (2) landing in-page report (same HTML).
  * Do NOT create a second template; email and free report render from renderFreeWhoisReport(report).
+ *
+ * Solar Segment = canonical 12-part solar-physics season (sun longitude → segment index).
+ * Archetype Classification = archetype resolved from that segment. Cosmic analogue from that archetype.
  */
 
 import { generateLirId } from "@/src/ligs/marketing/identity-spec";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
+import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
+import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
+import { getVectorZeroImageUrl } from "@/lib/vector-zero-assets";
 
 /**
- * Tropical-zodiac date scaffold for Solar Signature (calendar/segment field).
- * Ignispectrum = Aries; remaining LIGS archetypes follow 12-sign order.
- * Only LIGS names are displayed; zodiac names are not used in the report.
- *
- * Date ranges (inclusive; approximate standard tropical):
- *   Mar 21–Apr 19 → Ignispectrum   |  Apr 20–May 20 → Stabiliora   |  May 21–Jun 20 → Duplicaris
- *   Jun 21–Jul 22 → Tenebris      |  Jul 23–Aug 22 → Radiantis     |  Aug 23–Sep 22 → Precisura
- *   Sep 23–Oct 22 → Aequilibris   |  Oct 23–Nov 21 → Obscurion     |  Nov 22–Dec 21 → Vectoris
- *   Dec 22–Jan 19 → Structoris    |  Jan 20–Feb 18 → Innovaris     |  Feb 19–Mar 20 → Fluxionis
+ * Solar Segment names: 12 equal 30° segments with boundaries shifted +15° so equinox/solstice names are centered on anchor points.
+ * Index = floor(((lon % 360 + 360) % 360 + 15) % 360 / 30). Windows: 345°–15° March Equinox, 15°–45° Early-Spring, … 315°–345° Late-Winter.
  */
-const ZODIAC_DATE_TO_LIGS: readonly { startMd: number; endMd: number; ligs: string }[] = [
-  { startMd: 321, endMd: 419, ligs: "Ignispectrum" },   // Mar 21 – Apr 19
-  { startMd: 420, endMd: 520, ligs: "Stabiliora" },     // Apr 20 – May 20
-  { startMd: 521, endMd: 620, ligs: "Duplicaris" },     // May 21 – Jun 20
-  { startMd: 621, endMd: 722, ligs: "Tenebris" },       // Jun 21 – Jul 22
-  { startMd: 723, endMd: 822, ligs: "Radiantis" },     // Jul 23 – Aug 22
-  { startMd: 823, endMd: 922, ligs: "Precisura" },     // Aug 23 – Sep 22
-  { startMd: 923, endMd: 1022, ligs: "Aequilibris" },  // Sep 23 – Oct 22
-  { startMd: 1023, endMd: 1121, ligs: "Obscurion" },   // Oct 23 – Nov 21
-  { startMd: 1122, endMd: 1221, ligs: "Vectoris" },    // Nov 22 – Dec 21
-  { startMd: 120, endMd: 218, ligs: "Innovaris" },     // Jan 20 – Feb 18
-  { startMd: 219, endMd: 320, ligs: "Fluxionis" },     // Feb 19 – Mar 20
-  // Structoris (Dec 22 – Jan 19) handled below
+const CANONICAL_SOLAR_SEGMENT_NAMES: readonly string[] = [
+  "March Equinox",     // 0
+  "Early-Spring",      // 1
+  "Mid-Spring",        // 2
+  "June Solstice",     // 3
+  "Early-Summer",      // 4
+  "Mid-Summer",        // 5
+  "September Equinox", // 6
+  "Early-Autumn",      // 7
+  "Mid-Autumn",        // 8
+  "December Solstice", // 9
+  "Early-Winter",      // 10
+  "Late-Winter",       // 11
 ];
 
 export interface FreeWhoisReportData {
@@ -62,31 +61,6 @@ export interface FreeWhoisReport {
   artifactImageUrl?: string;
 }
 
-/**
- * Derive Solar Signature from birth date using tropical-zodiac date windows.
- * Returns the LIGS segment name for the calendar window (no zodiac names in report).
- * Solar Signature = calendar/segment; Archetype Classification = resolved archetype (same LIGS naming).
- */
-function deriveSolarSignature(birthDate: string | undefined): string {
-  const raw = birthDate?.trim().slice(0, 10);
-  if (!raw) return "—";
-  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return "—";
-  const month = parseInt(m[2], 10);
-  const day = parseInt(m[3], 10);
-  if (month < 1 || month > 12 || day < 1 || day > 31) return "—";
-
-  // Structoris window (Dec 22 – Jan 19) spans year
-  if (month === 12 && day >= 22) return "Structoris";
-  if (month === 1 && day <= 19) return "Structoris";
-
-  const md = month * 100 + day;
-  for (const { startMd, endMd, ligs } of ZODIAC_DATE_TO_LIGS) {
-    if (md >= startMd && md <= endMd) return ligs;
-  }
-  return "—";
-}
-
 const DEFAULT_SITE_URL = "https://ligs.io";
 
 function escapeHtml(s: string): string {
@@ -99,7 +73,7 @@ function escapeHtml(s: string): string {
 
 /**
  * Build the canonical free WHOIS report object from intake/waitlist data.
- * Free flow: Solar Signature and Archetype Classification both from calendar-based LIGS mapping when birthDate is present; otherwise Archetype Classification falls back to preview_archetype. Cosmic analogue from getCosmicAnalogue(archetype).phenomenon.
+ * Solar Segment and Archetype Classification from canonical solar resolution (sun longitude → segment index → segment name + getPrimaryArchetypeFromSolarLongitude). Fallback to preview_archetype only when birthDate missing or unparseable. Cosmic analogue from getCosmicAnalogue(archetype).phenomenon.
  * Caller should set report.artifactImageUrl when sending email (e.g. getRegistryArtifactImageUrl).
  */
 export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport {
@@ -107,9 +81,22 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
   const seed = `wl-${created_at}-${(data.email || "").toLowerCase()}`;
   const registryId = generateLirId(seed);
 
-  const solarSignature = deriveSolarSignature(data.birthDate);
-  const archetypeClassification =
-    solarSignature !== "—" ? solarSignature : (data.preview_archetype?.trim() ?? "—");
+  let solarSegmentName = "—";
+  let archetypeClassification = data.preview_archetype?.trim() ?? "—";
+
+  const rawBirthDate = data.birthDate?.trim().slice(0, 10);
+  if (rawBirthDate) {
+    const lon = approximateSunLongitudeFromDate(rawBirthDate);
+    if (lon != null) {
+      const normalized = ((lon % 360) + 360) % 360;
+      const shifted = (normalized + 15) % 360;
+      const seasonIndex = Math.floor(shifted / 30);
+      const name = CANONICAL_SOLAR_SEGMENT_NAMES[seasonIndex];
+      if (name) solarSegmentName = name;
+      archetypeClassification = getPrimaryArchetypeFromSolarLongitude(lon);
+    }
+  }
+
   const archForCosmic: LigsArchetype =
     archetypeClassification && archetypeClassification !== "—"
       ? (archetypeClassification as LigsArchetype)
@@ -125,7 +112,7 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
     birthDate: data.birthDate?.trim() ?? "—",
     birthLocation: data.birthPlace?.trim() ?? "—",
     birthTime: data.birthTime?.trim() ?? "—",
-    solarSignature,
+    solarSignature: solarSegmentName,
     archetypeClassification,
     cosmicAnalogue,
   };
@@ -168,7 +155,7 @@ export function renderFreeWhoisReport(
     row("Birth Date", report.birthDate),
     row("Birth Location", report.birthLocation),
     row("Birth Time", report.birthTime),
-    row("Solar Signature", report.solarSignature),
+    row("Solar Segment", report.solarSignature),
     row("Archetype Classification", report.archetypeClassification),
     row("Cosmic analogue", report.cosmicAnalogue),
   ].join("\n");
@@ -179,6 +166,12 @@ export function renderFreeWhoisReport(
     <div style="margin:28px 0;text-align:center;">
       <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
     </div>`;
+
+  const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl);
+  const vectorZeroImageBlock =
+    vectorZeroImageUrl
+      ? `<div style="margin:20px 0;text-align:center;"><img src="${escapeHtml(vectorZeroImageUrl)}" alt="Vector Zero" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" /></div>`
+      : "";
 
   const sectionHeading =
     "margin:0 0 6px 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#1a1a1a;";
@@ -230,6 +223,10 @@ ${artifactBlock || ""}
     <p style="${sectionHeading}">INTERPRETIVE NOTES</p>
     <p style="${sectionBody}">Expanded interpretive sections ship with the complete registration report.</p>
 
+    <p style="${sectionHeading}">VECTOR ZERO</p>
+    <p style="${sectionBody}">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>
+    ${vectorZeroImageBlock}
+
     <p style="margin:24px 0 0 0;font-size:13px;">
       <a href="${escapeHtml(siteUrl)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a>
     </p>
@@ -238,6 +235,14 @@ ${artifactBlock || ""}
       <p style="margin:0;">LIGS Systems</p>
       <p style="margin:4px 0 0 0;">This message was generated automatically by the registry.</p>
     </footer>
+
+    <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e0e0e0;">
+      <p style="${sectionHeading}">OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO</p>
+      <p style="${sectionBody}">As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.</p>
+      <p style="${sectionBody}">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>
+      <p style="${sectionBody}">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>
+      ${vectorZeroImageBlock}
+    </div>
   </div>
 </body>
 </html>`.trim();
@@ -269,7 +274,7 @@ export function renderFreeWhoisReportText(
     "Birth Date: " + report.birthDate,
     "Birth Location: " + report.birthLocation,
     "Birth Time: " + report.birthTime,
-    "Solar Signature: " + report.solarSignature,
+    "Solar Segment: " + report.solarSignature,
     "Archetype Classification: " + report.archetypeClassification,
     "Cosmic analogue: " + report.cosmicAnalogue,
     "",
@@ -290,10 +295,27 @@ export function renderFreeWhoisReportText(
     "INTERPRETIVE NOTES",
     "Expanded interpretive sections ship with the complete registration report.",
     "",
+    "VECTOR ZERO",
+    "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
+    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl)
+      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl)]
+      : []),
+    "",
     "Return to the registry: " + siteUrl,
     "",
     "LIGS Systems",
     "This message was generated automatically by the registry.",
+    "",
+    "OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO",
+    "",
+    "As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.",
+    "",
+    "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
+    "",
+    "Archetype Classification: " + report.archetypeClassification,
+    ...(getVectorZeroImageUrl(report.archetypeClassification, siteUrl)
+      ? ["", "Vector Zero image: " + getVectorZeroImageUrl(report.archetypeClassification, siteUrl)]
+      : []),
   ];
   return lines.join("\n");
 }

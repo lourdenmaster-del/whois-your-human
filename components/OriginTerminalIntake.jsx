@@ -50,7 +50,7 @@ const INTAKE_PROMPTS = {
 /** Sequential single-line status messages during processing (registry language). */
 const PROCESSING_MESSAGES = [
   "Resolving identity request…",
-  "Resolving solar signature…",
+  "Resolving solar segment…",
   "Mapping archetypal structure…",
 ];
 
@@ -262,6 +262,8 @@ export default function OriginTerminalIntake() {
   const [waitlistState, setWaitlistState] = useState("idle");
   /** Observability only — last waitlist POST outcome for dev/debug; does not block reveal. */
   const [waitlistConfirmation, setWaitlistConfirmation] = useState(null);
+  /** Solar Segment from API report when available; used for Solar Segment in registry block. */
+  const [registrySolarSignature, setRegistrySolarSignature] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
   const [showRegistry, setShowRegistry] = useState(false);
@@ -674,6 +676,7 @@ export default function OriginTerminalIntake() {
               confirmationReason: reason,
               alreadyRegistered: dup,
             });
+            setRegistrySolarSignature(data?.report?.solarSignature ?? null);
             const label = waitlistConfirmationLabel(reason);
             if (dup) {
               console.info("[waitlist] already registered; confirmation skipped — " + label);
@@ -777,7 +780,10 @@ export default function OriginTerminalIntake() {
                 <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Birth Time</dt>
                 <dd style={{ color: bright }}>{formData.birthTime || "—"}</dd>
               </dl>
-              <p className="text-[11px] uppercase tracking-[0.08em] pt-2">Solar Signature</p>
+              <p className="text-[11px] uppercase tracking-[0.08em] pt-2">Solar Segment</p>
+              <p className="text-[13px]" style={{ color: bright }}>
+                {registrySolarSignature ?? "—"}
+              </p>
               <p className="text-[13px]" style={{ color: bright }}>
                 Archetype Classification: {archetypeForCompletion}
               </p>
