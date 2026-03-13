@@ -113,31 +113,34 @@ function toAbsoluteUrl(path: string): string {
   return `${base}${p}`;
 }
 
+const MONO_STYLE = "font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#1a1a1a;line-height:1.5;";
+
+function whoisRecordRow(label: string, value: string): string {
+  return `    <tr><td style="padding:2px 10px 2px 0;vertical-align:top;${MONO_STYLE}">${escapeHtml(label)}</td><td style="padding:2px 0;${MONO_STYLE}color:#333;">${escapeHtml(value)}</td></tr>`;
+}
+
 export function buildWaitlistConfirmationHtml(
   payload?: WaitlistConfirmationPayload | null,
   artifactImageUrl?: string
 ): string {
   const created_at = payload?.created_at ?? new Date().toISOString();
-  const preview_archetype = payload?.preview_archetype?.trim();
-  const solar_season = payload?.solar_season?.trim();
+  const name = payload?.name?.trim() ?? "—";
+  const birthDate = payload?.birthDate?.trim() ?? "—";
+  const birthTime = payload?.birthTime?.trim() ?? "—";
+  const birthPlace = payload?.birthPlace?.trim() ?? "—";
+  const preview_archetype = payload?.preview_archetype?.trim() ?? "—";
+  const solar_season = payload?.solar_season?.trim() ?? "—";
 
-  const facts: string[] = [
-    "Registry Status: Confirmed",
-    "Contact Node: Active",
-    "Record Type: Human Identity Query",
-    `Timestamp: ${escapeHtml(created_at)}`,
-  ];
-  if (preview_archetype) facts.push(`Preview Archetype: ${escapeHtml(preview_archetype)}`);
-  if (solar_season) facts.push(`Solar Segment: ${escapeHtml(solar_season)}`);
-
-  const factsHtml = facts
-    .map((line) => {
-      const idx = line.indexOf(": ");
-      const label = idx >= 0 ? line.slice(0, idx) + ":" : line;
-      const value = idx >= 0 ? line.slice(idx + 2) : "";
-      return `    <tr><td style="padding:4px 12px 4px 0;vertical-align:top;font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#1a1a1a;">${escapeHtml(label)}</td><td style="padding:4px 0;font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#333;">${escapeHtml(value)}</td></tr>`;
-    })
-    .join("\n");
+  const recordRows = [
+    whoisRecordRow("Subject:", name),
+    whoisRecordRow("Birth Date:", birthDate),
+    whoisRecordRow("Birth Time:", birthTime),
+    whoisRecordRow("Birth Location:", birthPlace),
+    whoisRecordRow("Primary Archetype:", preview_archetype),
+    whoisRecordRow("Solar Season Segment:", solar_season),
+    whoisRecordRow("Registry Status:", "Registered"),
+    whoisRecordRow("Registry Entry Timestamp:", created_at),
+  ].join("\n");
 
   const imgUrl =
     artifactImageUrl && artifactImageUrl.length > 0
@@ -159,11 +162,12 @@ export function buildWaitlistConfirmationHtml(
       <p style="margin:6px 0 0 0;font-size:12px;color:#444;">Registry confirmation notice</p>
     </header>
 
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
-${factsHtml}
+    <p style="margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#1a1a1a;">Human WHOIS Registry Record</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+${recordRows}
     </table>
 
-    <p style="margin:0 0 24px 0;font-size:14px;color:#333;">Your contact node has been recorded in the LIGS Human WHOIS Registry. Full identity reports will be released to registry members first.</p>
+    <p style="margin:0 0 24px 0;font-size:14px;color:#333;">You now have access to the Human WHOIS registry. Full node analytics will become available when the registry opens.</p>
 
     <div style="margin:28px 0;text-align:center;">
       <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
@@ -184,29 +188,37 @@ ${factsHtml}
 
 export function buildWaitlistConfirmationText(payload?: WaitlistConfirmationPayload | null): string {
   const created_at = payload?.created_at ?? new Date().toISOString();
-  const preview_archetype = payload?.preview_archetype?.trim();
-  const solar_season = payload?.solar_season?.trim();
+  const name = payload?.name?.trim() ?? "—";
+  const birthDate = payload?.birthDate?.trim() ?? "—";
+  const birthTime = payload?.birthTime?.trim() ?? "—";
+  const birthPlace = payload?.birthPlace?.trim() ?? "—";
+  const preview_archetype = payload?.preview_archetype?.trim() ?? "—";
+  const solar_season = payload?.solar_season?.trim() ?? "—";
 
   const lines: string[] = [
     "LIGS HUMAN WHOIS REGISTRY",
     "Registry confirmation notice",
     "",
-    "Registry Status: Confirmed",
-    "Contact Node: Active",
-    "Record Type: Human Identity Query",
-    `Timestamp: ${created_at}`,
-  ];
-  if (preview_archetype) lines.push(`Preview Archetype: ${preview_archetype}`);
-  if (solar_season) lines.push(`Solar Segment: ${solar_season}`);
-  lines.push(
+    "Human WHOIS Registry Record",
     "",
-    "Your contact node has been recorded in the LIGS Human WHOIS Registry. Full identity reports will be released to registry members first.",
+    "Subject: " + name,
+    "Birth Date: " + birthDate,
+    "Birth Time: " + birthTime,
+    "Birth Location: " + birthPlace,
     "",
-    `Return to the registry: ${SITE_URL}`,
+    "Primary Archetype: " + preview_archetype,
+    "Solar Season Segment: " + solar_season,
+    "",
+    "Registry Status: Registered",
+    "Registry Entry Timestamp: " + created_at,
+    "",
+    "You now have access to the Human WHOIS registry. Full node analytics will become available when the registry opens.",
+    "",
+    "Return to the registry: " + SITE_URL,
     "",
     "LIGS Systems",
-    "This message was generated automatically by the registry."
-  );
+    "This message was generated automatically by the registry.",
+  ];
   return lines.join("\n");
 }
 
