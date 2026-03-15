@@ -620,6 +620,15 @@ export function renderFreeWhoisCard(
       : "";
 
   const cosmicTwinValue = display.cosmicTwinDisplay ?? report.cosmicAnalogue ?? "—";
+  const vectorZeroRotation =
+    typeof report.vectorZeroRotationIndex === "number"
+      ? report.vectorZeroRotationIndex
+      : (report.registryId || report.created_at);
+  const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl, vectorZeroRotation);
+  const vectorZeroImageBlock =
+    vectorZeroImageUrl
+      ? `<div style="margin:20px 0;text-align:center;"><img src="${escapeHtml(vectorZeroImageUrl)}" alt="Vector Zero" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" /></div>`
+      : "";
   const identityParts: string[] = [
     `<p style="margin:0 0 4px 0;font-size:12px;"><strong>Cosmic Twin</strong> ${escapeHtml(cosmicTwinValue)}</p>`,
     `<p style="margin:0 0 4px 0;font-size:12px;"><strong>Archetype Classification</strong> ${escapeHtml(report.archetypeClassification)}</p>`,
@@ -654,6 +663,13 @@ ${coreRows}
     <div style="${sectionTitleStyle}">Identity Signature</div>
     <div style="margin-bottom:12px;">${identityParts.join("")}</div>
     ${artifactBlock || ""}
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e0e0e0;">
+      <p style="${sectionTitleStyle}">Official Registry Addendum — Vector Zero</p>
+      <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.</p>
+      <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>
+      <p style="margin:0 0 12px 0;font-size:12px;color:#333;">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>
+      ${vectorZeroImageBlock}
+    </div>
     <p style="margin:16px 0 0 0;padding-top:12px;border-top:1px solid #e8e8e8;font-size:10px;color:#666;">Registry-issued. Identity registered.</p>
     <p style="margin:6px 0 0 0;font-size:11px;"><a href="${escapeHtml(siteUrl)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a></p>
   </div>
@@ -704,6 +720,22 @@ export function renderFreeWhoisCardText(
   );
   if (expressionLine && expressionLine !== "—") lines.push(expressionLine);
   if (typicalContexts) lines.push("Typical expression contexts: " + typicalContexts);
+  const vectorZeroRotation =
+    typeof report.vectorZeroRotationIndex === "number"
+      ? report.vectorZeroRotationIndex
+      : (report.registryId || report.created_at);
+  const vectorZeroImgUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl, vectorZeroRotation);
+  lines.push(
+    "",
+    "OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO",
+    "",
+    "As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.",
+    "",
+    "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
+    "",
+    "Archetype Classification: " + report.archetypeClassification
+  );
+  if (vectorZeroImgUrl) lines.push("", "Vector Zero image: " + vectorZeroImgUrl);
   lines.push(
     "",
     "Registry-issued. Identity registered.",
