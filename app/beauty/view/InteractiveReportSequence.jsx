@@ -110,7 +110,7 @@ export default function InteractiveReportSequence({ profile }) {
           ← Return to Origin
         </Link>
         <Link href="/dossier" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline">
-          View Dossier
+          View sample record
         </Link>
       </div>
     </div>

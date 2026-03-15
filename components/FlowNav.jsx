@@ -26,7 +26,7 @@ export default function FlowNav({ variant = "dark", className = "" }) {
           ← Return to Origin
         </Link>
         <Link href="/dossier" className={linkClass}>
-          View Dossier
+          View sample record
         </Link>
       </div>
     </nav>

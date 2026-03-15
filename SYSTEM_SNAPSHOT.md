@@ -410,6 +410,20 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
+**Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑12 (Paid WHOIS email integration)
+
+**send-beauty-profile:** When sending paid report email (reportId + email), route now calls `buildPaidWhoisReport({ reportId, requestId })`, sets `report.artifactImageUrl` via `getRegistryArtifactImageUrl`, and uses `renderFreeWhoisReport` / `renderFreeWhoisReportText` for email body (HTML + plain text). Same route, same inputs; no second email route or Stripe flow. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑12 (Minimal paid WHOIS builder)
+
+**Single builder:** `buildPaidWhoisReport(params)` in `lib/free-whois-report.ts` loads stored report + Beauty profile by `reportId`, populates base WHOIS fields and optional paid section bodies from `full_report` section parsing, profile, and `vector_zero.three_voice`. Returns `FreeWhoisReport`; existing WHOIS renderer produces full paid report. No second report type, no second template, no change to free preview or card. `originCoordinatesDisplay` set when `birthContext` provided. Build passes.
+
 ---
 
 ## Verification Log – 2026‑03‑12 (Solar Segment single authoritative source)

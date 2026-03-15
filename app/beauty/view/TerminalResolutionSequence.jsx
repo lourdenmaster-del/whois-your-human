@@ -325,7 +325,7 @@ export default function TerminalResolutionSequence({ onComplete }) {
               href="/dossier"
               className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline touch-manipulation"
             >
-              View Dossier
+              View sample record
             </Link>
           </p>
           <p

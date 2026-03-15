@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Beauty",
-  description: "Your Beauty Signature begins here. Beauty is coherent aliveness.",
+  title: "Light Identity Report",
+  description: "Your Light Identity Report begins here. Registry-based identity resolution.",
 };
 
 // Use system serif to avoid font fetch failures (Google Fonts can fail in offline/sandbox)

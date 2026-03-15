@@ -1,47 +1,12 @@
-import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
-import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { buildPaidWhoisReport } from "@/lib/free-whois-report";
+import { renderFreeWhoisReport, renderFreeWhoisReportText } from "@/lib/free-whois-report";
+import { getRegistryArtifactImageUrl } from "@/lib/email-waitlist-confirmation";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
 
-const DEFAULT_FROM = "Beauty <onboarding@resend.dev>";
-
-function buildEmailHtml(profile: {
-  subjectName?: string;
-  emotionalSnippet?: string;
-  imageUrls?: string[];
-}, viewUrl: string): string {
-  const name = profile.subjectName ? `<p><strong>${escapeHtml(profile.subjectName)}</strong></p>` : "";
-  const snippet = profile.emotionalSnippet
-    ? `<p>${escapeHtml(profile.emotionalSnippet)}</p>`
-    : "";
-  const link = `<p><a href="${escapeHtml(viewUrl)}">View your full Beauty Profile</a></p>`;
-  const img =
-    profile.imageUrls?.[0]
-      ? `<p><img src="${escapeHtml(profile.imageUrls[0])}" alt="Beauty Profile" width="400" style="max-width:100%;height:auto;" /></p>`
-      : "";
-  return `
-<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>Your Light Identity Report</title></head>
-<body style="font-family:sans-serif;line-height:1.5;color:#333;">
-  <h1>Your Light Identity Report</h1>
-  ${name}
-  ${snippet}
-  ${link}
-  ${img}
-</body>
-</html>`.trim();
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+const DEFAULT_FROM = "LIGS Registry <onboarding@resend.dev>";
 
 export async function POST(request: Request) {
   const kill = killSwitchResponse();
@@ -66,31 +31,32 @@ export async function POST(request: Request) {
     return errorResponse(400, "MISSING_EMAIL", requestId);
   }
 
-  let profile;
+  let report;
   try {
-    profile = await loadBeautyProfileV1(reportId, requestId);
+    report = await buildPaidWhoisReport({ reportId, requestId });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    if (message === "BEAUTY_PROFILE_NOT_FOUND") {
+    if (
+      message === "PAID_WHOIS_REPORT_NOT_FOUND" ||
+      message === "BEAUTY_PROFILE_NOT_FOUND" ||
+      message === "BEAUTY_PROFILE_PARSE_FAILED" ||
+      message === "BEAUTY_PROFILE_SCHEMA_MISMATCH"
+    ) {
       return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
     }
     throw e;
   }
 
+  report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, email);
+
   const origin =
     process.env.VERCEL_URL != null
       ? `https://${process.env.VERCEL_URL}`
       : new URL(request.url).origin;
-  const viewUrl = `${origin}/beauty/view?reportId=${encodeURIComponent(reportId)}`;
+  const siteUrl = origin.replace(/\/$/, "");
   const subject = "Your Light Identity Report";
-  const html = buildEmailHtml(
-    {
-      subjectName: profile.subjectName,
-      emotionalSnippet: profile.emotionalSnippet,
-      imageUrls: profile.imageUrls,
-    },
-    viewUrl
-  );
+  const html = renderFreeWhoisReport(report, { siteUrl });
+  const text = renderFreeWhoisReportText(report, { siteUrl });
 
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
@@ -110,10 +76,11 @@ export async function POST(request: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: from.includes("<") ? from : `Beauty <${from}>`,
+        from: from.includes("<") ? from : `LIGS Registry <${from}>`,
         to: [email],
         subject,
         html,
+        text,
       }),
     });
     if (!res.ok) {
@@ -123,7 +90,7 @@ export async function POST(request: Request) {
     }
   } else if (sendgridKey) {
     const fromEmail = from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from;
-    const fromName = from.includes("<") ? from.replace(/\s*<[^>]+>$/, "").trim() : "Beauty";
+    const fromName = from.includes("<") ? from.replace(/\s*<[^>]+>$/, "").trim() : "LIGS Registry";
     const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
       method: "POST",
       headers: {
@@ -133,7 +100,10 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         personalizations: [{ to: [{ email }], subject }],
         from: { email: fromEmail, name: fromName },
-        content: [{ type: "text/html", value: html }],
+        content: [
+          { type: "text/html", value: html },
+          { type: "text/plain", value: text },
+        ],
       }),
     });
     if (!res.ok) {

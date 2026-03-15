@@ -34,7 +34,7 @@ const DRY_RUN_PLACEHOLDER = {
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E",
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E",
   ],
-  fullReport: "[DRY RUN] Placeholder report for layout verification. Generate a Beauty Profile via /beauty to view a real report.",
+  fullReport: "[DRY RUN] Placeholder report for layout verification. Generate a registry report via the flow to view a real report.",
   light_signature: { raw_signal: "—", custodian: "—", oracle: "—" },
   archetype: { raw_signal: "—", custodian: "—", oracle: "—" },
   deviations: { raw_signal: "—", custodian: "—", oracle: "—" },
