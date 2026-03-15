@@ -113,6 +113,14 @@ function isoToHHmm(iso: string): string | null {
   return /^\d{2}:\d{2}$/.test(part) ? part : null;
 }
 
+/** Display-only: format birth time for card. ISO → HH:mm; otherwise return as-is. Does not change data or UTC logic. */
+function formatBirthTimeForCardDisplay(birthTime: string): string {
+  if (!birthTime || !birthTime.trim()) return birthTime || "—";
+  const trimmed = birthTime.trim();
+  const fromIso = isoToHHmm(trimmed);
+  return fromIso ?? trimmed;
+}
+
 /**
  * Resolve local birth time to UTC and return a registry-style Chrono-Imprint display string.
  * Uses existing timezone-aware logic (deriveFromBirthData: geocode → tz-lookup → Luxon local→UTC).
@@ -573,6 +581,14 @@ function getArchetypeExpressionForCard(archetypeClassification: string): {
 /**
  * Compact WHOIS Human Registration Card — registry-issued identity card for confirmation email.
  * Same report object and display helpers as preview/free WHOIS. Primary email body.
+ *
+ * STABLE — Do not modify casually. This renderer is the canonical registration artifact for waitlist
+ * confirmation email. Structure must preserve, in order:
+ * - Genesis Metadata
+ * - Identity Signature
+ * - Artifact placement
+ * - Vector Zero addendum
+ * - Section order
  */
 export function renderFreeWhoisCard(
   report: FreeWhoisReport,
@@ -590,15 +606,16 @@ export function renderFreeWhoisCard(
 
   const cardStyle =
     "max-width:420px;margin:0 auto;padding:20px 24px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#1a1a1a;line-height:1.4;";
-  const labelStyle = "font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#666;padding-right:12px;vertical-align:top;";
-  const valueStyle = "color:#1a1a1a;";
+  const labelStyle = "font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#666;padding:6px 8px 6px 0;vertical-align:top;";
+  const valueStyle = "color:#1a1a1a;padding:6px 0;";
+  const rowBorder = "border-bottom:1px solid #f0f0f0;";
   const sectionTitleStyle = "font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#1a1a1a;margin:14px 0 6px 0;";
 
   const coreRows = [
     ["Subject Name", report.name],
     ["Birth Date", report.birthDate],
     ["Birth Location", report.birthLocation],
-    ["Birth Time", report.birthTime],
+    ["Birth Time", formatBirthTimeForCardDisplay(report.birthTime)],
     ["Solar Segment", report.solarSignature],
     ["Archetype Classification", report.archetypeClassification],
     ["Registry Status", report.registryStatus],
@@ -607,7 +624,7 @@ export function renderFreeWhoisCard(
   ]
     .map(
       ([l, v]) =>
-        `<tr><td style="${labelStyle}">${escapeHtml(l)}</td><td style="${valueStyle}">${escapeHtml(v)}</td></tr>`
+        `<tr style="${rowBorder}"><td style="${labelStyle}">${escapeHtml(l)}</td><td style="${valueStyle}">${escapeHtml(v)}</td></tr>`
     )
     .join("");
 
@@ -615,7 +632,7 @@ export function renderFreeWhoisCard(
     display.genesisRows.length > 0
       ? display.genesisRows.map(
           (r) =>
-            `<tr><td style="${labelStyle}">${escapeHtml(r.label)}</td><td style="${valueStyle}">${escapeHtml(r.value)}</td></tr>`
+            `<tr style="${rowBorder}"><td style="${labelStyle}">${escapeHtml(r.label)}</td><td style="${valueStyle}">${escapeHtml(r.value)}</td></tr>`
         ).join("")
       : "";
 
@@ -627,11 +644,11 @@ export function renderFreeWhoisCard(
   const vectorZeroImageUrl = getVectorZeroImageUrl(report.archetypeClassification, siteUrl, vectorZeroRotation);
   const vectorZeroImageBlock =
     vectorZeroImageUrl
-      ? `<div style="margin:20px 0;text-align:center;"><img src="${escapeHtml(vectorZeroImageUrl)}" alt="Vector Zero" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" /></div>`
+      ? `<div style="margin:20px 0;text-align:center;"><img src="${escapeHtml(vectorZeroImageUrl)}" alt="" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" /></div>`
       : "";
   const identityParts: string[] = [
-    `<p style="margin:0 0 4px 0;font-size:12px;"><strong>Cosmic Twin</strong> ${escapeHtml(cosmicTwinValue)}</p>`,
-    `<p style="margin:0 0 4px 0;font-size:12px;"><strong>Archetype Classification</strong> ${escapeHtml(report.archetypeClassification)}</p>`,
+    `<p style="margin:0 0 6px 0;font-size:12px;">Cosmic Twin: ${escapeHtml(cosmicTwinValue)}</p>`,
+    `<p style="margin:0 0 6px 0;font-size:12px;">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>`,
   ];
   if (expressionLine && expressionLine !== "—") {
     identityParts.push(`<p style="margin:0 0 4px 0;font-size:12px;">${escapeHtml(expressionLine)}</p>`);
@@ -644,7 +661,7 @@ export function renderFreeWhoisCard(
 
   const artifactBlock =
     imgUrl &&
-    `<div style="margin:16px 0;text-align:center;"><img src="${escapeHtml(imgUrl)}" alt="WHOIS Human Registration Card artifact" width="280" height="280" style="max-width:100%;height:auto;display:block;margin:0 auto;border-radius:4px;" /></div>`;
+    `<div style="margin:24px 0 16px 0;text-align:center;"><img src="${escapeHtml(imgUrl)}" alt="Registry Artifact" width="280" height="280" style="max-width:100%;height:auto;display:block;margin:0 auto;border-radius:4px;" /></div>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -656,14 +673,16 @@ export function renderFreeWhoisCard(
       <p style="margin:8px 0 0 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#1a1a1a;">WHOIS Human Registration Card</p>
       <p style="margin:2px 0 0 0;font-size:10px;color:#666;">LIGS Human Identity Registry</p>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:11px;" cellpadding="0" cellspacing="0">
+    <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;" cellpadding="0" cellspacing="0">
 ${coreRows}
     </table>
-    ${genesisRowsHtml ? `<p style="${sectionTitleStyle}">Identity Physics — Genesis Metadata</p><table style="width:100%;border-collapse:collapse;font-size:11px;" cellpadding="0" cellspacing="0">${genesisRowsHtml}</table>` : ""}
-    <div style="${sectionTitleStyle}">Identity Signature</div>
-    <div style="margin-bottom:12px;">${identityParts.join("")}</div>
+    ${genesisRowsHtml ? `<div style="margin-top:20px;"><p style="${sectionTitleStyle}">Identity Physics — Genesis Metadata</p><table style="width:100%;border-collapse:collapse;font-size:11px;" cellpadding="0" cellspacing="0">${genesisRowsHtml}</table></div>` : ""}
+    <div style="margin-top:24px;">
+      <p style="${sectionTitleStyle}">Identity Signature</p>
+      <div style="margin-top:10px;margin-bottom:4px;">${identityParts.join("")}</div>
+    </div>
     ${artifactBlock || ""}
-    <div style="margin-top:24px;padding-top:20px;border-top:1px solid #e0e0e0;">
+    <div style="margin-top:28px;padding-top:24px;border-top:1px solid #e0e0e0;">
       <p style="${sectionTitleStyle}">Official Registry Addendum — Vector Zero</p>
       <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.</p>
       <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>
@@ -697,7 +716,7 @@ export function renderFreeWhoisCardText(
     "Subject Name: " + report.name,
     "Birth Date: " + report.birthDate,
     "Birth Location: " + report.birthLocation,
-    "Birth Time: " + report.birthTime,
+    "Birth Time: " + formatBirthTimeForCardDisplay(report.birthTime),
     "Solar Segment: " + report.solarSignature,
     "Archetype Classification: " + report.archetypeClassification,
     "Registry Status: " + report.registryStatus,

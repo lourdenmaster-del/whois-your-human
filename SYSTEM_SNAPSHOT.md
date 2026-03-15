@@ -42,6 +42,12 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
+## 0.7 WHOIS Human Registration Card email (locked)
+
+The **WHOIS Human Registration Card** is the canonical registration artifact for waitlist confirmation email. Implemented in `lib/free-whois-report.ts` (`renderFreeWhoisCard`, `renderFreeWhoisCardText`) and sent via `lib/email-waitlist-confirmation.ts`. This artifact is **locked as stable** as of this release: do not casually modify the card renderer. Required structure (order): Genesis Metadata → Identity Signature → Artifact placement → Vector Zero addendum. Section order and these blocks must be preserved.
+
+---
+
 ## 1. Front-end architecture
 
 ### 1.1 App structure (App Router)
