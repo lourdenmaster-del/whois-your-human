@@ -32,7 +32,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. `/ligs-studio` and subpaths are reachable only when `LIGS_STUDIO_TOKEN` is set and request has valid studio cookie; otherwise redirect to `/origin`.
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
@@ -455,6 +455,10 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑03‑11 (Studio pipeline status — auth-protected endpoint)
 
 **GET `/api/studio/pipeline-status`:** Same cookie gate as waitlist/list when `LIGS_STUDIO_TOKEN` set. JSON flags for Stripe (configured, mode test/live/missing, webhook secret present, test mode required), email provider configured, Blob token set, LIGS_API_OFF, WAITLIST_ONLY, NODE_ENV. No last-webhook timestamp (not persisted). LigsStudio: read-only list under Warning Lights. Build passes.
+
+## Verification Log – 2026‑03‑12 (Studio lockdown — no public access)
+
+**Studio locked down.** When `LIGS_STUDIO_TOKEN` is set: (1) All paths under `/ligs-studio` are gated except `/ligs-studio/login` and `/ligs-studio/login/`. (2) Auth is cookie-only (`verifyStudioAccess(cookieValue)`); no `?token=` or Bearer (token cannot leak via URL/referrer). (3) Unauthenticated requests to any gated path redirect to `/origin` (308). Only way in: go to `/ligs-studio/login`, submit token via POST `/api/studio-auth`, then navigate to `/ligs-studio`. Internal APIs (`/api/waitlist/list`, `/api/waitlist/reset`, `/api/waitlist/resend`, `/api/studio/pipeline-status`) already use cookie-only. Build passes.
 
 ## Verification Log – 2026‑03‑11 (Blob inventory + manual cleanup — health/ only)
 

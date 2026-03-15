@@ -55,7 +55,7 @@ export default function LigsStudioLoginPage() {
           disabled={loading || !token.trim()}
           className="py-2 rounded border border-[#2a2a2e] font-mono text-sm text-[#c8c8cc] hover:border-[#5a5a62] disabled:opacity-50"
         >
-          {loading ? "…" : "Continue"}
+          {loading ? "Checking…" : "Continue"}
         </button>
       </form>
     </div>

@@ -43,15 +43,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
   }
 
-  // 5) /ligs-studio: redirect to /origin unless token set and user has valid cookie (internal tool only)
-  if (pathname.startsWith("/ligs-studio")) {
-    if (isStudioProtected()) {
-      const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
-      if (verifyStudioAccess(cookieValue)) {
-        return NextResponse.next();
-      }
+  // 5) /ligs-studio: no public access when LIGS_STUDIO_TOKEN set. All paths gated except /ligs-studio/login (cookie only).
+  if (pathname.startsWith("/ligs-studio") && isStudioProtected()) {
+    if (pathname === "/ligs-studio/login" || pathname === "/ligs-studio/login/") {
+      return NextResponse.next();
     }
-    return NextResponse.redirect(new URL("/origin", request.url), 308);
+    const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
+    if (!verifyStudioAccess(cookieValue)) {
+      return NextResponse.redirect(new URL("/origin", request.url), 308);
+    }
+    return NextResponse.next();
   }
 
   return NextResponse.next();

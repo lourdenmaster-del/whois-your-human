@@ -12,7 +12,9 @@ import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
+import { getSolarSeasonByIndex } from "@/src/ligs/astronomy/solarSeason";
 import { getVectorZeroImageUrl } from "@/lib/vector-zero-assets";
+import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 
 /**
  * Solar Segment names: 12 equal 30° segments with boundaries shifted +15° so equinox/solstice names are centered on anchor points.
@@ -61,9 +63,118 @@ export interface FreeWhoisReport {
   artifactImageUrl?: string;
   /** Optional. When set, Vector Zero variant = this value % 4 (rotation). Prefer registry count at send time. */
   vectorZeroRotationIndex?: number;
+  /** Genesis Metadata: sun longitude (0–360° ecliptic) when birthDate present. */
+  sunLongitudeDeg?: number | null;
+  /** Genesis Metadata: solar season anchor type from solarSeason (equinox | solstice | crossquarter | none). */
+  solarAnchorType?: string;
+  /** Genesis Metadata: waxing | waning from longitude. */
+  seasonalPolarity?: string;
+  /** When set, Chrono-Imprint shows this (e.g. "13:30 local / 18:30 UTC"). Resolved server-side when date+time+place available via timezone-aware conversion. */
+  chronoImprintResolved?: string | null;
 }
 
 const DEFAULT_SITE_URL = "https://ligs.io";
+
+/** Solar longitude for public display: max 2 decimal places. Does not change underlying value. */
+function formatSolarLongitudeDisplay(deg: number): string {
+  return `${Number(deg).toFixed(2)}° solar longitude`;
+}
+
+/** Human-facing solar anchor type. Display only; stored values unchanged. */
+function humanizeSolarAnchorType(anchorType: string | undefined): string {
+  if (anchorType === "none") return "Inter-segment position";
+  if (anchorType === "equinox") return "Equinox anchor";
+  if (anchorType === "solstice") return "Solstice anchor";
+  if (anchorType === "crossquarter") return "Cross-quarter anchor";
+  return anchorType ?? "Restricted Node Data";
+}
+
+/** Chrono-Imprint: use value if non-empty and not placeholder; else fallback when provided (e.g. preview registry copy). */
+function chronoImprintDisplay(
+  reportBirthTime: string | undefined,
+  override?: string | null
+): string {
+  const fromReport =
+    reportBirthTime && reportBirthTime.trim() && reportBirthTime !== "—"
+      ? reportBirthTime.trim()
+      : null;
+  if (fromReport) return fromReport;
+  const fromOverride =
+    override != null && typeof override === "string" && override.trim() && override.trim() !== "—"
+      ? override.trim()
+      : null;
+  return fromOverride ?? "Limited Access";
+}
+
+/** Extract HH:mm from ISO timestamp (YYYY-MM-DDTHH:mm...) for Chrono-Imprint display. */
+function isoToHHmm(iso: string): string | null {
+  if (!iso || iso.length < 16) return null;
+  const part = iso.slice(11, 16);
+  return /^\d{2}:\d{2}$/.test(part) ? part : null;
+}
+
+/**
+ * Resolve local birth time to UTC and return a registry-style Chrono-Imprint display string.
+ * Uses existing timezone-aware logic (deriveFromBirthData: geocode → tz-lookup → Luxon local→UTC).
+ * EST/EDT handled by IANA zone and date. Server-only; do not call from client.
+ * Returns null if any input missing or resolution fails; caller keeps current display.
+ */
+export async function resolveChronoImprintDisplay(
+  birthDate: string,
+  birthTime: string,
+  birthPlace: string
+): Promise<string | null> {
+  const dateStr = birthDate?.trim().slice(0, 10);
+  const timeStr = birthTime?.trim();
+  const placeStr = birthPlace?.trim();
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr) || !timeStr || timeStr === "—" || !placeStr || placeStr === "—") {
+    return null;
+  }
+  try {
+    const { deriveFromBirthData } = await import("@/lib/astrology/deriveFromBirthData");
+    const derived = await deriveFromBirthData({
+      birthdate: dateStr,
+      birthtime: timeStr,
+      birthplace: placeStr,
+    });
+    if (!derived?.localTimestamp || !derived?.utcTimestamp) return null;
+    const localHHmm = isoToHHmm(derived.localTimestamp);
+    const utcHHmm = isoToHHmm(derived.utcTimestamp);
+    if (!localHHmm || !utcHHmm) return null;
+    return `${localHHmm} local / ${utcHHmm} UTC`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When report has birthDate + birthTime + birthPlace (non-placeholder), resolve Chrono-Imprint and set report.chronoImprintResolved.
+ * No-op when missing or on failure; report unchanged. Used by waitlist and resend routes.
+ */
+export async function enrichReportChrono(
+  report: FreeWhoisReport
+): Promise<void> {
+  if (
+    !report.birthDate ||
+    !report.birthTime ||
+    !report.birthLocation ||
+    report.birthDate === "—" ||
+    report.birthTime === "—" ||
+    report.birthLocation === "—"
+  ) {
+    return;
+  }
+  try {
+    const resolved = await resolveChronoImprintDisplay(
+      report.birthDate,
+      report.birthTime,
+      report.birthLocation
+    );
+    if (resolved) report.chronoImprintResolved = resolved;
+  } catch {
+    // keep current Chrono-Imprint display
+  }
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -86,6 +197,10 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
   let solarSegmentName = "—";
   let archetypeClassification = data.preview_archetype?.trim() ?? "—";
 
+  let sunLongitudeDeg: number | null | undefined;
+  let solarAnchorType: string | undefined;
+  let seasonalPolarity: string | undefined;
+
   const rawBirthDate = data.birthDate?.trim().slice(0, 10);
   if (rawBirthDate) {
     const lon = approximateSunLongitudeFromDate(rawBirthDate);
@@ -96,6 +211,11 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
       const name = CANONICAL_SOLAR_SEGMENT_NAMES[seasonIndex];
       if (name) solarSegmentName = name;
       archetypeClassification = getPrimaryArchetypeFromSolarLongitude(lon);
+      sunLongitudeDeg = lon;
+      const seasonIndexForAnchor = Math.min(Math.floor(normalized / 30), 11);
+      const seasonEntry = getSolarSeasonByIndex(seasonIndexForAnchor);
+      solarAnchorType = seasonEntry?.anchorType;
+      seasonalPolarity = normalized >= 0 && normalized < 180 ? "waxing" : "waning";
     }
   }
 
@@ -105,7 +225,7 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
       : "Ignispectrum";
   const cosmicAnalogue = getCosmicAnalogue(archForCosmic).phenomenon;
 
-  return {
+  const report: FreeWhoisReport = {
     registryId,
     registryStatus: "Registered",
     created_at,
@@ -118,6 +238,10 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
     archetypeClassification,
     cosmicAnalogue,
   };
+  if (sunLongitudeDeg != null) report.sunLongitudeDeg = sunLongitudeDeg;
+  if (solarAnchorType != null) report.solarAnchorType = solarAnchorType;
+  if (seasonalPolarity != null) report.seasonalPolarity = seasonalPolarity;
+  return report;
 }
 
 const MONO_STYLE =
@@ -159,7 +283,27 @@ export function renderFreeWhoisReport(
     row("Birth Time", report.birthTime),
     row("Solar Segment", report.solarSignature),
     row("Archetype Classification", report.archetypeClassification),
-    row("Cosmic analogue", report.cosmicAnalogue),
+    row("Cosmic Twin", report.cosmicAnalogue),
+  ].join("\n");
+
+  const solarLightVector =
+    report.sunLongitudeDeg != null && Number.isFinite(report.sunLongitudeDeg)
+      ? formatSolarLongitudeDisplay(report.sunLongitudeDeg)
+      : "Limited Access";
+  const seasonalContext =
+    report.solarSignature && report.solarSignature !== "—" ? report.solarSignature : "Limited Access";
+  const solarAnchorTypeDisplay = humanizeSolarAnchorType(report.solarAnchorType);
+  const chronoImprint =
+    report.chronoImprintResolved ?? chronoImprintDisplay(report.birthTime);
+  const genesisRows = [
+    row("Solar Light Vector", solarLightVector),
+    row("Seasonal Context", seasonalContext),
+    row("Solar Anchor Type", solarAnchorTypeDisplay),
+    row("Chrono-Imprint", chronoImprint),
+    row("Origin Coordinates", "Restricted Node Data"),
+    row("Magnetic Field Index", "Restricted Node Data"),
+    row("Climate Signature", "Restricted Node Data"),
+    row("Sensory Field Conditions", "Restricted Node Data"),
   ].join("\n");
 
   const artifactBlock =
@@ -211,6 +355,11 @@ ${registrationLogRows}
 ${recordRows}
     </table>
 
+    <p style="${sectionHeading}">IDENTITY PHYSICS — GENESIS METADATA</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+${genesisRows}
+    </table>
+
     <p style="margin:0 0 24px 0;font-size:14px;color:#333;">You now have access to the Human WHOIS registry. Full node analytics will become available when the registry opens.</p>
 ${artifactBlock || ""}
 
@@ -220,11 +369,11 @@ ${artifactBlock || ""}
     <p style="${sectionHeading}">FIELD CONDITIONS</p>
     <p style="${sectionBody}">Classification emerges from field conditions and force structure at the birth event.</p>
 
+    <p style="${sectionHeading}">COSMIC TWIN RELATION</p>
+    <p style="${sectionBody}">Cosmic Twin: ${escapeHtml(report.cosmicAnalogue)}</p>
+
     <p style="${sectionHeading}">ARCHETYPE EXPRESSION</p>
     <p style="${sectionBody}">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>
-
-    <p style="${sectionHeading}">COSMIC TWIN RELATION</p>
-    <p style="${sectionBody}">Cosmic analogue: ${escapeHtml(report.cosmicAnalogue)}</p>
 
     <p style="${sectionHeading}">INTERPRETIVE NOTES</p>
     <p style="${sectionBody}">Expanded interpretive sections ship with the complete registration report.</p>
@@ -278,7 +427,22 @@ export function renderFreeWhoisReportText(
     "Birth Time: " + report.birthTime,
     "Solar Segment: " + report.solarSignature,
     "Archetype Classification: " + report.archetypeClassification,
-    "Cosmic analogue: " + report.cosmicAnalogue,
+    "Cosmic Twin: " + report.cosmicAnalogue,
+    "",
+    "IDENTITY PHYSICS — GENESIS METADATA",
+    "",
+    "Solar Light Vector: " +
+      (report.sunLongitudeDeg != null && Number.isFinite(report.sunLongitudeDeg)
+        ? formatSolarLongitudeDisplay(report.sunLongitudeDeg)
+        : "Limited Access"),
+    "Seasonal Context: " +
+      (report.solarSignature && report.solarSignature !== "—" ? report.solarSignature : "Limited Access"),
+    "Solar Anchor Type: " + humanizeSolarAnchorType(report.solarAnchorType),
+    "Chrono-Imprint: " + (report.chronoImprintResolved ?? chronoImprintDisplay(report.birthTime)),
+    "Origin Coordinates: Restricted Node Data",
+    "Magnetic Field Index: Restricted Node Data",
+    "Climate Signature: Restricted Node Data",
+    "Sensory Field Conditions: Restricted Node Data",
     "",
     "You now have access to the Human WHOIS registry. Full node analytics will become available when the registry opens.",
     "",
@@ -288,11 +452,11 @@ export function renderFreeWhoisReportText(
     "FIELD CONDITIONS",
     "Classification emerges from field conditions and force structure at the birth event.",
     "",
+    "COSMIC TWIN RELATION",
+    "Cosmic Twin: " + report.cosmicAnalogue,
+    "",
     "ARCHETYPE EXPRESSION",
     "Archetype Classification: " + report.archetypeClassification,
-    "",
-    "COSMIC TWIN RELATION",
-    "Cosmic analogue: " + report.cosmicAnalogue,
     "",
     "INTERPRETIVE NOTES",
     "Expanded interpretive sections ship with the complete registration report.",
@@ -329,5 +493,222 @@ export function renderFreeWhoisReportText(
         ]
       : []),
   ];
+  return lines.join("\n");
+}
+
+/**
+ * Preview display helper: canonical Genesis Metadata row labels/values and Cosmic Twin display value.
+ * Additive only — does not change existing render logic. Used by on-site WHOIS preview to stay coherent with free WHOIS.
+ * Same rules: ° solar longitude (2 decimals), humanized anchor type, chrono-imprint with optional override for preview.
+ */
+export interface FreeWhoisPreviewDisplayOptions {
+  /** When report.birthTime is not usable, use this for Chrono-Imprint so preview matches registry block (e.g. formData.birthTime). */
+  chronoImprintOverride?: string | null;
+}
+
+export interface FreeWhoisPreviewDisplay {
+  genesisRows: Array<{ label: string; value: string }>;
+  cosmicTwinDisplay: string | null;
+}
+
+export function getFreeWhoisPreviewDisplay(
+  report: FreeWhoisReport | null | undefined,
+  options?: FreeWhoisPreviewDisplayOptions
+): FreeWhoisPreviewDisplay {
+  if (report == null) {
+    return { genesisRows: [], cosmicTwinDisplay: null };
+  }
+  const solarLightVector =
+    report.sunLongitudeDeg != null && Number.isFinite(report.sunLongitudeDeg)
+      ? formatSolarLongitudeDisplay(report.sunLongitudeDeg)
+      : "Limited Access";
+  const seasonalContext =
+    report.solarSignature && report.solarSignature !== "—" ? report.solarSignature : "Limited Access";
+  const solarAnchorTypeDisplay = humanizeSolarAnchorType(report.solarAnchorType);
+  const chronoImprint =
+    report.chronoImprintResolved ??
+    chronoImprintDisplay(report.birthTime, options?.chronoImprintOverride);
+  const genesisRows: Array<{ label: string; value: string }> = [
+    { label: "Solar Light Vector", value: solarLightVector },
+    { label: "Seasonal Context", value: seasonalContext },
+    { label: "Solar Anchor Type", value: solarAnchorTypeDisplay },
+    { label: "Chrono-Imprint", value: chronoImprint },
+    { label: "Origin Coordinates", value: "Restricted Node Data" },
+    { label: "Magnetic Field Index", value: "Restricted Node Data" },
+    { label: "Climate Signature", value: "Restricted Node Data" },
+    { label: "Sensory Field Conditions", value: "Restricted Node Data" },
+  ];
+  const cosmicTwinDisplay =
+    report.cosmicAnalogue && report.cosmicAnalogue.trim() ? report.cosmicAnalogue.trim() : null;
+  return { genesisRows, cosmicTwinDisplay };
+}
+
+/** Archetype expression line and typical contexts for card identity block (same source as preview). */
+function getArchetypeExpressionForCard(archetypeClassification: string): {
+  expressionLine: string;
+  typicalContexts: string | null;
+} {
+  try {
+    const cfg = getArchetypePreviewConfig(archetypeClassification?.trim() ?? "");
+    const teaser = cfg?.teaser ?? {};
+    const humanExpression = (teaser as { humanExpression?: string }).humanExpression ?? "—";
+    const civilizationFunction = (teaser as { civilizationFunction?: string }).civilizationFunction ?? "—";
+    const environments = (teaser as { environments?: string }).environments ?? "—";
+    const expressionLine =
+      civilizationFunction && civilizationFunction !== "—"
+        ? humanExpression && humanExpression !== "—"
+          ? `${humanExpression} — ${civilizationFunction}`
+          : civilizationFunction
+        : "—";
+    const typicalContexts =
+      environments && typeof environments === "string" && environments !== "—"
+        ? environments
+        : null;
+    return { expressionLine, typicalContexts };
+  } catch {
+    return { expressionLine: "—", typicalContexts: null };
+  }
+}
+
+/**
+ * Compact WHOIS Human Registration Card — registry-issued identity card for confirmation email.
+ * Same report object and display helpers as preview/free WHOIS. Primary email body.
+ */
+export function renderFreeWhoisCard(
+  report: FreeWhoisReport,
+  options?: { siteUrl?: string }
+): string {
+  const siteUrl = (options?.siteUrl || DEFAULT_SITE_URL).replace(/\/$/, "");
+  const logoUrl = `${siteUrl}/brand/logo.svg`;
+  const display = getFreeWhoisPreviewDisplay(report);
+  const createdDateDisplay = report.created_at.slice(0, 10);
+  const { expressionLine, typicalContexts } = getArchetypeExpressionForCard(report.archetypeClassification);
+  const imgUrl =
+    report.artifactImageUrl && report.artifactImageUrl.length > 0
+      ? report.artifactImageUrl
+      : "";
+
+  const cardStyle =
+    "max-width:420px;margin:0 auto;padding:20px 24px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#1a1a1a;line-height:1.4;";
+  const labelStyle = "font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:#666;padding-right:12px;vertical-align:top;";
+  const valueStyle = "color:#1a1a1a;";
+  const sectionTitleStyle = "font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#1a1a1a;margin:14px 0 6px 0;";
+
+  const coreRows = [
+    ["Subject Name", report.name],
+    ["Birth Date", report.birthDate],
+    ["Birth Location", report.birthLocation],
+    ["Birth Time", report.birthTime],
+    ["Solar Segment", report.solarSignature],
+    ["Archetype Classification", report.archetypeClassification],
+    ["Registry Status", report.registryStatus],
+    ["Created Date", createdDateDisplay],
+    ["Record Authority", report.recordAuthority],
+  ]
+    .map(
+      ([l, v]) =>
+        `<tr><td style="${labelStyle}">${escapeHtml(l)}</td><td style="${valueStyle}">${escapeHtml(v)}</td></tr>`
+    )
+    .join("");
+
+  const genesisRowsHtml =
+    display.genesisRows.length > 0
+      ? display.genesisRows.map(
+          (r) =>
+            `<tr><td style="${labelStyle}">${escapeHtml(r.label)}</td><td style="${valueStyle}">${escapeHtml(r.value)}</td></tr>`
+        ).join("")
+      : "";
+
+  const cosmicTwinValue = display.cosmicTwinDisplay ?? report.cosmicAnalogue ?? "—";
+  const identityParts: string[] = [
+    `<p style="margin:0 0 4px 0;font-size:12px;"><strong>Cosmic Twin</strong> ${escapeHtml(cosmicTwinValue)}</p>`,
+    `<p style="margin:0 0 4px 0;font-size:12px;"><strong>Archetype Classification</strong> ${escapeHtml(report.archetypeClassification)}</p>`,
+  ];
+  if (expressionLine && expressionLine !== "—") {
+    identityParts.push(`<p style="margin:0 0 4px 0;font-size:12px;">${escapeHtml(expressionLine)}</p>`);
+  }
+  if (typicalContexts) {
+    identityParts.push(
+      `<p style="margin:0;font-size:11px;color:#444;">Typical expression contexts: ${escapeHtml(typicalContexts)}</p>`
+    );
+  }
+
+  const artifactBlock =
+    imgUrl &&
+    `<div style="margin:16px 0;text-align:center;"><img src="${escapeHtml(imgUrl)}" alt="WHOIS Human Registration Card artifact" width="280" height="280" style="max-width:100%;height:auto;display:block;margin:0 auto;border-radius:4px;" /></div>`;
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WHOIS Human Registration Card</title></head>
+<body style="margin:0;padding:24px 16px;background:#f5f5f5;font-family:Georgia,serif;">
+  <div style="${cardStyle}">
+    <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e8e8e8;">
+      <img src="${escapeHtml(logoUrl)}" alt="LIGS" width="64" height="32" style="display:block;height:32px;width:auto;" />
+      <p style="margin:8px 0 0 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#1a1a1a;">WHOIS Human Registration Card</p>
+      <p style="margin:2px 0 0 0;font-size:10px;color:#666;">LIGS Human Identity Registry</p>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:11px;" cellpadding="0" cellspacing="0">
+${coreRows}
+    </table>
+    ${genesisRowsHtml ? `<p style="${sectionTitleStyle}">Identity Physics — Genesis Metadata</p><table style="width:100%;border-collapse:collapse;font-size:11px;" cellpadding="0" cellspacing="0">${genesisRowsHtml}</table>` : ""}
+    <div style="${sectionTitleStyle}">Identity Signature</div>
+    <div style="margin-bottom:12px;">${identityParts.join("")}</div>
+    ${artifactBlock || ""}
+    <p style="margin:16px 0 0 0;padding-top:12px;border-top:1px solid #e8e8e8;font-size:10px;color:#666;">Registry-issued. Identity registered.</p>
+    <p style="margin:6px 0 0 0;font-size:11px;"><a href="${escapeHtml(siteUrl)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a></p>
+  </div>
+</body>
+</html>`.trim();
+}
+
+/**
+ * Plain-text version of the registration card (for email multipart).
+ */
+export function renderFreeWhoisCardText(
+  report: FreeWhoisReport,
+  options?: { siteUrl?: string }
+): string {
+  const siteUrl = (options?.siteUrl || DEFAULT_SITE_URL).replace(/\/$/, "");
+  const display = getFreeWhoisPreviewDisplay(report);
+  const createdDateDisplay = report.created_at.slice(0, 10);
+  const { expressionLine, typicalContexts } = getArchetypeExpressionForCard(report.archetypeClassification);
+  const cosmicTwinValue = display.cosmicTwinDisplay ?? report.cosmicAnalogue ?? "—";
+
+  const lines: string[] = [
+    "WHOIS HUMAN REGISTRATION CARD",
+    "LIGS Human Identity Registry",
+    "",
+    "Subject Name: " + report.name,
+    "Birth Date: " + report.birthDate,
+    "Birth Location: " + report.birthLocation,
+    "Birth Time: " + report.birthTime,
+    "Solar Segment: " + report.solarSignature,
+    "Archetype Classification: " + report.archetypeClassification,
+    "Registry Status: " + report.registryStatus,
+    "Created Date: " + createdDateDisplay,
+    "Record Authority: " + report.recordAuthority,
+    "",
+  ];
+  if (display.genesisRows.length > 0) {
+    lines.push("IDENTITY PHYSICS — GENESIS METADATA", "");
+    for (const r of display.genesisRows) {
+      lines.push(r.label + ": " + r.value);
+    }
+    lines.push("", "");
+  }
+  lines.push(
+    "IDENTITY SIGNATURE",
+    "",
+    "Cosmic Twin: " + cosmicTwinValue,
+    "Archetype Classification: " + report.archetypeClassification
+  );
+  if (expressionLine && expressionLine !== "—") lines.push(expressionLine);
+  if (typicalContexts) lines.push("Typical expression contexts: " + typicalContexts);
+  lines.push(
+    "",
+    "Registry-issued. Identity registered.",
+    "",
+    "Return to the registry: " + siteUrl
+  );
   return lines.join("\n");
 }

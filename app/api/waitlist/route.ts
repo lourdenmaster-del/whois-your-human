@@ -19,8 +19,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getRateLimitKey } from "@/lib/waitlist-rate-limit";
 import { insertWaitlistEntry, getWaitlistEntryByEmail, recordConfirmationSent } from "@/lib/waitlist-store";
+import { getWaitlistCount } from "@/lib/waitlist-list";
 import { sendWaitlistConfirmation, getRegistryArtifactImageUrl } from "@/lib/email-waitlist-confirmation";
-import { buildFreeWhoisReport } from "@/lib/free-whois-report";
+import { buildFreeWhoisReport, enrichReportChrono } from "@/lib/free-whois-report";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
 import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
@@ -196,6 +197,8 @@ export async function POST(req: NextRequest) {
           ...(birthPlace && { birthPlace }),
           ...(birthTime && { birthTime }),
         });
+        report.vectorZeroRotationIndex = ((await getWaitlistCount()) - 1) % 4;
+        await enrichReportChrono(report);
         return NextResponse.json({
           ok: true,
           alreadyRegistered: true,
@@ -227,6 +230,8 @@ export async function POST(req: NextRequest) {
           ...(entry.birthPlace && { birthPlace: entry.birthPlace }),
           ...(entry.birthTime && { birthTime: entry.birthTime }),
         });
+        report.vectorZeroRotationIndex = ((await getWaitlistCount()) - 1) % 4;
+        await enrichReportChrono(report);
         return NextResponse.json({
           ok: true,
           alreadyRegistered: true,
@@ -253,6 +258,8 @@ export async function POST(req: NextRequest) {
         ...(entry.birthTime && { birthTime: entry.birthTime }),
       });
       report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, entry.email);
+      report.vectorZeroRotationIndex = ((await getWaitlistCount()) - 1) % 4;
+      await enrichReportChrono(report);
       try {
         const sendResult = await sendWaitlistConfirmation(entry.email, report);
         dupConfirmationSent = sendResult.sent;
@@ -303,6 +310,8 @@ export async function POST(req: NextRequest) {
       ...(birthTime && { birthTime }),
     });
     report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, email);
+    report.vectorZeroRotationIndex = ((await getWaitlistCount()) - 1) % 4;
+    await enrichReportChrono(report);
 
     let confirmationSent = false;
     let confirmationReason: WaitlistConfirmationReason = "provider_key_missing";

@@ -8,8 +8,9 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { isStudioProtected, verifyStudioAccess, COOKIE_NAME } from "@/lib/studio-auth";
 import { getWaitlistEntryByEmail } from "@/lib/waitlist-store";
+import { getWaitlistCount } from "@/lib/waitlist-list";
 import { sendWaitlistConfirmation, getRegistryArtifactImageUrl } from "@/lib/email-waitlist-confirmation";
-import { buildFreeWhoisReport } from "@/lib/free-whois-report";
+import { buildFreeWhoisReport, enrichReportChrono } from "@/lib/free-whois-report";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,8 @@ export async function POST(request: Request) {
       ...(entry.birthTime && { birthTime: entry.birthTime }),
     });
     report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, entry.email);
+    report.vectorZeroRotationIndex = ((await getWaitlistCount()) - 1) % 4;
+    await enrichReportChrono(report);
     const sendResult = await sendWaitlistConfirmation(entry.email, report);
     return NextResponse.json({
       ok: true,

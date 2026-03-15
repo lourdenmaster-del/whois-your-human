@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { parseDate, parseTime } from "@/lib/terminal-intake/parseInputs";
 import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import {
@@ -18,6 +18,7 @@ import {
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
+import { getFreeWhoisPreviewDisplay } from "@/lib/free-whois-report";
 
 const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
 
@@ -264,6 +265,8 @@ export default function OriginTerminalIntake() {
   const [waitlistConfirmation, setWaitlistConfirmation] = useState(null);
   /** Solar Segment from API report when available; used for Solar Segment in registry block. */
   const [registrySolarSignature, setRegistrySolarSignature] = useState(null);
+  /** Full WHOIS report from waitlist API; used for below-fold preview (Genesis Metadata, Cosmic Twin). */
+  const [whoisReport, setWhoisReport] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
   const [showRegistry, setShowRegistry] = useState(false);
@@ -677,6 +680,7 @@ export default function OriginTerminalIntake() {
               alreadyRegistered: dup,
             });
             setRegistrySolarSignature(data?.report?.solarSignature ?? null);
+            setWhoisReport(data?.report ?? null);
             const label = waitlistConfirmationLabel(reason);
             if (dup) {
               console.info("[waitlist] already registered; confirmation skipped — " + label);
@@ -725,6 +729,9 @@ export default function OriginTerminalIntake() {
     const mono = "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace";
     const muted = "rgba(154,154,160,0.9)";
     const bright = "rgba(232,232,236,0.95)";
+    const previewDisplay = getFreeWhoisPreviewDisplay(whoisReport, {
+      chronoImprintOverride: formData.birthTime ?? undefined,
+    });
     return (
       <div
         className="min-h-screen flex flex-col items-stretch py-4 px-5 sm:py-6 sm:px-8 overflow-x-hidden whois-origin"
@@ -977,7 +984,7 @@ export default function OriginTerminalIntake() {
             <p className="text-[13px] leading-relaxed">
               Analytical report attached to the registry record above. Extract only—full interpretive depth withheld until authorized release.
             </p>
-            {/* WHOIS-style analytical report opening (not cinematic UI sequence). */}
+            {/* WHOIS-style analytical report; section order coherent with free WHOIS: Genesis before Cosmic Twin before Archetype Expression. */}
             <div className="space-y-2 pt-4">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
                 IDENTITY ARCHITECTURE
@@ -998,6 +1005,31 @@ export default function OriginTerminalIntake() {
               </p>
               <p className="text-[13px] leading-relaxed">
                 Expanded entropic and environmental field mapping is included in the full report release.
+              </p>
+            </div>
+            {previewDisplay.genesisRows.length > 0 && (
+              <div className="space-y-2 pt-2">
+                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                  IDENTITY PHYSICS — GENESIS METADATA
+                </p>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-[13px]">
+                  {previewDisplay.genesisRows.map(({ label, value }) => (
+                    <Fragment key={label}>
+                      <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">{label}</dt>
+                      <dd style={{ color: bright }}>{value}</dd>
+                    </Fragment>
+                  ))}
+                </dl>
+              </div>
+            )}
+            <div className="space-y-2 pt-2">
+              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
+                COSMIC TWIN RELATION
+              </p>
+              <p className="text-[13px] leading-relaxed">
+                {previewDisplay.cosmicTwinDisplay != null
+                  ? `Cosmic Twin: ${previewDisplay.cosmicTwinDisplay}`
+                  : "Connects the resolved regime to its cosmic analogue in the full report. No pairing is published in this extract."}
               </p>
             </div>
             <div className="space-y-2 pt-2">
@@ -1021,14 +1053,6 @@ export default function OriginTerminalIntake() {
                   </p>
                 )
               )}
-            </div>
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                COSMIC TWIN RELATION
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Connects the resolved regime to its cosmic analogue in the full report. No pairing is published in this extract.
-              </p>
             </div>
             <div className="space-y-2 pt-2">
               <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>

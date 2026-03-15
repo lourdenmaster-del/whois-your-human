@@ -112,7 +112,7 @@ Official WHOIS mirror block; should visually resemble real WHOIS output.
 - Birth Time  
 - Birth Location  
 - Record Authority  
-- Solar Signature  
+- Solar Segment  
 - Archetype Classification  
 - Registry Node  
 - Environmental Class  
@@ -137,7 +137,7 @@ Birth Date: 1988-03-03
 Birth Time: 03:33
 Birth Location: Santa Fe, NM
 
-Solar Signature: Fluxionis
+Solar Segment: Fluxionis
 Archetype Classification: Flux-Class
 Registry Node: LIGS-126
 Environmental Class: Transitional Dynamic
@@ -283,7 +283,7 @@ Internal code may retain legacy names temporarily; user-facing copy must not.
 Query, Registry, Registry Record ID, Registry Status, Created Date, Last Updated, Subject Name, Birth Date, Birth Time, Birth Location, Record Authority  
 
 **LIGS EXPANSION FIELDS**  
-Solar Signature, Archetype Classification, Registry Node, Environmental Class, Signal Status, Solar Segment, Environmental Anchor, Behavior Class, Structural Orientation, Primary Pattern, Adaptive Tendencies, Observed Expression, Integration Notes  
+Solar Segment, Archetype Classification, Registry Node, Environmental Class, Signal Status, Environmental Anchor, Behavior Class, Structural Orientation, Primary Pattern, Adaptive Tendencies, Observed Expression, Integration Notes  
 
 ---
 
