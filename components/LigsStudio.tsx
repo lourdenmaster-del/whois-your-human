@@ -2198,7 +2198,7 @@ export default function LigsStudio() {
           <button
             type="button"
             className="px-4 py-2.5 rounded-lg bg-teal-600 text-white text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700"
-            disabled={reportOnlyLoading}
+            disabled={!!reportOnlyLoading}
             onClick={runReportOnly}
           >
             {reportOnlyLoading ? "Generating…" : effectiveDryRun ? "Test Paid Report (safe / no image cost)" : "Live Report (uses real AI)"}
