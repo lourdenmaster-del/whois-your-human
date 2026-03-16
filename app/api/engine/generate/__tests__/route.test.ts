@@ -44,6 +44,11 @@ function jsonRequest(body: unknown) {
   });
 }
 
+/** Minimal report structure required by the route: section "1. INITIATION" so subject-name injection can succeed. */
+const MINIMAL_VALID_REPORT_PREFIX = `1. INITIATION
+
+`;
+
 const env = process.env as Record<string, string | undefined>;
 
 describe("POST /api/engine/generate", () => {
@@ -60,6 +65,7 @@ describe("POST /api/engine/generate", () => {
             message: {
               content: JSON.stringify({
                 full_report:
+                  MINIMAL_VALID_REPORT_PREFIX +
                   "Generated report content with enough text to pass validation and be useful for testing the fallback behavior when storage fails.",
                 emotional_snippet: "A structural pattern at initialization.",
               }),
@@ -171,7 +177,7 @@ describe("POST /api/engine/generate", () => {
     mockSaveReportAndConfirm.mockResolvedValue({ ok: true });
     mockOpenAICreate.mockReset();
 
-    // 1. Report generation returns text with "chakra"
+    // 1. Report generation returns text with "chakra" but valid section structure for injection
     mockOpenAICreate
       .mockResolvedValueOnce({
         choices: [
@@ -179,21 +185,23 @@ describe("POST /api/engine/generate", () => {
             message: {
               content: JSON.stringify({
                 full_report:
-                  "Initiation: The chakra alignment at birth creates spectral coherence. RAW SIGNAL: Light vectors. CUSTODIAN: Biological reception. ORACLE: Identity emerges.",
+                  MINIMAL_VALID_REPORT_PREFIX +
+                  "The chakra alignment at birth creates spectral coherence. RAW SIGNAL: Light vectors. CUSTODIAN: Biological reception. ORACLE: Identity emerges.",
                 emotional_snippet: "A structural pattern at initialization.",
               }),
             },
           },
         ],
       })
-      // 2. Repair pass returns clean report
+      // 2. Repair pass returns clean report (same structure so downstream steps succeed)
       .mockResolvedValueOnce({
         choices: [
           {
             message: {
               content: JSON.stringify({
                 full_report:
-                  "Initiation: Spectral coherence at birth. RAW SIGNAL: Light vectors. CUSTODIAN: Biological reception. ORACLE: Identity emerges.",
+                  MINIMAL_VALID_REPORT_PREFIX +
+                  "Spectral coherence at birth. RAW SIGNAL: Light vectors. CUSTODIAN: Biological reception. ORACLE: Identity emerges.",
               }),
             },
           },

@@ -272,6 +272,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/dev/preflight` | Dev-only. 403 in production. Runs `runPreflight()` — checks OPENAI_API_KEY, BLOB_READ_WRITE_TOKEN, DRY_RUN unset, allowExternalWrites. Returns `{ ok, checks, checklist }`. Used before live Beauty run. |
 | POST | `/api/dev/beauty-live-once` | Dev-only. 403 in production. **Golden Run:** exactly one live run per browser session (cookie `beauty-live-once-key`); retries with same `idempotencyKey` allowed (returns cached). Body may include `idempotencyKey` (else auto-generated). Runs preflight; POST `/api/beauty/submit` with `dryRun: false`, `idempotencyKey`. Logs: idempotencyHit, cacheHit/Miss, imageCount. Returns `{ reportId, subjectName, dominantArchetype, viewUrl, meta }`. |
 | GET | `/api/dev/verify-report` | Dev-only. 403 in production. Query `?reportId=X`. Verifies Beauty Profile in Blob, image URLs, schemaVersion, prompts, archetype. When DRY_RUN=1, also requires marketingCardUrl (profile or ligs-images/{reportId}/marketing_card). Returns `{ ok, checks, imageUrls, marketingCardUrl?, summary }`. |
+| GET | `/api/dev/latest-paid-whois-report` | Dev-only. 403 in production. Optional query `?reportId=X`. When omitted, uses most recent reportId from `listBlobBeautyProfilesSorted(1)` (Blob). Loads BeautyProfileV1, runs `buildPaidWhoisReport`, returns `{ reportId, profileFields: { subjectName, birthDate, birthTime, birthLocation }, paidWhoisText }`. 404 when no beauty profiles. |
 | GET | `/api/dev/verify-marketing-card` | Dev-only. 403 in production. Query `?reportId=X`. Verifies marketing_card blob exists. Returns `{ ok, marketingCardUrl?, summary }`. |
 | GET | `/api/dev/glyph-debug` | Dev-only. Query `?name=ignis` or `?name=ignis_icon`. Audits glyph/icon SVG. LigsStudio "GLYPH SOURCE OF TRUTH AUDIT". |
 | GET | `/api/dev/glyph-rasterize` | Dev-only. Query `?name=ignis` or `?name=ignis_icon`. Rasterizes glyph/icon SVG to 512×512 PNG. |
@@ -411,6 +412,66 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑15 (Magnetic Field Index historical coverage)
+
+**Magnetic Field Index source chain:** (A) GFZ Potsdam Kp JSON API (historical since 1932, definitive 3-hourly Kp) tried first; (B) NOAA SWPC planetary_k_index_1m (recent only) as fallback. `lib/field-conditions/fetchGeomagneticKpGfz.ts` added for GFZ; `fetchGeomagneticKp` in `fetchGeomagneticKp.ts` now calls GFZ then SWPC. Same persistence and display; no report redesign. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑16 (Field-conditions upstream logging and fallbacks)
+
+**Upstream resolver:** `resolveFieldConditionsForBirth` now: (1) never throws — wrapped in try/catch, always returns `{ magneticFieldIndexDisplay, climateSignatureDisplay, sensoryFieldConditionsDisplay }`; (2) logs before/after `fetchGeomagneticKp` and `fetchWeatherAtMoment` (success/null/threw); (3) treats invalid `utcTimestamp` (e.g. `"unknown"`) as missing and uses `dateStrFromContext(birthContext)` (from `birthDate` when present) for climate fallback; (4) formatters already provide fallbacks — climate from lat+month when weather is null, sensory from sun when weather is null; magnetic uses GFZ then SWPC in `fetchGeomagneticKp`. Engine route logs `fieldConditionsDisplays` after await and catches resolver errors so payload always gets an object. Tests confirm Climate and Sensory populate when fetches return null (e.g. in test env).
+
+---
+
+## Verification Log – 2026‑03‑16 (Studio report path audit and clarity)
+
+**Audit:** `docs/STUDIO-REPORT-PATH-AUDIT.md` added. Traced Test Paid Report → POST /api/beauty/dry-run → POST /api/engine/generate (dryRun: true); Live Report → POST /api/engine/generate (dryRun: false). Confirmed Test Paid Report is a faithful paid WHOIS test (same persistence, field-condition enrichment, buildPaidWhoisReport from stored report). **Studio clarity:** (1) Live path now sets lastReportId and fetches GET /api/dev/latest-paid-whois-report?reportId= so the same panel can show built WHOIS for both modes in dev. (2) Report result card shows explicit "Path: …" (dry-run vs direct engine) and "Rendered from stored report (buildPaidWhoisReport)" when paidWhoisText is present. No changes to engine/generate or field-condition logic. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑16 (Field-conditions persistence fix)
+
+**Enrichment persistence:** Engine generate (dry-run and live) was building the StoredReport payload with spread patterns `...(fieldConditionsDisplays?.magneticFieldIndexDisplay != null && { ... })`. Replaced with explicit payload construction: base object plus `if (fieldConditionsDisplays != null) { if (fieldConditionsDisplays.magneticFieldIndexDisplay != null) payload.magneticFieldIndexDisplay = ... }` (and same for climate/sensory and for `field_conditions_context` via `buildFieldConditionsContext(birthContext)`). Ensures valid strings and `field_conditions_context` are always persisted when present. `buildPaidWhoisReport` already reads these from `storedReport` and builds FIELD CONDITIONS body from `storedReport.field_conditions_context`; no change there. Added unit test in `lib/__tests__/buildPaidWhoisReport-dry-run.test.ts` that a stored report with field_conditions_context and the three display fields produces populated Magnetic/Climate/Sensory and FIELD CONDITIONS body (sun altitude, sunrise, sunset, moon phase, etc.). Build and tests pass.
+
+---
+
+## Verification Log – 2026‑03‑16 (Studio Test Paid Report field-condition enrichment)
+
+**Studio "Test Paid Report (safe / no image cost)" path:** LigsStudio (Test mode ON) → button `runReportOnly` → POST `/api/beauty/dry-run` with `dryRun: true` → POST `/api/engine/generate` with `dryRun: true`. Dry-run was calling `resolveFieldConditionsForBirth(birthContext, { skipExternalLookups: true })`, so Magnetic/Climate/Sensory were never fetched or persisted; paid WHOIS showed "Restricted Node Data". **Change:** dry-run path now uses `skipExternalLookups: false` so GFZ Kp and Open-Meteo are called and the three display fields are persisted; image cost remains zero (no OpenAI report LLM, no image generation). Comment in route documents that this path is used by Studio Test Paid Report and that we run full report enrichment. Build and engine/generate route tests pass.
+
+---
+
+## Verification Log – 2026‑03‑15 (Field-conditions real-data plumbing)
+
+**Magnetic Field Index, Climate Signature, Sensory Field Conditions:** Real upstream data wired for live reports. **Definitions:** `lib/field-conditions/definitions.ts` — Magnetic: geomagnetic/space-weather intensity at birth from real index (e.g. Kp); Climate: location+time atmospheric summary from measured conditions; Sensory: day/night + weather at event. **Lookups:** GFZ historical Kp + SWPC fallback; Open-Meteo historical weather. **Pipeline:** Engine generate calls `resolveFieldConditionsForBirth(birthContext, { skipExternalLookups: false })` on both live and dry-run paths; persists the three display fields on `StoredReport` when non-null. `buildPaidWhoisReport` hydrates from `storedReport`. Origin Coordinates unchanged.
+
+---
+
+## Verification Log – 2026‑03‑12 (Origin Coordinates live pipeline)
+
+**Origin Coordinates end-to-end:** `StoredReport` in `lib/report-store.ts` has optional `originCoordinatesDisplay`. Engine generate persists it when `birthContext` has lat/lon (dry-run and live). `buildPaidWhoisReport` sets `report.originCoordinatesDisplay` from: (1) explicit `birthContext`, (2) `storedReport.originCoordinatesDisplay`, (3) `profile.originCoordinatesDisplay`, (4) `birthLocation` fallback. Text, HTML, preview read `report.originCoordinatesDisplay`.
+
+---
+
+## Verification Log – 2026‑03‑12 (Dev: latest paid WHOIS report)
+
+**GET `/api/dev/latest-paid-whois-report`:** Dev-only (403 in production). Optional `?reportId=X`. When omitted, uses most recent reportId from `listBlobBeautyProfilesSorted(1)`. Loads BeautyProfileV1, runs `buildPaidWhoisReport`, returns `{ reportId, profileFields: { subjectName, birthDate, birthTime, birthLocation }, paidWhoisText }`. Used to inspect real Studio Test Paid Report record and rendered paid WHOIS plain text without mocks.
+
+---
+
+## Verification Log – 2026‑03‑15 (Studio WHOIS-capable dry run)
+
+**LigsStudio:** When DRY RUN is enabled, the "Generate Report" button now calls `POST /api/beauty/dry-run` (with birthData + dryRun: true) instead of `POST /api/engine/generate`. That path saves a BeautyProfileV1 and returns a reportId usable by buildPaidWhoisReport; no image generation. When DRY RUN is off, the button still calls `POST /api/engine/generate` (report-only / live). Button hint text: "Dry run (full profile saved — WHOIS-capable)" vs "Report only (Live OpenAI)". No Stripe/webhook/email or waitlist changes. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑15 (Paid WHOIS identity persistence)
+
+**BeautyProfileV1 extended:** Optional `birthDate`, `birthTime`, `birthLocation`, `originCoordinatesDisplay` added to `lib/beauty-profile-schema.ts`. **Engine route:** When building the profile payload, `app/api/engine/route.ts` now includes `birthDate`, `birthTime`, `birthLocation` from validated request and `originCoordinatesDisplay` when `birthContext` (derivedData) has lat/lon (formatted in-place; no new APIs). **buildPaidWhoisReport:** When explicit params are omitted, reads `profile.birthDate`, `profile.birthTime`, `profile.birthLocation` and uses them for report birth fields and existing chrono resolution; uses `profile.originCoordinatesDisplay` when `birthContext` not passed. No new storage, no Stripe/webhook/send-beauty-profile contract changes, no free waitlist or free WHOIS card changes. Build passes.
 
 ---
 

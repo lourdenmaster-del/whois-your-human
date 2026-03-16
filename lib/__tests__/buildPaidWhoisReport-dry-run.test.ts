@@ -1,0 +1,221 @@
+/**
+ * Unit tests for buildPaidWhoisReport with dry-run-style data.
+ * Validates: paid WHOIS buildability for a reportId produced by dry-run,
+ * required fields on FreeWhoisReport, optional field behavior (lightSignatureDisplay, chronoImprintResolved, originCoordinatesDisplay).
+ */
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { buildPaidWhoisReport, renderFreeWhoisReport, renderFreeWhoisReportText } from "../free-whois-report";
+import { composeArchetypeOpening } from "../report-composition";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const mockGetReport = vi.fn();
+const mockLoadBeautyProfileV1 = vi.fn();
+
+vi.mock("@/lib/report-store", () => ({
+  getReport: (id: string) => mockGetReport(id),
+}));
+
+vi.mock("@/lib/beauty-profile-store", () => ({
+  loadBeautyProfileV1: (id: string, requestId: string) => mockLoadBeautyProfileV1(id, requestId),
+}));
+
+/** Minimal stored report shape returned by engine/generate dry-run path. */
+function createDryRunStoredReport(reportId: string) {
+  return {
+    full_report: `[DRY RUN] Full report placeholder.
+
+1. INITIATION
+RAW SIGNAL
+Forces at 1990-01-15 14:30 in New York.
+CUSTODIAN
+Structural pattern formed at initialization.
+ORACLE
+The identity at rest.
+
+2. SPECTRAL ORIGIN
+RAW SIGNAL
+Spectral baseline.
+CUSTODIAN
+Biological encoding.
+ORACLE
+Baseline coherence.`,
+    emotional_snippet: "[DRY RUN] Light signature at New York: a structural pattern formed by forces at initialization.",
+    image_prompts: [],
+    vector_zero: {
+      coherence_score: 0.85,
+      primary_wavelength: "580–620 nm",
+      secondary_wavelength: "450–480 nm",
+      symmetry_profile: { lateral: 0.7, vertical: 0.75, depth: 0.7 },
+      beauty_baseline: { color_family: "warm-neutral", texture_bias: "smooth", shape_bias: "balanced", motion_bias: "steady" },
+      three_voice: {
+        raw_signal: "Baseline field.",
+        custodian: "Vector Zero is the baseline.",
+        oracle: "The baseline state.",
+      },
+    },
+    createdAt: Date.now(),
+  };
+}
+
+/** Minimal BeautyProfileV1 shape produced by dry-run route (buildDryRunBeautyProfileV1). Includes birth fields so paid WHOIS can resolve solar/archetype. */
+function createDryRunProfile(reportId: string, subjectName: string) {
+  return {
+    version: "1.0" as const,
+    reportId,
+    subjectName,
+    birthDate: "1990-01-15",
+    birthTime: "14:30",
+    birthLocation: "New York, NY",
+    emotionalSnippet: "[DRY RUN] Light signature.",
+    fullReport: "[DRY RUN] Placeholder report.",
+    imageUrls: [],
+    timings: { totalMs: 0, engineMs: 0, reportFetchMs: 0, beautyFilterMs: 0 },
+    vector_zero: {
+      three_voice: { raw_signal: "—", custodian: "", oracle: "" },
+      beauty_baseline: { color_family: "", texture_bias: "", shape_bias: "", motion_bias: "" },
+    },
+    light_signature: { raw_signal: "A structural pattern formed by forces at initialization.", custodian: "", oracle: "" },
+    archetype: { raw_signal: "—", custodian: "", oracle: "" },
+    deviations: { raw_signal: "—", custodian: "", oracle: "" },
+    corrective_vector: { raw_signal: "—", custodian: "", oracle: "" },
+    imagery_prompts: { vector_zero_beauty_field: "", light_signature_aesthetic_field: "", final_beauty_field: "" },
+  };
+}
+
+describe("buildPaidWhoisReport with dry-run-style data", () => {
+  const reportId = "dry-run-whois-test-id";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetReport.mockResolvedValue(createDryRunStoredReport(reportId));
+    mockLoadBeautyProfileV1.mockResolvedValue(createDryRunProfile(reportId, "Studio Test User"));
+  });
+
+  it("runs successfully and returns a FreeWhoisReport", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report).toBeDefined();
+    expect(mockGetReport).toHaveBeenCalledWith(reportId);
+    expect(mockLoadBeautyProfileV1).toHaveBeenCalledWith(reportId, "test-request");
+  });
+
+  it("returns required fields: registryId, name, birthDate, birthTime, birthLocation, solarSignature, archetypeClassification, cosmicAnalogue", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.registryId).toBeDefined();
+    expect(typeof report.registryId).toBe("string");
+    expect(report.registryId.length).toBeGreaterThan(0);
+    expect(report.name).toBe("Studio Test User");
+    expect(report.birthDate).toBeDefined();
+    expect(report.birthTime).toBeDefined();
+    expect(report.birthLocation).toBeDefined();
+    expect(report.solarSignature).toBeDefined();
+    expect(report.archetypeClassification).toBeDefined();
+    expect(report.cosmicAnalogue).toBeDefined();
+    expect(report.registryStatus).toBe("Registered");
+    expect(report.recordAuthority).toBe("LIGS Human Identity Registry");
+    expect(report.created_at).toBeDefined();
+  });
+
+  it("omits Light Signature from paid WHOIS top block (artifact is visual, not text)", async () => {
+    mockLoadBeautyProfileV1.mockResolvedValue({
+      ...createDryRunProfile(reportId, "Light Sig Test"),
+      light_signature: { raw_signal: "Custom light signature text.", custodian: "", oracle: "" },
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.omitLightSignatureFromRecord).toBe(true);
+    expect(report.lightSignatureDisplay).toBeUndefined();
+  });
+
+  it("sets originCoordinatesDisplay from profile when no birthContext passed", async () => {
+    mockLoadBeautyProfileV1.mockResolvedValue({
+      ...createDryRunProfile(reportId, "Origin Test"),
+      originCoordinatesDisplay: "New York, 40.7128°N, 74.0060°W",
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.originCoordinatesDisplay).toBe("New York, 40.7128°N, 74.0060°W");
+  });
+
+  it("uses profile birth fields when params omitted (dry-run profile with birth fields)", async () => {
+    mockLoadBeautyProfileV1.mockResolvedValue({
+      ...createDryRunProfile(reportId, "Birth Fields Test"),
+      birthDate: "1990-01-15",
+      birthTime: "14:30",
+      birthLocation: "New York, NY",
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.birthDate).toBe("1990-01-15");
+    expect(report.birthTime).toBe("14:30");
+    expect(report.birthLocation).toBe("New York, NY");
+  });
+
+  it("throws PAID_WHOIS_REPORT_NOT_FOUND when getReport returns undefined", async () => {
+    mockGetReport.mockResolvedValue(undefined);
+    await expect(buildPaidWhoisReport({ reportId, requestId: "test-request" })).rejects.toThrow("PAID_WHOIS_REPORT_NOT_FOUND");
+  });
+
+  it("includes vectorZeroAddendumBody when stored report has vector_zero.three_voice", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.vectorZeroAddendumBody).toBeDefined();
+    expect(report.vectorZeroAddendumBody).toContain("Baseline field.");
+  });
+
+  it("hydrates Magnetic/Climate/Sensory and FIELD CONDITIONS from storedReport when persisted by engine/generate", async () => {
+    mockGetReport.mockResolvedValue({
+      ...createDryRunStoredReport(reportId),
+      field_conditions_context: {
+        sunAltitudeDeg: 25,
+        sunAzimuthDeg: 210,
+        sunriseLocal: "1990-01-15T07:15:00.000-05:00",
+        sunsetLocal: "1990-01-15T17:00:00.000-05:00",
+        dayLengthMinutes: 585,
+        moonPhaseName: "Waning Gibbous",
+        moonIlluminationFrac: 0.8,
+        moonAltitudeDeg: 45,
+        moonAzimuthDeg: 120,
+        sunLonDeg: 295,
+        solarDeclinationDeg: -20,
+        solarPolarity: "waning",
+        anchorType: "none",
+      },
+      magneticFieldIndexDisplay: "K-index 3 (moderate)",
+      climateSignatureDisplay: "Mild winter conditions",
+      sensoryFieldConditionsDisplay: "Daylight; cool air; partly cloudy",
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.magneticFieldIndexDisplay).toBe("K-index 3 (moderate)");
+    expect(report.climateSignatureDisplay).toBe("Mild winter conditions");
+    expect(report.sensoryFieldConditionsDisplay).toBe("Daylight; cool air; partly cloudy");
+    expect(report.fieldConditionsBody).toBeDefined();
+    expect(report.fieldConditionsBody).toContain("Sun altitude 25°");
+    expect(report.fieldConditionsBody).toContain("Sunrise");
+    expect(report.fieldConditionsBody).toContain("Sunset");
+    expect(report.fieldConditionsBody).toContain("Day length 585 min");
+    expect(report.fieldConditionsBody).toContain("Moon phase Waning Gibbous");
+    expect(report.fieldConditionsBody).toMatch(/Solar longitude \d+°/);
+    expect(report.fieldConditionsBody).toMatch(/Anchor type: \w+/);
+  });
+
+  it("Identity Architecture uses humanExpression without duplicate article (as The Architect not as the The Architect)", () => {
+    const lines = composeArchetypeOpening({ dominantArchetype: "Structoris" });
+    const sentence = lines[0] ?? "";
+    expect(sentence).toContain("The Architect");
+    expect(sentence).not.toMatch(/as the The\s/);
+    expect(sentence).toMatch(/operates as The Architect within the STRUCTORIS structural regime/);
+  });
+
+  it("renders paid WHOIS report as HTML and text (output for email/viewer)", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    const html = renderFreeWhoisReport(report);
+    const text = renderFreeWhoisReportText(report);
+    const outDir = join(process.cwd(), "tmp-whois-render");
+    try {
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(outDir, { recursive: true });
+    } catch {
+      // ignore
+    }
+    writeFileSync(join(outDir, "paid-whois-report.html"), html, "utf8");
+    writeFileSync(join(outDir, "paid-whois-report.txt"), text, "utf8");
+  });
+});

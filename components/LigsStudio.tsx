@@ -665,7 +665,8 @@ export default function LigsStudio() {
 
   const [reportOnlyLoading, setReportOnlyLoading] = useState(false);
   const [reportOnlyError, setReportOnlyError] = useState<string | null>(null);
-  const [reportOnlyResult, setReportOnlyResult] = useState<{ full_report: string; reportId?: string; emotional_snippet?: string } | null>(null);
+  const [reportOnlyResult, setReportOnlyResult] = useState<{ full_report: string; reportId?: string; emotional_snippet?: string; paidWhoisText?: string } | null>(null);
+  const [reportOnlyDebugOpen, setReportOnlyDebugOpen] = useState(false);
 
   const [lastReportId, setLastReportId] = useState<string | null>(null);
   const [lastResultProfile, setLastResultProfile] = useState<Record<string, unknown> | null>(null);
@@ -1664,31 +1665,94 @@ export default function LigsStudio() {
     setReportOnlyError(null);
     setReportOnlyResult(null);
     try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (!effectiveDryRun) headers["X-Force-Live"] = "1";
-      const res = await fetch(`${getBaseUrl()}/api/engine/generate`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          fullName: liveFullName,
-          birthDate: liveBirthDate,
-          birthTime: liveBirthTime,
-          birthLocation: liveBirthLocation,
-          email: "dev@example.com",
-          dryRun: effectiveDryRun,
-          idempotencyKey: effectiveDryRun ? undefined : crypto.randomUUID(),
-        }),
-      });
-      const data = (await res.json()) as Record<string, unknown>;
-      if (!res.ok) {
-        setReportOnlyError((data.error ?? data.message ?? "Request failed") as string);
-        return;
+      if (effectiveDryRun) {
+        // WHOIS-capable dry run: saves BeautyProfileV1, no images, reportId works with buildPaidWhoisReport
+        const res = await fetch(`${getBaseUrl()}/api/beauty/dry-run`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            birthData: {
+              fullName: liveFullName,
+              birthDate: liveBirthDate,
+              birthTime: liveBirthTime,
+              birthLocation: liveBirthLocation,
+              email: "dev@example.com",
+            },
+            dryRun: true,
+          }),
+        });
+        const json = (await res.json()) as Record<string, unknown> & {
+          data?: { reportId?: string; beautyProfile?: { report?: string; emotionalSnippet?: string }; checkout?: { url?: string } };
+        };
+        if (!res.ok) {
+          setReportOnlyError((json.error ?? json.message ?? "Dry-run failed") as string);
+          return;
+        }
+        const data = json.data ?? json;
+        const reportId = data.reportId as string | undefined;
+        const beautyProfile = data.beautyProfile as { report?: string; emotionalSnippet?: string } | undefined;
+        const full_report = (beautyProfile?.report ?? "") as string;
+        const emotional_snippet = (beautyProfile?.emotionalSnippet ?? "") as string;
+        setReportOnlyResult({ full_report, reportId, emotional_snippet });
+        if (reportId) setLastReportId(reportId);
+        // Fetch rendered paid WHOIS for primary display (operator testing)
+        if (reportId) {
+          try {
+            const whoisRes = await fetch(`${getBaseUrl()}/api/dev/latest-paid-whois-report?reportId=${encodeURIComponent(reportId)}`);
+            if (whoisRes.ok) {
+              const whoisData = (await whoisRes.json()) as { paidWhoisText?: string };
+              const paidWhoisText = whoisData.paidWhoisText as string | undefined;
+              if (paidWhoisText) {
+                setReportOnlyResult((prev) => (prev && prev.reportId === reportId ? { ...prev, paidWhoisText } : prev));
+              }
+            }
+          } catch {
+            // Keep primary as full_report if fetch fails
+          }
+        }
+      } else {
+        // Report-only (live or force-live): engine/generate only, no BeautyProfileV1
+        const headers: Record<string, string> = { "Content-Type": "application/json", "X-Force-Live": "1" };
+        const res = await fetch(`${getBaseUrl()}/api/engine/generate`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            fullName: liveFullName,
+            birthDate: liveBirthDate,
+            birthTime: liveBirthTime,
+            birthLocation: liveBirthLocation,
+            email: "dev@example.com",
+            dryRun: false,
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        });
+        const data = (await res.json()) as Record<string, unknown>;
+        if (!res.ok) {
+          setReportOnlyError((data.error ?? data.message ?? "Request failed") as string);
+          return;
+        }
+        const payload = (data.data ?? data) as Record<string, unknown>;
+        const full_report = (payload.full_report ?? "") as string;
+        const reportId = (payload.reportId ?? data.reportId) as string | undefined;
+        const emotional_snippet = (payload.emotional_snippet ?? "") as string;
+        setReportOnlyResult({ full_report, reportId, emotional_snippet });
+        if (reportId) setLastReportId(reportId);
+        // In dev, fetch built WHOIS from stored report so the same panel shows paid WHOIS for both Test and Live
+        if (reportId) {
+          try {
+            const whoisRes = await fetch(`${getBaseUrl()}/api/dev/latest-paid-whois-report?reportId=${encodeURIComponent(reportId)}`);
+            if (whoisRes.ok) {
+              const whoisData = (await whoisRes.json()) as { paidWhoisText?: string };
+              const paidWhoisText = whoisData.paidWhoisText as string | undefined;
+              if (paidWhoisText) {
+                setReportOnlyResult((prev) => (prev && prev.reportId === reportId ? { ...prev, paidWhoisText } : prev));
+              }
+            }
+          } catch {
+            // Keep full_report if fetch fails (e.g. prod where dev endpoint is 403)
+          }
+        }
       }
-      const payload = (data.data ?? data) as Record<string, unknown>;
-      const full_report = (payload.full_report ?? "") as string;
-      const reportId = (payload.reportId ?? data.reportId) as string | undefined;
-      const emotional_snippet = (payload.emotional_snippet ?? "") as string;
-      setReportOnlyResult({ full_report, reportId, emotional_snippet });
     } catch (e) {
       setReportOnlyError(e instanceof Error ? e.message : "Request failed");
     } finally {
@@ -1778,104 +1842,109 @@ export default function LigsStudio() {
 
   const canSaveMarketingBackground = !!backgroundDisplayUrl;
 
-  const shell = "min-h-screen bg-[#0a0a0b] text-[#c8c8cc] p-4 md:p-6 text-sm font-mono max-w-[1200px]";
-  /* Phase identity: label + optional subline — stronger than inner panel chrome */
+  const shell = "min-h-screen bg-[#141418] text-[#d4d4da] p-5 md:p-8 text-base max-w-[1200px] font-sans";
+  /* Phase identity: label + optional subline — readable for zero-tech operator */
   const phaseBand = (n: string, title: string, sub: string) => (
-    <div className="mb-4 pl-3 border-l-2 border-[#4a4a52]">
-      <p className="text-[11px] uppercase tracking-[0.2em] text-[#9a9aa0] font-medium">{n} — {title}</p>
-      <p className="text-[10px] text-[#6a6a70] mt-0.5">{sub}</p>
+    <div className="mb-5 pl-4 border-l-4 border-[#5a5a64]">
+      <p className="text-sm uppercase tracking-wider text-[#b0b0b8] font-semibold">{n} — {title}</p>
+      <p className="text-sm text-[#90909a] mt-1 leading-relaxed">{sub}</p>
     </div>
   );
-  const panel = "mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#e8e8ec]";
-  const panelSubtle = "mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0a0a0c] text-[#b8b8c0]";
+  const panel = "mb-5 p-5 rounded-lg border border-[#2e2e34] bg-[#1a1a20] text-[#e0e0e8]";
+  const panelSubtle = "mb-5 p-4 rounded-lg border border-[#2e2e34] bg-[#16161a] text-[#c0c0c8]";
 
   return (
     <div className={shell}>
       {/* 00 — STUDIO HEADER (command header, not tutorial card) */}
-      <header className="mb-5 pb-3 border-b border-[#2a2a2e]">
-        {phaseBand("00", "Studio header", "Command context — all sections below remain available.")}
-        <h1 className="text-base font-medium mb-0.5 text-[#e8e8ec]">LIGS Studio</h1>
-        <p className="text-[10px] text-[#6a6a70] mb-3">Launch control · preflight → registry → flight → telemetry</p>
+      <header className="mb-8 pb-5 border-b border-[#2e2e34]">
+        {phaseBand("00", "Studio", "All sections below: system check, people, run a test, results.")}
+        <h1 className="text-xl font-semibold mb-1 text-[#e8e8ec]">LIGS Studio</h1>
+        <p className="text-sm text-[#90909a] mb-4">System Check → People Entering the System → Run a Test → Results</p>
         <div className={panelSubtle}>
-        <p className="text-[10px] font-semibold text-[#8a8a90] uppercase tracking-widest mb-2">How to drive</p>
-        <ol className="text-xs text-[#b0b0b8] space-y-1 list-decimal list-inside leading-relaxed">
+        <p className="text-sm font-semibold text-[#a8a8b0] mb-2">How to use</p>
+        <ol className="text-sm text-[#c0c0c8] space-y-2 list-decimal list-inside leading-relaxed">
           <li><strong>Generate Background</strong> — DALL·E 3 creates the field (for Ignis: center void + radiating energy)</li>
           <li><strong>Compose Marketing Card</strong> — Adds archetype image anchor + headline/subhead/CTA over the background</li>
           <li><strong>Save</strong> — Exemplar Card (landing), Share Card, or Marketing Background</li>
         </ol>
-        <p className="text-xs text-[#9a9aa0] mt-2">
-          <strong className="text-[#c8c8cc]">Where do I add archetype visual?</strong> For Ignispectrum, the archetype image is added automatically in Compose. Set <code className="bg-[#1a1a1e] px-1 rounded text-[#c8c8cc]">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses <code className="bg-[#1a1a1e] px-1 rounded text-[#c8c8cc]">public/arc-static-images/ignispectrum-static1.png</code> and places it in the center void. No manual step.
+        <p className="text-sm text-[#b0b0b8] mt-3">
+          <strong className="text-[#d0d0d8]">Where do I add archetype visual?</strong> For Ignispectrum, the archetype image is added automatically in Compose. Set <code className="bg-[#25252c] px-1.5 py-0.5 rounded text-[#c8c8cc] text-sm">primary_archetype: &quot;Ignispectrum&quot;</code> in VoiceProfile; the compose step uses the Ignispectrum static image and places it in the center. No manual step.
         </p>
         </div>
       </header>
 
-      {/* 01 — PRE-FLIGHT */}
-      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Pre-flight">
-        {phaseBand("01", "Pre-flight", "Can the system run right now? Readiness + env flags.")}
-      <div className="mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-2 text-[#c8c8cc]">
-        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Warning Lights</p>
-        <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-[#c8c8cc]">
+      {/* 01 — SYSTEM CHECK */}
+      <section className="mb-8 pb-8 border-b border-[#2e2e34]" aria-label="System Check">
+        {phaseBand("01", "System Check", "Can the system run right now? Readiness and status.")}
+      <div className="mb-5 p-4 rounded-lg border border-[#2e2e34] bg-[#1a1a20] space-y-3 text-[#d0d0d8]">
+        <p className="text-sm font-semibold text-[#a8a8b0]">Report mode</p>
+        <label className="flex items-center gap-3 cursor-pointer text-base font-medium text-[#e0e0e8]">
           <input
             type="checkbox"
             checked={forceDryRun}
             onChange={(e) => setForceDryRun(e.target.checked)}
           />
-          Dry Run Mode (no API calls)
+          Test mode (safe, no image cost)
         </label>
-        <div className="flex flex-wrap gap-3 text-xs">
+        <p className="text-sm text-[#a0a0a8] leading-relaxed">
+          {effectiveDryRun
+            ? "Test mode makes a safe practice report for checking the paid WHOIS flow."
+            : "Live mode uses the real report engine."}
+        </p>
+        <div className="flex flex-wrap gap-3 text-sm">
           <span
             className={
               effectiveDryRun
-                ? "px-2 py-1 rounded bg-amber-100 text-amber-800 font-medium"
+                ? "px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-medium"
                 : status?.allowExternalWrites
-                  ? "px-2 py-1 rounded bg-red-100 text-red-800 font-medium"
-                  : "px-2 py-1 rounded bg-amber-100 text-amber-800 font-medium"
+                  ? "px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-medium"
+                  : "px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-medium"
             }
           >
-            Mode: {effectiveDryRun ? "DRY RUN (safe — no requests)" : status?.allowExternalWrites ? "LIVE (requests enabled)" : "LIVE disabled by server config"}
+            {effectiveDryRun ? "Test Paid Report (safe / no image cost)" : status?.allowExternalWrites ? "Live Report (uses real AI)" : "Live mode is off (server setting)"}
           </span>
           {!effectiveDryRun && !status?.allowExternalWrites && (
-            <span className="block w-full mt-1 text-amber-800">
-              → Set <code className="bg-amber-100 px-1 rounded">ALLOW_EXTERNAL_WRITES=true</code> in .env.local and restart.
+            <span className="block w-full mt-2 text-sm text-amber-800">
+              To turn live mode on, your server must allow it. Ask your developer to enable live reports.
             </span>
           )}
-          <span className="text-[#8a8a90]">
+          <span className="text-[#a0a0a8]">
             Provider: {status?.provider ? `DALL·E ${status.provider.replace("dall-e-", "")}` : "—"}
           </span>
           <span
             className={
               status?.logoConfigured
-                ? "px-2 py-1 rounded bg-green-100 text-green-800"
+                ? "px-3 py-1.5 rounded-lg bg-green-100 text-green-800 text-sm"
                 : status?.logoFallbackAvailable
-                  ? "px-2 py-1 rounded bg-yellow-100 text-yellow-800"
-                  : "px-2 py-1 rounded bg-amber-100 text-amber-800"
+                  ? "px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-800 text-sm"
+                  : "px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 text-sm"
             }
           >
             Logo: {status ? (status.logoConfigured ? "OK" : "missing") : "—"}
           </span>
-          <span className="text-[#8a8a90]">
+          <span className="text-[#a0a0a8]">
             Cache: {lastCacheHit === true ? "hit" : lastCacheHit === false ? "miss" : "—"}
           </span>
-          <span className="text-[#8a8a90] font-mono">Request: {lastRequestId || "—"}</span>
+          <span className="text-[#a0a0a8] font-mono text-sm">Request: {lastRequestId || "—"}</span>
           {lastGenerateDebug && (
-            <span className="text-xs font-mono text-[#9a9aa0] block sm:inline" title="Last Generate Background response">
-              Last: purpose={String(lastGenerateDebug.purpose ?? "—")} provider={String(lastGenerateDebug.providerUsed ?? "—")} glyphBranch={String(lastGenerateDebug.glyphBranchUsed ?? "—")} mode={lastGenerateDebug.dryRun ? "dry" : "live"}
+            <span className="text-sm font-mono text-[#90909a] block sm:inline" title="Last Generate Background response">
+              Last: purpose={String(lastGenerateDebug.purpose ?? "—")} provider={String(lastGenerateDebug.providerUsed ?? "—")} glyphBranch={String(lastGenerateDebug.glyphBranchUsed ?? "—")} mode={lastGenerateDebug.dryRun ? "test" : "live"}
             </span>
           )}
           {lastError && (
-            <span className="px-2 py-1 rounded bg-red-50 text-red-700 truncate max-w-xs" title={lastError}>
+            <span className="px-3 py-1.5 rounded-lg bg-red-50 text-red-700 text-sm truncate max-w-xs" title={lastError}>
               Error: {lastError}
             </span>
           )}
         </div>
       </div>
-      <div className="mb-4 p-3 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-1 text-[#c8c8cc]">
-        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Pipeline status (paid / delivery)</p>
+      <div className="mb-5 p-4 rounded-lg border border-[#2e2e34] bg-[#1a1a20] space-y-2 text-[#d0d0d8]">
+        <p className="text-sm font-semibold text-[#a8a8b0]">Pipeline status (paid reports and delivery)</p>
         {pipelineStatusError && (
-          <p className="text-xs text-amber-600">{pipelineStatusError}</p>
+          <p className="text-sm text-amber-600">{pipelineStatusError}</p>
         )}
         {pipelineStatus && !pipelineStatusError && (
-          <ul className="text-xs text-[#c8c8cc] font-mono space-y-0.5 list-none">
+          <ul className="text-sm text-[#c8c8cc] font-mono space-y-1 list-none">
             <li>LIGS_API_OFF: {pipelineStatus.ligsApiOff ? "on" : "off"}</li>
             <li>WAITLIST_ONLY: {pipelineStatus.waitlistOnly ? "on" : "off"}</li>
             <li>Stripe configured: {pipelineStatus.stripeConfigured ? "yes" : "no"}</li>
@@ -1890,11 +1959,11 @@ export default function LigsStudio() {
       </div>
       </section>
 
-      {/* 02 — REGISTRY / INTAKE */}
-      <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Registry">
-        {phaseBand("02", "Registry / intake", "What is entering the system? Waitlist + metrics + recent entries.")}
-      <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
-        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Waitlist Registry (Internal)</p>
+      {/* 02 — PEOPLE ENTERING THE SYSTEM */}
+      <section className="mb-8 pb-8 border-b border-[#2e2e34]" aria-label="People">
+        {phaseBand("02", "People Entering the System", "Waitlist, metrics, and recent entries.")}
+      <div className="mb-5 p-5 rounded-lg border border-[#2e2e34] bg-[#1a1a20] text-[#d0d0d8]">
+        <p className="text-sm font-semibold text-[#a8a8b0] mb-4">Waitlist (internal)</p>
         {waitlistLoading && <p className="text-sm text-[#8a8a90]">Loading…</p>}
         {waitlistError && <p className="text-sm text-red-400 mb-2">{waitlistError}</p>}
         {waitlistData && !waitlistLoading && (
@@ -2018,7 +2087,7 @@ export default function LigsStudio() {
 
       {/* 03–05 — Operator console (flight → telemetry → engine notes; DOM order preserved) */}
       <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Operator console">
-        {phaseBand("03–05", "Operator console", "Flight controls, telemetry, engine notes — scroll for Report Only, DRY/LIVE controls, Results, LatestRunOutputPanel, VoiceProfile grid.")}
+        {phaseBand("03–05", "Run a Test", "Report test, live controls, results, and reference — scroll for Test Paid Report, Live Report, Results, VoiceProfile grid.")}
       {lastGenerateDebug && !effectiveDryRun && (
         <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc]">
           <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide mb-3">Last Response Debug (Generate)</p>
@@ -2079,96 +2148,122 @@ export default function LigsStudio() {
           <p className="text-sm font-semibold">PROOF ONLY: All live calls blocked. No DALL·E, no background generation, no compose API. Use &quot;Render Proof Card (FREE)&quot; to verify archetype image + overlay locally.</p>
         </div>
       )}
-      {phaseBand("03", "Flight controls", "What can I run — report-only and run triggers below.")}
-      <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-3 text-[#c8c8cc]">
-        <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Report Only (no images)</p>
-        <p className="text-xs text-[#8a8a90]">Generate a full field-resolution report. Stops at report text; no DALL·E or compose.</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {phaseBand("03", "Run a Test", "Generate a report. Use Test Paid Report to check the WHOIS report without image cost.")}
+      <div className="mb-5 p-5 rounded-lg border border-[#2e2e34] bg-[#1a1a20] space-y-4 text-[#d0d0d8]">
+        <p className="text-base font-semibold text-[#e0e0e8]">Paid report test (recommended)</p>
+        <p className="text-sm text-[#a8a8b0]">Use Test Paid Report to check the WHOIS report without image cost.</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
-            <label className="block text-gray-600 text-xs mb-0.5">fullName</label>
+            <label className="block text-[#b0b0b8] text-sm font-medium mb-1">Full name</label>
             <input
               type="text"
-              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              className="w-full p-2.5 text-sm rounded-lg bg-[#25252c] border border-[#3a3a42] text-[#e8e8ec] placeholder-[#707078]"
               value={liveFullName}
               onChange={(e) => setLiveFullName(e.target.value)}
               placeholder="Full name"
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-xs mb-0.5">birthDate</label>
+            <label className="block text-[#b0b0b8] text-sm font-medium mb-1">Birth date</label>
             <input
               type="text"
-              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              className="w-full p-2.5 text-sm rounded-lg bg-[#25252c] border border-[#3a3a42] text-[#e8e8ec] placeholder-[#707078]"
               value={liveBirthDate}
               onChange={(e) => setLiveBirthDate(e.target.value)}
               placeholder="YYYY-MM-DD"
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-xs mb-0.5">birthTime</label>
+            <label className="block text-[#b0b0b8] text-sm font-medium mb-1">Birth time</label>
             <input
               type="text"
-              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              className="w-full p-2.5 text-sm rounded-lg bg-[#25252c] border border-[#3a3a42] text-[#e8e8ec] placeholder-[#707078]"
               value={liveBirthTime}
               onChange={(e) => setLiveBirthTime(e.target.value)}
               placeholder="HH:MM"
             />
           </div>
           <div>
-            <label className="block text-gray-600 text-xs mb-0.5">birthLocation</label>
+            <label className="block text-[#b0b0b8] text-sm font-medium mb-1">Birth location</label>
             <input
               type="text"
-              className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+              className="w-full p-2.5 text-sm rounded-lg bg-[#25252c] border border-[#3a3a42] text-[#e8e8ec] placeholder-[#707078]"
               value={liveBirthLocation}
               onChange={(e) => setLiveBirthLocation(e.target.value)}
               placeholder="City, State"
             />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             type="button"
-            className="px-3 py-2 rounded bg-teal-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700"
+            className="px-4 py-2.5 rounded-lg bg-teal-600 text-white text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-700"
             disabled={reportOnlyLoading || apiDisabled}
             onClick={runReportOnly}
           >
-            {reportOnlyLoading ? "Generating…" : "Generate Report"}
+            {reportOnlyLoading ? "Generating…" : effectiveDryRun ? "Test Paid Report (safe / no image cost)" : "Live Report (uses real AI)"}
           </button>
-          <span className="text-xs text-teal-800">
-            {effectiveDryRun ? "Dry run (mock report)" : "Live (OpenAI)"}
+          <span className="text-sm text-[#a0a0a8]">
+            {effectiveDryRun ? "Safe practice report — no image cost. Use this to check the paid WHOIS flow." : "Uses the real report engine and may incur cost."}
           </span>
         </div>
         {reportOnlyError && (
           <p className="text-red-600 text-sm">{reportOnlyError}</p>
         )}
         {reportOnlyResult && (
-          <div className="mt-3 p-3 rounded border border-teal-200 bg-white">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-teal-800">Full Report</p>
-              <div className="flex gap-2">
+          <div className="mt-4 p-4 rounded-lg border border-teal-200 bg-[#1e2428]">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-[#e0e0e8]">
+                {effectiveDryRun && reportOnlyResult.paidWhoisText ? "Paid WHOIS report" : "Report result"}
+              </p>
+              <div className="flex gap-2 items-center">
                 {reportOnlyResult.reportId && (
-                  <span className="text-xs text-gray-500">reportId: {reportOnlyResult.reportId}</span>
+                  <span className="text-sm text-[#a0a0a8]">ID: {reportOnlyResult.reportId}</span>
                 )}
                 <button
                   type="button"
-                  className="px-2 py-1 text-xs rounded bg-teal-100 text-teal-800 hover:bg-teal-200"
-                  onClick={() => copyToClipboard(reportOnlyResult.full_report)}
+                  className="px-3 py-1.5 text-sm rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+                  onClick={() => copyToClipboard(reportOnlyResult.paidWhoisText ?? reportOnlyResult.full_report)}
                 >
-                  Copy
+                  Copy report
                 </button>
               </div>
             </div>
-            <pre className="text-xs font-mono text-black overflow-auto max-h-96 p-3 rounded bg-gray-50 border border-gray-200 whitespace-pre-wrap">
-              {reportOnlyResult.full_report}
+            <p className="text-xs font-mono text-[#90909a] mb-2">
+              Path: {effectiveDryRun
+                ? "POST /api/beauty/dry-run → /api/engine/generate (dryRun: true)"
+                : "POST /api/engine/generate (dryRun: false)"}
+            </p>
+            {reportOnlyResult.paidWhoisText && (
+              <p className="text-xs text-[#90909a] mb-2">Rendered from stored report (buildPaidWhoisReport).</p>
+            )}
+            <pre className="text-sm font-mono text-[#d0d0d8] overflow-auto max-h-96 p-4 rounded-lg bg-[#25252c] border border-[#3a3a42] whitespace-pre-wrap leading-relaxed">
+              {effectiveDryRun && reportOnlyResult.paidWhoisText ? reportOnlyResult.paidWhoisText : reportOnlyResult.full_report}
             </pre>
+            {effectiveDryRun && reportOnlyResult.paidWhoisText && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  className="text-xs text-[#a0a0a8] hover:text-[#d0d0d8] underline"
+                  onClick={() => setReportOnlyDebugOpen((o) => !o)}
+                >
+                  {reportOnlyDebugOpen ? "▼" : "▶"} Debug: raw engine report
+                </button>
+                {reportOnlyDebugOpen && (
+                  <pre className="mt-2 text-xs font-mono text-[#a0a0a8] overflow-auto max-h-64 p-3 rounded-lg bg-[#25252c] border border-[#3a3a42] whitespace-pre-wrap leading-relaxed">
+                    {reportOnlyResult.full_report}
+                  </pre>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
       {(effectiveDryRun || PROOF_ONLY) && (
         <>
-        {phaseBand("05", "Engine notes / reference", "Glyph source-of-truth audit — internal rules and asset checks.")}
-        <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] text-[#c8c8cc] space-y-3">
-          <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">GLYPH SOURCE OF TRUTH AUDIT</p>
+        {phaseBand("05", "Reference", "Glyph and asset checks — internal rules.")}
+      <div className="mb-5 p-5 rounded-lg border border-[#2e2e34] bg-[#1a1a20] text-[#d0d0d8] space-y-3">
+        <p className="text-sm font-semibold text-[#a8a8b0]">Glyph reference</p>
           <p className="text-xs text-slate-700">Candidate files: <code className="bg-slate-200 px-1 rounded">public/glyphs/ignis.svg</code> (canonical), <code className="bg-slate-200 px-1 rounded">public/icons/ignis_icon.svg</code> (UI icon)</p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -2332,7 +2427,7 @@ export default function LigsStudio() {
               className="w-full px-4 py-2 text-left text-sm font-semibold text-violet-800 hover:bg-violet-100 flex items-center gap-2"
               onClick={() => setDryRunPreviewOpen((o) => !o)}
             >
-              {dryRunPreviewOpen ? "▼" : "▶"} Dry Run Preview{dryRunPreview ? `: ${dryRunPreview.action}` : ""}
+              {dryRunPreviewOpen ? "▼" : "▶"} Test Report Preview{dryRunPreview ? `: ${dryRunPreview.action}` : ""}
             </button>
             {dryRunPreviewOpen && (
               <div className="p-4 bg-white border-t border-violet-200 space-y-3">
@@ -2356,14 +2451,14 @@ export default function LigsStudio() {
                     </pre>
                   </>
                 ) : (
-                  <p className="text-sm text-gray-600">Click a Simulate button to preview the request payload.</p>
+                  <p className="text-sm text-gray-600">Click a test button to preview the request.</p>
                 )}
               </div>
             )}
           </div>
           <div className="mb-4 rounded border-2 border-amber-200 bg-amber-50 overflow-hidden">
-            <p className="px-4 py-2 text-xs font-semibold text-amber-900 uppercase tracking-wide border-b border-amber-200 bg-amber-100">
-              DRY RUN RESULTS
+            <p className="px-4 py-2 text-sm font-semibold text-amber-900 border-b border-amber-200 bg-amber-100">
+              Test Results
             </p>
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -2580,76 +2675,77 @@ export default function LigsStudio() {
       ) : (
         <>
           {status?.allowExternalWrites ? (
-            <div className="mb-4 p-3 rounded border-2 border-green-300 bg-green-50 text-green-800">
-              <p className="text-sm font-semibold">LIVE: API calls enabled</p>
+            <div className="mb-5 p-4 rounded-lg border-2 border-green-300 bg-green-50 text-green-800">
+              <p className="text-base font-semibold">Live mode is on — real report engine is available</p>
             </div>
           ) : (
-            <div className="mb-4 p-3 rounded border-2 border-amber-400 bg-amber-100 text-amber-900">
-              <p className="text-sm font-semibold">LIVE disabled by server config</p>
+            <div className="mb-5 p-4 rounded-lg border-2 border-amber-400 bg-amber-100 text-amber-900">
+              <p className="text-base font-semibold">Live mode is off (server setting)</p>
+              <p className="text-sm mt-1">To run live reports, your developer must enable live mode on the server.</p>
             </div>
           )}
-          <div className="mb-4 p-4 rounded border-2 border-amber-300 bg-amber-50 space-y-3">
-            <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">LIVE CONTROLS</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="mb-5 p-5 rounded-lg border-2 border-amber-300 bg-amber-50 space-y-4">
+            <p className="text-sm font-semibold text-amber-800">Live report (real AI)</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
-                <label className="block text-gray-600 text-xs mb-0.5">fullName</label>
+                <label className="block text-gray-600 text-sm font-medium mb-1">Full name</label>
                 <input
                   type="text"
-                  className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+                  className="w-full p-2.5 text-sm rounded-lg bg-white border border-gray-300 text-black"
                   value={liveFullName}
                   onChange={(e) => setLiveFullName(e.target.value)}
                   placeholder="Full name"
                 />
               </div>
               <div>
-                <label className="block text-gray-600 text-xs mb-0.5">birthDate</label>
+                <label className="block text-gray-600 text-sm font-medium mb-1">Birth date</label>
                 <input
                   type="text"
-                  className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+                  className="w-full p-2.5 text-sm rounded-lg bg-white border border-gray-300 text-black"
                   value={liveBirthDate}
                   onChange={(e) => setLiveBirthDate(e.target.value)}
                   placeholder="YYYY-MM-DD"
                 />
               </div>
               <div>
-                <label className="block text-gray-600 text-xs mb-0.5">birthTime</label>
+                <label className="block text-gray-600 text-sm font-medium mb-1">Birth time</label>
                 <input
                   type="text"
-                  className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+                  className="w-full p-2.5 text-sm rounded-lg bg-white border border-gray-300 text-black"
                   value={liveBirthTime}
                   onChange={(e) => setLiveBirthTime(e.target.value)}
                   placeholder="HH:MM"
                 />
               </div>
               <div>
-                <label className="block text-gray-600 text-xs mb-0.5">birthLocation</label>
+                <label className="block text-gray-600 text-sm font-medium mb-1">Birth location</label>
                 <input
                   type="text"
-                  className="w-full p-2 text-xs rounded bg-white border border-gray-300 text-black"
+                  className="w-full p-2.5 text-sm rounded-lg bg-white border border-gray-300 text-black"
                   value={liveBirthLocation}
                   onChange={(e) => setLiveBirthLocation(e.target.value)}
                   placeholder="City, State"
                 />
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                className="px-3 py-2 rounded bg-amber-600 text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2.5 rounded-lg bg-amber-600 text-white text-base font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-700"
                 disabled={liveOnceLoading}
                 onClick={runLiveOnce}
               >
-                {liveOnceLoading ? "Running…" : "Run LIVE ONCE"}
+                {liveOnceLoading ? "Running…" : "Run live report once"}
               </button>
-              <span className="text-xs text-amber-800">Dev-only. 1 request per server restart.</span>
+              <span className="text-sm text-amber-800">One live run per server restart. For developers.</span>
             </div>
             {liveOnceError && (
               <p className="text-red-600 text-xs">{liveOnceError}</p>
             )}
           </div>
-          {phaseBand("04", "Results / telemetry", "What just happened — viewer links, artifacts, manifest, overlay spec.")}
-          <div className="mb-4 p-4 rounded border border-[#2a2a2e] bg-[#0d0d0f] space-y-3 text-[#c8c8cc]">
-            <p className="text-xs font-semibold text-[#9a9aa0] uppercase tracking-wide">Results</p>
+          {phaseBand("04", "Results", "What just happened — viewer links, artifacts, manifest.")}
+          <div className="mb-5 p-5 rounded-lg border border-[#2e2e34] bg-[#1a1a20] space-y-3 text-[#d0d0d8]">
+            <p className="text-sm font-semibold text-[#a8a8b0]">Results</p>
             {!lastReportId && !imageResult && !composeResult ? (
               <p className="text-sm text-gray-500">No results yet.</p>
             ) : (
@@ -3013,7 +3109,7 @@ export default function LigsStudio() {
                   </div>
                 ) : (imageResult.dryRun || !(imageResult.images as unknown[])?.length) ? (
                   <p className="text-sm text-amber-800">
-                    No image — server returned dry run or empty. Set <code className="bg-amber-100 px-1">ALLOW_EXTERNAL_WRITES=true</code> in .env.local and restart.
+                    No image — test mode or empty response. To see real images, turn on live mode (ask your developer to enable it on the server).
                   </p>
                 ) : (
                   <p className="text-sm text-gray-600">Image loading…</p>

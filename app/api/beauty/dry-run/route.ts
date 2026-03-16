@@ -29,13 +29,17 @@ function buildDryRunBeautyProfileV1(
   reportId: string,
   subjectName: string,
   emotionalSnippet: string,
-  fullReport: string
+  fullReport: string,
+  birthFields: { birthDate?: string; birthTime?: string; birthLocation?: string }
 ): BeautyProfileV1 {
   const threeVoice = (s: string) => ({ raw_signal: s, custodian: "", oracle: "" });
   return {
     version: "1.0",
     reportId,
     subjectName,
+    ...(birthFields.birthDate != null && birthFields.birthDate !== "" && { birthDate: birthFields.birthDate }),
+    ...(birthFields.birthTime != null && birthFields.birthTime !== "" && { birthTime: birthFields.birthTime }),
+    ...(birthFields.birthLocation != null && birthFields.birthLocation !== "" && { birthLocation: birthFields.birthLocation }),
     emotionalSnippet,
     fullReport: fullReport || "[DRY_RUN] Placeholder report.",
     imageUrls: [PLACEHOLDER_SVG, PLACEHOLDER_SVG, PLACEHOLDER_SVG],
@@ -141,7 +145,11 @@ export async function POST(request: Request) {
 
     const subjectName = fullName || "Anonymous";
     const snippet = emotionalSnippet || "A structural pattern formed by forces at initialization — the Light Signature reveals coherence.";
-    const profile = buildDryRunBeautyProfileV1(reportId, subjectName, snippet, fullReport);
+    const profile = buildDryRunBeautyProfileV1(reportId, subjectName, snippet, fullReport, {
+      birthDate: birthDate ?? undefined,
+      birthTime: birthTime ?? undefined,
+      birthLocation: birthLocation ?? undefined,
+    });
     try {
       await saveBeautyProfileV1(reportId, profile, requestId);
       log("info", "dry_run_beauty_profile_saved", { requestId, reportId });

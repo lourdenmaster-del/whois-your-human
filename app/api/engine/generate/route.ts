@@ -8,7 +8,7 @@ import type { VectorZero } from "@/lib/vector-zero";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
-import { saveReportAndConfirm } from "@/lib/report-store";
+import { saveReportAndConfirm, type FieldConditionsContext, type StoredReport } from "@/lib/report-store";
 import { validateEngineBody } from "@/lib/validate-engine-body";
 import { getArchetypeOrFallback } from "@/src/ligs/archetypes/contract";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
@@ -38,12 +38,86 @@ import {
   isValidIdempotencyKey,
 } from "@/lib/idempotency-store";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import { resolveFieldConditionsForBirth } from "@/lib/field-conditions";
 
 if (process.env.DRY_RUN === "1") {
   console.log("DRY_RUN ENABLED — skipping OpenAI calls, returning fixture mock");
 }
 
-/** LigsStudio default birth data (1990-01-15, 14:30, New York, NY) — used when compute fails in development. */
+/**
+ * Normalize birth date for INITIATION display. Prefer YYYY-MM-DD; parse MM/DD/YYYY or DD/MM/YYYY.
+ * Does not corrupt digits. Returns normalized string or original if unparseable.
+ */
+function normalizeBirthDateForDisplay(raw: string): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "unknown";
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    const [, a, b, y] = slash;
+    const m = a!.padStart(2, "0");
+    const d = b!.padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  return s;
+}
+
+/**
+ * Normalize birth time for INITIATION display. Expect HH:mm or HH:mm:ss; pad to HH:mm.
+ */
+function normalizeBirthTimeForDisplay(raw: string): string {
+  const s = (raw ?? "").trim().replace(/\s/g, "");
+  if (!s) return "00:00";
+  const match = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (match) {
+    const h = match[1]!.padStart(2, "0");
+    const m = match[2]!.padStart(2, "0");
+    return `${h}:${m}`;
+  }
+  if (/^\d{4}$/.test(s)) return `${s.slice(0, 2)}:${s.slice(2)}`;
+  return s || "00:00";
+}
+
+/**
+ * Normalize birth place for INITIATION display: title-case, add comma before 2-letter state suffix.
+ */
+function normalizeBirthPlaceForDisplay(raw: string): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "unknown";
+  const words = s.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+  if (words.length >= 2 && words[words.length - 1]!.length === 2) {
+    words[words.length - 1] = words[words.length - 1]!.toUpperCase();
+    return words.slice(0, -1).join(" ") + ", " + words[words.length - 1];
+  }
+  return words.join(" ");
+}
+
+/**
+ * Build a minimal birth context from request values for DRY_RUN when computeBirthContextForReport fails.
+ * Ensures BOUNDARY CONDITIONS uses the same request-derived data as INITIATION (no stale fixture).
+ */
+function buildDryRunSyntheticBirthContext(
+  birthDate: string,
+  birthTime: string,
+  birthLocation: string
+): Record<string, unknown> {
+  const dateStr = normalizeBirthDateForDisplay(birthDate);
+  const timeStr = normalizeBirthTimeForDisplay(birthTime);
+  const localTimestamp =
+    dateStr !== "unknown" && timeStr !== "00:00"
+      ? `${dateStr}T${timeStr}:00.000`
+      : dateStr !== "unknown"
+        ? `${dateStr}T00:00:00.000`
+        : "unknown";
+  return {
+    placeName: (birthLocation ?? "").trim() || "unknown",
+    localTimestamp,
+    utcTimestamp: "unknown",
+    timezoneId: "unknown",
+  };
+}
+
+/** LigsStudio default birth data (1990-01-15, 14:30, New York, NY) — used when compute fails in development (non–DRY_RUN). */
 const STUDIO_FALLBACK_BIRTH_CONTEXT: Record<string, unknown> = {
   lat: 40.7128,
   lon: -74.006,
@@ -81,6 +155,42 @@ const STUDIO_FALLBACK_BIRTH_CONTEXT: Record<string, unknown> = {
   rising_sign: "Libra",
 };
 
+/** Format birth context for Origin Coordinates display; same logic as free-whois-report formatOriginCoordinatesDisplay. Used to persist so paid WHOIS can show real coordinates without re-geocoding. */
+function formatOriginCoordinatesFromContext(birthContext: Record<string, unknown>): string | undefined {
+  const placeName = birthContext.placeName ?? birthContext.birthLocation;
+  const lat = birthContext.lat;
+  const lon = birthContext.lon;
+  const place = typeof placeName === "string" && placeName.trim() ? placeName.trim() : "Unknown location";
+  if (typeof lat === "number" && typeof lon === "number") {
+    const latStr = lat >= 0 ? `${Number(lat).toFixed(4)}°N` : `${Number(-lat).toFixed(4)}°S`;
+    const lonStr = lon >= 0 ? `${Number(lon).toFixed(4)}°E` : `${Number(-lon).toFixed(4)}°W`;
+    return `${place}, ${latStr}, ${lonStr}`;
+  }
+  return typeof place === "string" && place !== "Unknown location" ? place : undefined;
+}
+
+function buildFieldConditionsContext(birthContext: Record<string, unknown> | undefined): FieldConditionsContext | undefined {
+  if (!birthContext) return undefined;
+  const sun = birthContext.sun as Record<string, unknown> | undefined;
+  const moon = birthContext.moon as Record<string, unknown> | undefined;
+  const solar = birthContext.solarSeasonProfile as Record<string, unknown> | undefined;
+  return {
+    sunAltitudeDeg: typeof sun?.sunAltitudeDeg === "number" ? (sun.sunAltitudeDeg as number) : undefined,
+    sunAzimuthDeg: typeof sun?.sunAzimuthDeg === "number" ? (sun.sunAzimuthDeg as number) : undefined,
+    sunriseLocal: typeof sun?.sunriseLocal === "string" ? sun.sunriseLocal : undefined,
+    sunsetLocal: typeof sun?.sunsetLocal === "string" ? sun.sunsetLocal : undefined,
+    dayLengthMinutes: typeof sun?.dayLengthMinutes === "number" ? (sun.dayLengthMinutes as number) : undefined,
+    moonPhaseName: typeof moon?.phaseName === "string" ? moon.phaseName : undefined,
+    moonIlluminationFrac: typeof moon?.illuminationFrac === "number" ? (moon.illuminationFrac as number) : undefined,
+    moonAltitudeDeg: typeof moon?.moonAltitudeDeg === "number" ? (moon.moonAltitudeDeg as number) : undefined,
+    moonAzimuthDeg: typeof moon?.moonAzimuthDeg === "number" ? (moon.moonAzimuthDeg as number) : undefined,
+    sunLonDeg: typeof birthContext.sunLonDeg === "number" ? (birthContext.sunLonDeg as number) : (typeof solar?.lonCenterDeg === "number" ? (solar.lonCenterDeg as number) : undefined),
+    solarDeclinationDeg: typeof solar?.solarDeclinationDeg === "number" ? (solar.solarDeclinationDeg as number) : undefined,
+    solarPolarity: typeof solar?.seasonalPolarity === "string" ? solar.seasonalPolarity : undefined,
+    anchorType: typeof solar?.anchorType === "string" ? solar.anchorType : undefined,
+  };
+}
+
 export async function POST(request: Request) {
   const kill = killSwitchResponse();
   if (kill) return kill;
@@ -103,6 +213,11 @@ export async function POST(request: Request) {
     let birthContext = (validation.value as Record<string, unknown>).birthContext as Record<string, unknown> | undefined;
     const idempotencyKey = (validation.value as Record<string, unknown>).idempotencyKey as string | undefined;
 
+    // Gate X-Force-Live and DRY_RUN — needed before birthContext so we can use request-derived synthetic context when compute fails in DRY_RUN
+    const allowForceLive = process.env.ALLOW_FORCE_LIVE === "true";
+    const forceLive = allowForceLive && request.headers.get("x-force-live") === "1";
+    const dryRun = forceLive ? false : (process.env.DRY_RUN === "1" || bodyDryRun === true);
+
     // Upstream computation: always compute birthContext when birthDate + birthLocation + birthTime provided (ensures complete values, no placeholders)
     if (birthDate && birthLocation && birthTime) {
       try {
@@ -111,8 +226,11 @@ export async function POST(request: Request) {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         log("error", "Birth context computation failed", { requestId, error: msg });
-        // Development fallback: use LigsStudio default birth data when compute fails (e.g. geocoding rate limit)
-        if (process.env.NODE_ENV !== "production") {
+        if (dryRun) {
+          // DRY_RUN: use request-derived synthetic context so BOUNDARY CONDITIONS matches INITIATION (no stale fixture)
+          birthContext = buildDryRunSyntheticBirthContext(birthDate, birthTime, birthLocation);
+          log("info", "DRY_RUN using request-derived synthetic birth context", { requestId });
+        } else if (process.env.NODE_ENV !== "production") {
           log("warn", "Using LigsStudio fallback birth context", { requestId });
           birthContext = STUDIO_FALLBACK_BIRTH_CONTEXT;
         } else {
@@ -120,11 +238,6 @@ export async function POST(request: Request) {
         }
       }
     }
-
-    // Gate X-Force-Live: only honored when ALLOW_FORCE_LIVE=true (default false)
-    const allowForceLive = process.env.ALLOW_FORCE_LIVE === "true";
-    const forceLive = allowForceLive && request.headers.get("x-force-live") === "1";
-    const dryRun = forceLive ? false : (process.env.DRY_RUN === "1" || bodyDryRun === true);
 
     if (!dryRun && !isValidIdempotencyKey(idempotencyKey)) {
       log("warn", "idempotency_key_required", { requestId });
@@ -149,6 +262,9 @@ export async function POST(request: Request) {
         return successResponse(200, { ...cached, idempotencyHit: true }, requestId);
       }
     }
+    // Studio "Test Paid Report (safe / no image cost)" path: POST /api/beauty/dry-run → this route with dryRun=true.
+    // We skip OpenAI and image generation (no cost) but run full report enrichment: field_conditions_context, originCoordinatesDisplay,
+    // and resolveFieldConditionsForBirth (GFZ Kp, Open-Meteo) so Magnetic/Climate/Sensory are real in paid WHOIS.
     if (dryRun) {
       log("info", "DRY_RUN ENABLED — skipping OpenAI calls, returning fixture mock", {
         requestId,
@@ -161,12 +277,18 @@ export async function POST(request: Request) {
         `Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures.`,
         `Cosmic identity architecture, infrared red #FF3B3B and ultraviolet violet #7A4FFF, spectral imprint, 50-80 words.`,
       ];
+      // INITIATION and BOUNDARY CONDITIONS use same request-derived birth context; normalize display for registry-like consistency
+      const initDate = normalizeBirthDateForDisplay(birthDate ?? "");
+      const initTime = normalizeBirthTimeForDisplay(birthTime ?? "");
+      const initPlace = normalizeBirthPlaceForDisplay(birthLocation ?? "");
       const fullReport = `[DRY RUN] Full report placeholder for ${fullName}
 
 1. INITIATION
 
 RAW SIGNAL
-Forces at ${birthDate} ${birthTime} in ${birthLocation}.
+• Forces at ${initDate} ${initTime} in ${initPlace}. [birth_date=unknown]
+• Placeholder signal bullet. [solar_altitude=unknown]
+• Placeholder signal bullet. [twilight=unknown]
 
 CUSTODIAN
 Structural pattern formed at initialization.
@@ -177,7 +299,9 @@ The identity at rest before environmental modulation.
 2. SPECTRAL ORIGIN
 
 RAW SIGNAL
-Spectral baseline.
+• Placeholder signal bullet. [solar_altitude=unknown]
+• Placeholder signal bullet. [solar_azimuth=unknown]
+• Placeholder signal bullet. [twilight=unknown]
 
 CUSTODIAN
 Biological encoding.
@@ -188,7 +312,9 @@ Baseline coherence.
 3. TEMPORAL ENCODING
 
 RAW SIGNAL
-Temporal encoding.
+• Placeholder signal bullet. [sunrise_local=unknown]
+• Placeholder signal bullet. [sunset_local=unknown]
+• Placeholder signal bullet. [day_length_minutes=unknown]
 
 CUSTODIAN
 Circadian modulation.
@@ -199,7 +325,9 @@ Time and structure.
 4. GRAVITATIONAL PATTERNING
 
 RAW SIGNAL
-Gravitational field.
+• Placeholder signal bullet. [moon_phase=unknown]
+• Placeholder signal bullet. [moon_illumination_pct=unknown]
+• Placeholder signal bullet. [moon_altitude=unknown]
 
 CUSTODIAN
 Physiological response.
@@ -210,7 +338,9 @@ Gravity and form.
 5. DIRECTIONAL FIELD
 
 RAW SIGNAL
-Directional vectors.
+• Placeholder signal bullet. [moon_azimuth=unknown]
+• Placeholder signal bullet. [sun_lon_deg=unknown]
+• Placeholder signal bullet. [solar_season=unknown]
 
 CUSTODIAN
 Spatial encoding.
@@ -221,7 +351,9 @@ Direction and meaning.
 6. ARCHETYPE REVELATION
 
 RAW SIGNAL
-Archetype emergence.
+• Placeholder signal bullet. [solar_declination=unknown]
+• Placeholder signal bullet. [solar_polarity=unknown]
+• Placeholder signal bullet. [anchor_type=unknown]
 
 CUSTODIAN
 Pattern recognition.
@@ -232,7 +364,9 @@ Archetype and identity.
 7. ARCHETYPE MICRO-PROFILES
 
 RAW SIGNAL
-Micro-profile data.
+• Placeholder signal bullet. [regime=unknown]
+• Placeholder signal bullet. [cosmic_analogue=unknown]
+• Placeholder signal bullet. [vector_zero_coherence=unknown]
 
 CUSTODIAN
 Profile encoding.
@@ -243,7 +377,9 @@ Profile synthesis.
 8. BEHAVIORAL EXPRESSION
 
 RAW SIGNAL
-Behavioral expression.
+• Placeholder signal bullet. [vector_zero_axes_lateral=unknown]
+• Placeholder signal bullet. [vector_zero_axes_vertical=unknown]
+• Placeholder signal bullet. [vector_zero_axes_depth=unknown]
 
 CUSTODIAN
 Expression pathways.
@@ -254,7 +390,9 @@ Behavior and structure.
 9. RELATIONAL FIELD
 
 RAW SIGNAL
-Relational vectors.
+• Placeholder signal bullet. [primary_wavelength=unknown]
+• Placeholder signal bullet. [secondary_wavelength=unknown]
+• Placeholder signal bullet. [regime=unknown]
 
 CUSTODIAN
 Relational encoding.
@@ -265,7 +403,9 @@ Relation and meaning.
 10. ENVIRONMENTAL RESONANCE
 
 RAW SIGNAL
-Environmental resonance.
+• Placeholder signal bullet. [solar_altitude=unknown]
+• Placeholder signal bullet. [day_length_minutes=unknown]
+• Placeholder signal bullet. [twilight=unknown]
 
 CUSTODIAN
 Environmental encoding.
@@ -273,10 +413,12 @@ Environmental encoding.
 ORACLE
 Environment and structure.
 
-11. COSMOLOGY OVERLAY
+11. COSMIC SCALE MAPPING
 
 RAW SIGNAL
-Cosmology overlay.
+• Placeholder signal bullet. [cosmic_analogue=unknown]
+• Placeholder signal bullet. [sun_lon_deg=unknown]
+• Placeholder signal bullet. [anchor_type=unknown]
 
 CUSTODIAN
 Cosmology encoding.
@@ -287,7 +429,9 @@ Cosmology synthesis.
 12. IDENTITY FIELD EQUATION
 
 RAW SIGNAL
-Identity field.
+• Placeholder signal bullet. [regime=unknown]
+• Placeholder signal bullet. [vector_zero_coherence=unknown]
+• Placeholder signal bullet. [solar_season=unknown]
 
 CUSTODIAN
 Field encoding.
@@ -298,7 +442,9 @@ Identity equation.
 13. LEGACY TRAJECTORY
 
 RAW SIGNAL
-Legacy trajectory.
+• Placeholder signal bullet. [solar_declination=unknown]
+• Placeholder signal bullet. [solar_polarity=unknown]
+• Placeholder signal bullet. [anchor_type=unknown]
 
 CUSTODIAN
 Trajectory encoding.
@@ -309,7 +455,9 @@ Legacy and structure.
 14. INTEGRATION
 
 RAW SIGNAL
-Integration field.
+• Placeholder signal bullet. [regime=unknown]
+• Placeholder signal bullet. [cosmic_analogue=unknown]
+• Placeholder signal bullet. [vector_zero_coherence=unknown]
 
 CUSTODIAN
 Integration pathways.
@@ -331,7 +479,7 @@ Integration synthesis.
         },
         three_voice: {
           raw_signal: "Baseline field: spectral gradient stable; symmetry axes within nominal range. Unperturbed Light Signature before deviation.",
-          custodian: "Vector Zero is the baseline coherence state: the organism's default geometry before environmental or temporal modulation. Biological calibration holds at the unbent configuration.",
+          custodian: "Vector Zero is the baseline coherence state: the organism's default geometry before environmental or temporal modulation. Biological calibration holds at the unbent configuration state.",
           oracle: "The baseline state is the identity at rest—the structure that remains when no force bends it. This is the default; everything else is variation.",
         },
       };
@@ -341,17 +489,49 @@ Integration synthesis.
         vectorZero,
       });
       // Engine must never return success until saveReportAndConfirm verifies the write.
-      const writeResult = await saveReportAndConfirm(
-        reportId,
-        {
-          full_report: fullReportWithBlocks,
-          emotional_snippet: emotionalSnippet,
-          image_prompts: imagePrompts,
-          vector_zero: vectorZero,
-        },
-        log,
-        { requestId }
-      );
+      const originDisplay =
+        birthContext != null ? formatOriginCoordinatesFromContext(birthContext) : undefined;
+      // Dry-run: no image cost, but run field-condition lookups so Studio Test Paid Report shows real Magnetic/Climate/Sensory (GFZ/Open-Meteo are free).
+      let fieldConditionsDisplays: {
+        magneticFieldIndexDisplay: string | null;
+        climateSignatureDisplay: string | null;
+        sensoryFieldConditionsDisplay: string | null;
+      } | null = null;
+      if (birthContext != null) {
+        try {
+          fieldConditionsDisplays = await resolveFieldConditionsForBirth(birthContext, {
+            skipExternalLookups: false,
+          });
+          console.log("fieldConditionsDisplays:", fieldConditionsDisplays);
+        } catch (err) {
+          console.error("resolveFieldConditionsForBirth threw", err);
+          fieldConditionsDisplays = {
+            magneticFieldIndexDisplay: null,
+            climateSignatureDisplay: null,
+            sensoryFieldConditionsDisplay: null,
+          };
+        }
+      }
+      const dryRunPayload: Omit<StoredReport, "createdAt"> = {
+        full_report: fullReportWithBlocks,
+        emotional_snippet: emotionalSnippet,
+        image_prompts: imagePrompts,
+        vector_zero: vectorZero,
+      };
+      if (birthContext != null) {
+        const ctx = buildFieldConditionsContext(birthContext);
+        if (ctx != null) dryRunPayload.field_conditions_context = ctx;
+      }
+      if (originDisplay != null) dryRunPayload.originCoordinatesDisplay = originDisplay;
+      if (fieldConditionsDisplays != null) {
+        if (fieldConditionsDisplays.magneticFieldIndexDisplay != null)
+          dryRunPayload.magneticFieldIndexDisplay = fieldConditionsDisplays.magneticFieldIndexDisplay;
+        if (fieldConditionsDisplays.climateSignatureDisplay != null)
+          dryRunPayload.climateSignatureDisplay = fieldConditionsDisplays.climateSignatureDisplay;
+        if (fieldConditionsDisplays.sensoryFieldConditionsDisplay != null)
+          dryRunPayload.sensoryFieldConditionsDisplay = fieldConditionsDisplays.sensoryFieldConditionsDisplay;
+      }
+      const writeResult = await saveReportAndConfirm(reportId, dryRunPayload, log, { requestId });
       if (!writeResult.ok) {
         log("error", "Dry-run report storage failed", { requestId, reportId, error: writeResult.error });
         const isProd = process.env.NODE_ENV === "production";
@@ -746,6 +926,7 @@ Email: ${email}
                   requestId,
                   code: top.code,
                   message: top.message,
+                  detail: top.detail,
                 });
                 return errorResponse(
                   500,
@@ -761,6 +942,8 @@ Email: ${email}
         log("warn", "Report quality repair failed", {
           requestId,
           error: e instanceof Error ? e.message : String(e),
+          code: top.code,
+          detail: top.detail,
         });
         return errorResponse(
           500,
@@ -771,12 +954,47 @@ Email: ${email}
     }
 
     const reportId = randomUUID();
-    const payload = {
+    const originDisplay =
+      birthContext != null ? formatOriginCoordinatesFromContext(birthContext) : undefined;
+    let fieldConditionsDisplays: {
+      magneticFieldIndexDisplay: string | null;
+      climateSignatureDisplay: string | null;
+      sensoryFieldConditionsDisplay: string | null;
+    } | null = null;
+    if (birthContext != null) {
+      try {
+        fieldConditionsDisplays = await resolveFieldConditionsForBirth(birthContext, {
+          skipExternalLookups: false,
+        });
+        console.log("fieldConditionsDisplays:", fieldConditionsDisplays);
+      } catch (err) {
+        console.error("resolveFieldConditionsForBirth threw", err);
+        fieldConditionsDisplays = {
+          magneticFieldIndexDisplay: null,
+          climateSignatureDisplay: null,
+          sensoryFieldConditionsDisplay: null,
+        };
+      }
+    }
+    const payload: Omit<StoredReport, "createdAt"> = {
       full_report: fullReport,
       emotional_snippet: emotionalSnippet,
       image_prompts: imagePrompts,
-      ...(vectorZero != null && { vector_zero: vectorZero }),
     };
+    if (vectorZero != null) payload.vector_zero = vectorZero;
+    if (birthContext != null) {
+      const ctx = buildFieldConditionsContext(birthContext);
+      if (ctx != null) payload.field_conditions_context = ctx;
+    }
+    if (originDisplay != null) payload.originCoordinatesDisplay = originDisplay;
+    if (fieldConditionsDisplays != null) {
+      if (fieldConditionsDisplays.magneticFieldIndexDisplay != null)
+        payload.magneticFieldIndexDisplay = fieldConditionsDisplays.magneticFieldIndexDisplay;
+      if (fieldConditionsDisplays.climateSignatureDisplay != null)
+        payload.climateSignatureDisplay = fieldConditionsDisplays.climateSignatureDisplay;
+      if (fieldConditionsDisplays.sensoryFieldConditionsDisplay != null)
+        payload.sensoryFieldConditionsDisplay = fieldConditionsDisplays.sensoryFieldConditionsDisplay;
+    }
     // Engine must never return success until saveReportAndConfirm verifies the write; on failure return 503 and do not return reportId.
     const writeResult = await saveReportAndConfirm(reportId, payload, log, { requestId });
     if (!writeResult.ok) {
