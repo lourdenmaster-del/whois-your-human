@@ -57,15 +57,15 @@ export async function GET(request: Request) {
 
   try {
     const profile = await loadBeautyProfileV1(reportId, requestId);
-    const profileFields = {
-      subjectName: profile.subjectName ?? null,
-      birthDate: profile.birthDate ?? null,
-      birthTime: profile.birthTime ?? null,
-      birthLocation: profile.birthLocation ?? null,
-    };
-
     const report = await buildPaidWhoisReport({ reportId, requestId });
     const paidWhoisText = renderFreeWhoisReportText(report);
+
+    const profileFields = {
+      subjectName: profile.subjectName ?? null,
+      birthDate: report.birthDate ?? null,
+      birthTime: report.birthTime ?? null,
+      birthLocation: report.birthLocation ?? null,
+    };
 
     return NextResponse.json({
       reportId,
