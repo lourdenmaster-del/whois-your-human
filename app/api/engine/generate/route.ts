@@ -155,7 +155,7 @@ const STUDIO_FALLBACK_BIRTH_CONTEXT: Record<string, unknown> = {
   rising_sign: "Libra",
 };
 
-/** Format birth context for Origin Coordinates display; same logic as free-whois-report formatOriginCoordinatesDisplay. Used to persist so paid WHOIS can show real coordinates without re-geocoding. */
+/** Format birth context for Origin Coordinates display: "City, State/Region, Country — LAT°N/S, LON°E/W". Same as free-whois-report; used to persist so paid WHOIS shows real coordinates without re-geocoding. */
 function formatOriginCoordinatesFromContext(birthContext: Record<string, unknown>): string | undefined {
   const placeName = birthContext.placeName ?? birthContext.birthLocation;
   const lat = birthContext.lat;
@@ -164,7 +164,7 @@ function formatOriginCoordinatesFromContext(birthContext: Record<string, unknown
   if (typeof lat === "number" && typeof lon === "number") {
     const latStr = lat >= 0 ? `${Number(lat).toFixed(4)}°N` : `${Number(-lat).toFixed(4)}°S`;
     const lonStr = lon >= 0 ? `${Number(lon).toFixed(4)}°E` : `${Number(-lon).toFixed(4)}°W`;
-    return `${place}, ${latStr}, ${lonStr}`;
+    return `${place} — ${latStr}, ${lonStr}`;
   }
   return typeof place === "string" && place !== "Unknown location" ? place : undefined;
 }
@@ -192,18 +192,24 @@ function buildFieldConditionsContext(birthContext: Record<string, unknown> | und
 }
 
 export async function POST(request: Request) {
-  const kill = killSwitchResponse();
-  if (kill) return kill;
-  console.log("AUDIT_HIT_ENGINE_GENERATE");
-  console.log("AUDIT_ENV", {
-    DEBUG_PROMPT_AUDIT: process.env.DEBUG_PROMPT_AUDIT,
-    DEBUG_PERSISTENCE: process.env.DEBUG_PERSISTENCE,
-  });
   const requestId = crypto.randomUUID();
   log("info", "request", { requestId, method: "POST", path: "/api/engine/generate" });
   let apiKey: string | undefined;
   try {
     const body = await request.json();
+    // Dry-run (Studio Test Paid Report) is zero-cost; allow it even when LIGS_API_OFF is set.
+    // Header ensures dry-run is recognized even if body is lost in serverless/internal fetch.
+    const isDryRunRequest =
+      request.headers.get("x-ligs-dry-run") === "true" || body?.dryRun === true;
+    if (!isDryRunRequest) {
+      const kill = killSwitchResponse();
+      if (kill) return kill;
+    }
+    console.log("AUDIT_HIT_ENGINE_GENERATE");
+    console.log("AUDIT_ENV", {
+      DEBUG_PROMPT_AUDIT: process.env.DEBUG_PROMPT_AUDIT,
+      DEBUG_PERSISTENCE: process.env.DEBUG_PERSISTENCE,
+    });
     const validation = validateEngineBody(body);
     if (!validation.ok) {
       log("warn", "validation failed", { requestId, error: validation.error.message });
@@ -225,7 +231,25 @@ export async function POST(request: Request) {
         birthContext = { ...computed, ...(birthContext && { onThisDay: (birthContext as Record<string, unknown>).onThisDay }) };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        log("error", "Birth context computation failed", { requestId, error: msg });
+        const stack = err instanceof Error ? err.stack : undefined;
+        log("error", "Birth context computation failed", {
+          requestId,
+          birthDate,
+          birthTime,
+          birthLocation,
+          error: msg,
+          stack,
+          usingSyntheticFallback: dryRun,
+        });
+        console.error("computeBirthContextForReport failed", {
+          birthDate,
+          birthTime,
+          birthLocation,
+          errorMessage: msg,
+          errorStack: stack,
+          dryRun,
+          fallbackToSynthetic: dryRun,
+        });
         if (dryRun) {
           // DRY_RUN: use request-derived synthetic context so BOUNDARY CONDITIONS matches INITIATION (no stale fixture)
           birthContext = buildDryRunSyntheticBirthContext(birthDate, birthTime, birthLocation);
@@ -531,6 +555,34 @@ Integration synthesis.
         if (fieldConditionsDisplays.sensoryFieldConditionsDisplay != null)
           dryRunPayload.sensoryFieldConditionsDisplay = fieldConditionsDisplays.sensoryFieldConditionsDisplay;
       }
+      const birthContextSummary =
+        birthContext != null
+          ? {
+              placeName: birthContext.placeName,
+              lat: birthContext.lat,
+              lon: birthContext.lon,
+              timezoneId: birthContext.timezoneId,
+              utcTimestamp:
+                typeof birthContext.utcTimestamp === "string"
+                  ? birthContext.utcTimestamp.slice(0, 19)
+                  : birthContext.utcTimestamp,
+              hasSun: !!birthContext.sun,
+              hasMoon: !!birthContext.moon,
+            }
+          : null;
+      console.log("DRY_RUN_AUDIT_BEFORE_SAVE", {
+        reportId,
+        birthContextSummary,
+        fieldConditionsDisplays,
+        savedPayloadFields: {
+          originCoordinatesDisplay: dryRunPayload.originCoordinatesDisplay,
+          hasFieldConditionsContext: !!dryRunPayload.field_conditions_context,
+          field_conditions_context: dryRunPayload.field_conditions_context,
+          magneticFieldIndexDisplay: dryRunPayload.magneticFieldIndexDisplay,
+          climateSignatureDisplay: dryRunPayload.climateSignatureDisplay,
+          sensoryFieldConditionsDisplay: dryRunPayload.sensoryFieldConditionsDisplay,
+        },
+      });
       const writeResult = await saveReportAndConfirm(reportId, dryRunPayload, log, { requestId });
       if (!writeResult.ok) {
         log("error", "Dry-run report storage failed", { requestId, reportId, error: writeResult.error });
