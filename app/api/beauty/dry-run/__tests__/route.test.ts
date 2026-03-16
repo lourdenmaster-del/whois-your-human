@@ -43,8 +43,8 @@ describe("POST /api/beauty/dry-run", () => {
               status: "ok",
               data: {
                 reportId: "dry-run-test-report-id",
-                full_report: "[DRY RUN] Full report placeholder for " + (body.fullName ?? "Anonymous"),
-                emotional_snippet: "[DRY RUN] Light signature at " + (body.birthLocation ?? ""),
+                full_report: "1. INITIATION\n\nRAW SIGNAL\n• (L) denotes the identity field. When " + (body.fullName ?? "Anonymous") + " was born, the field was defined by solar radiation and lunar illumination. [birth_date=1990-01-15]\n\nCUSTODIAN\nBiological calibration holds at the structural baseline.\n\nORACLE\nPeople in this regime often break tasks into steps.\n\n2. SPECTRAL ORIGIN\n\nRAW SIGNAL\n• Solar altitude and azimuth set the spectral gradient. [solar_altitude=19.7]\n\nCUSTODIAN\nRetinal input aligns to the spectral conditions at birth.\n\nORACLE\nThe organism encodes the light that entered at initialization.",
+                emotional_snippet: "Light signature at initialization: structural pattern for " + (body.fullName ?? "Anonymous") + " at " + (body.birthLocation ?? "birth") + ".",
               },
             }),
             { status: 200, headers: { "Content-Type": "application/json" } }
@@ -79,7 +79,8 @@ describe("POST /api/beauty/dry-run", () => {
     expect(out.data).toBeDefined();
     expect(out.data.reportId).toBe("dry-run-test-report-id");
     expect(out.data.beautyProfile).toBeDefined();
-    expect(out.data.beautyProfile.report).toContain("[DRY RUN]");
+    expect(out.data.beautyProfile.report).toBeDefined();
+    expect(out.data.beautyProfile.report).toContain("1. INITIATION");
     expect(out.data.beautyProfile.emotionalSnippet).toBeDefined();
     expect(out.data.checkout).toBeDefined();
     expect(out.data.checkout.url).toContain("reportId=dry-run-test-report-id");

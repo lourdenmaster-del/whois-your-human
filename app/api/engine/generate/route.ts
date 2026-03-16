@@ -17,6 +17,8 @@ import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import { buildReportGenerationPrompt } from "@/lib/engine/buildReportGenerationPrompt";
 import { scanForbidden, redactForbidden } from "@/lib/engine/constraintGate";
 import { injectDeterministicBlocksIntoReport, getSolarProfileFromContext } from "@/lib/engine/deterministic-blocks";
+import { buildDryRunReportFromContext } from "@/lib/engine/buildDryRunReport";
+import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { computeBirthContextForReport } from "@/lib/engine/computeBirthContextForReport";
 import {
   validateThreeVoiceSections,
@@ -290,206 +292,39 @@ export async function POST(request: Request) {
     // We skip OpenAI and image generation (no cost) but run full report enrichment: field_conditions_context, originCoordinatesDisplay,
     // and resolveFieldConditionsForBirth (GFZ Kp, Open-Meteo) so Magnetic/Climate/Sensory are real in paid WHOIS.
     if (dryRun) {
-      log("info", "DRY_RUN ENABLED — skipping OpenAI calls, returning fixture mock", {
+      log("info", "DRY_RUN ENABLED — skipping OpenAI, using real report pipeline", {
         requestId,
         envDryRun: process.env.DRY_RUN,
         bodyDryRun: bodyDryRun === true,
       });
       const reportId = randomUUID();
-      const emotionalSnippet = `[DRY RUN] Light signature for ${fullName} at ${birthLocation}: a structural pattern formed by forces at initialization.`;
-      const imagePrompts = [
-        `Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures.`,
-        `Cosmic identity architecture, infrared red #FF3B3B and ultraviolet violet #7A4FFF, spectral imprint, 50-80 words.`,
-      ];
-      // INITIATION and BOUNDARY CONDITIONS use same request-derived birth context; normalize display for registry-like consistency
       const initDate = normalizeBirthDateForDisplay(birthDate ?? "");
       const initTime = normalizeBirthTimeForDisplay(birthTime ?? "");
       const initPlace = normalizeBirthPlaceForDisplay(birthLocation ?? "");
-      const fullReport = `[DRY RUN] Full report placeholder for ${fullName}
-
-1. INITIATION
-
-RAW SIGNAL
-• Forces at ${initDate} ${initTime} in ${initPlace}. [birth_date=unknown]
-• Placeholder signal bullet. [solar_altitude=unknown]
-• Placeholder signal bullet. [twilight=unknown]
-
-CUSTODIAN
-Structural pattern formed at initialization.
-
-ORACLE
-The identity at rest before environmental modulation.
-
-2. SPECTRAL ORIGIN
-
-RAW SIGNAL
-• Placeholder signal bullet. [solar_altitude=unknown]
-• Placeholder signal bullet. [solar_azimuth=unknown]
-• Placeholder signal bullet. [twilight=unknown]
-
-CUSTODIAN
-Biological encoding.
-
-ORACLE
-Baseline coherence.
-
-3. TEMPORAL ENCODING
-
-RAW SIGNAL
-• Placeholder signal bullet. [sunrise_local=unknown]
-• Placeholder signal bullet. [sunset_local=unknown]
-• Placeholder signal bullet. [day_length_minutes=unknown]
-
-CUSTODIAN
-Circadian modulation.
-
-ORACLE
-Time and structure.
-
-4. GRAVITATIONAL PATTERNING
-
-RAW SIGNAL
-• Placeholder signal bullet. [moon_phase=unknown]
-• Placeholder signal bullet. [moon_illumination_pct=unknown]
-• Placeholder signal bullet. [moon_altitude=unknown]
-
-CUSTODIAN
-Physiological response.
-
-ORACLE
-Gravity and form.
-
-5. DIRECTIONAL FIELD
-
-RAW SIGNAL
-• Placeholder signal bullet. [moon_azimuth=unknown]
-• Placeholder signal bullet. [sun_lon_deg=unknown]
-• Placeholder signal bullet. [solar_season=unknown]
-
-CUSTODIAN
-Spatial encoding.
-
-ORACLE
-Direction and meaning.
-
-6. ARCHETYPE REVELATION
-
-RAW SIGNAL
-• Placeholder signal bullet. [solar_declination=unknown]
-• Placeholder signal bullet. [solar_polarity=unknown]
-• Placeholder signal bullet. [anchor_type=unknown]
-
-CUSTODIAN
-Pattern recognition.
-
-ORACLE
-Archetype and identity.
-
-7. ARCHETYPE MICRO-PROFILES
-
-RAW SIGNAL
-• Placeholder signal bullet. [regime=unknown]
-• Placeholder signal bullet. [cosmic_analogue=unknown]
-• Placeholder signal bullet. [vector_zero_coherence=unknown]
-
-CUSTODIAN
-Profile encoding.
-
-ORACLE
-Profile synthesis.
-
-8. BEHAVIORAL EXPRESSION
-
-RAW SIGNAL
-• Placeholder signal bullet. [vector_zero_axes_lateral=unknown]
-• Placeholder signal bullet. [vector_zero_axes_vertical=unknown]
-• Placeholder signal bullet. [vector_zero_axes_depth=unknown]
-
-CUSTODIAN
-Expression pathways.
-
-ORACLE
-Behavior and structure.
-
-9. RELATIONAL FIELD
-
-RAW SIGNAL
-• Placeholder signal bullet. [primary_wavelength=unknown]
-• Placeholder signal bullet. [secondary_wavelength=unknown]
-• Placeholder signal bullet. [regime=unknown]
-
-CUSTODIAN
-Relational encoding.
-
-ORACLE
-Relation and meaning.
-
-10. ENVIRONMENTAL RESONANCE
-
-RAW SIGNAL
-• Placeholder signal bullet. [solar_altitude=unknown]
-• Placeholder signal bullet. [day_length_minutes=unknown]
-• Placeholder signal bullet. [twilight=unknown]
-
-CUSTODIAN
-Environmental encoding.
-
-ORACLE
-Environment and structure.
-
-11. COSMIC SCALE MAPPING
-
-RAW SIGNAL
-• Placeholder signal bullet. [cosmic_analogue=unknown]
-• Placeholder signal bullet. [sun_lon_deg=unknown]
-• Placeholder signal bullet. [anchor_type=unknown]
-
-CUSTODIAN
-Cosmology encoding.
-
-ORACLE
-Cosmology synthesis.
-
-12. IDENTITY FIELD EQUATION
-
-RAW SIGNAL
-• Placeholder signal bullet. [regime=unknown]
-• Placeholder signal bullet. [vector_zero_coherence=unknown]
-• Placeholder signal bullet. [solar_season=unknown]
-
-CUSTODIAN
-Field encoding.
-
-ORACLE
-Identity equation.
-
-13. LEGACY TRAJECTORY
-
-RAW SIGNAL
-• Placeholder signal bullet. [solar_declination=unknown]
-• Placeholder signal bullet. [solar_polarity=unknown]
-• Placeholder signal bullet. [anchor_type=unknown]
-
-CUSTODIAN
-Trajectory encoding.
-
-ORACLE
-Legacy and structure.
-
-14. INTEGRATION
-
-RAW SIGNAL
-• Placeholder signal bullet. [regime=unknown]
-• Placeholder signal bullet. [cosmic_analogue=unknown]
-• Placeholder signal bullet. [vector_zero_coherence=unknown]
-
-CUSTODIAN
-Integration pathways.
-
-ORACLE
-Integration synthesis.
-
-(Set DRY_RUN=0 or remove the env var to generate real reports.)`;
+      // Enrich birthContext with solar profile from birth date when missing (e.g. synthetic context)
+      let dryRunBirthContext = birthContext ?? {};
+      if (!getSolarProfileFromContext(dryRunBirthContext) && birthDate?.trim()) {
+        const sunLon = approximateSunLongitudeFromDate(birthDate.trim().slice(0, 10));
+        if (sunLon != null) {
+          const lat = typeof dryRunBirthContext.lat === "number" ? dryRunBirthContext.lat : 0;
+          const profile = getSolarSeasonProfile({
+            sunLonDeg: sunLon,
+            latitudeDeg: lat,
+            date: /^\d{4}-\d{2}-\d{2}$/.test(birthDate.trim().slice(0, 10))
+              ? new Date(birthDate.trim().slice(0, 10) + "T12:00:00Z")
+              : new Date(),
+          });
+          const entry = getSolarSeasonByIndex(profile.seasonIndex);
+          dryRunBirthContext = {
+            ...dryRunBirthContext,
+            sunLonDeg: sunLon,
+            solarSeasonProfile: {
+              ...profile,
+              anchorType: entry?.anchorType ?? "none",
+            },
+          };
+        }
+      }
       const vectorZero: VectorZero = {
         coherence_score: 0.85,
         primary_wavelength: "580–620 nm",
@@ -507,23 +342,46 @@ Integration synthesis.
           oracle: "The baseline state is the identity at rest—the structure that remains when no force bends it. This is the default; everything else is variation.",
         },
       };
-      // Inject (L) deterministic blocks before save
+      const fullReport = buildDryRunReportFromContext(
+        dryRunBirthContext as Record<string, unknown>,
+        vectorZero,
+        fullName ?? "the subject",
+        initDate,
+        initTime,
+        initPlace
+      );
+      const solarProfile = getSolarProfileFromContext(dryRunBirthContext);
+      const archForSnippet = solarProfile?.archetype ?? "Stabiliora";
+      let emotionalSnippet: string;
+      try {
+        const cosmic = getCosmicAnalogue(archForSnippet as LigsArchetype);
+        emotionalSnippet = cosmic.description.split(/[.!]/)[0]?.trim()
+          ? `${cosmic.description.split(/[.!]/)[0]!.trim()}.`
+          : `Light signature at initialization: structural pattern for ${fullName ?? "the subject"} at ${birthLocation ?? "birth"}.`;
+      } catch {
+        emotionalSnippet = `Light signature at initialization: structural pattern for ${fullName ?? "the subject"} at ${birthLocation ?? "birth"}.`;
+      }
+      const imagePrompts = [
+        `Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures.`,
+        `Cosmic identity architecture, infrared red #FF3B3B and ultraviolet violet #7A4FFF, spectral imprint, 50-80 words.`,
+      ];
+      // Inject (L) deterministic blocks before save (use enriched dry-run context)
       const fullReportWithBlocks = injectDeterministicBlocksIntoReport(fullReport, {
-        birthContext: birthContext ?? {},
+        birthContext: dryRunBirthContext,
         vectorZero,
       });
       // Engine must never return success until saveReportAndConfirm verifies the write.
       const originDisplay =
-        birthContext != null ? formatOriginCoordinatesFromContext(birthContext) : undefined;
+        dryRunBirthContext != null ? formatOriginCoordinatesFromContext(dryRunBirthContext as Record<string, unknown>) : undefined;
       // Dry-run: no image cost, but run field-condition lookups so Studio Test Paid Report shows real Magnetic/Climate/Sensory (GFZ/Open-Meteo are free).
       let fieldConditionsDisplays: {
         magneticFieldIndexDisplay: string | null;
         climateSignatureDisplay: string | null;
         sensoryFieldConditionsDisplay: string | null;
       } | null = null;
-      if (birthContext != null) {
+      if (dryRunBirthContext != null) {
         try {
-          fieldConditionsDisplays = await resolveFieldConditionsForBirth(birthContext, {
+          fieldConditionsDisplays = await resolveFieldConditionsForBirth(dryRunBirthContext as Record<string, unknown>, {
             skipExternalLookups: false,
           });
           console.log("fieldConditionsDisplays:", fieldConditionsDisplays);
@@ -542,8 +400,8 @@ Integration synthesis.
         image_prompts: imagePrompts,
         vector_zero: vectorZero,
       };
-      if (birthContext != null) {
-        const ctx = buildFieldConditionsContext(birthContext);
+      if (dryRunBirthContext != null) {
+        const ctx = buildFieldConditionsContext(dryRunBirthContext as Record<string, unknown>);
         if (ctx != null) dryRunPayload.field_conditions_context = ctx;
       }
       if (originDisplay != null) dryRunPayload.originCoordinatesDisplay = originDisplay;
@@ -556,18 +414,18 @@ Integration synthesis.
           dryRunPayload.sensoryFieldConditionsDisplay = fieldConditionsDisplays.sensoryFieldConditionsDisplay;
       }
       const birthContextSummary =
-        birthContext != null
+        dryRunBirthContext != null
           ? {
-              placeName: birthContext.placeName,
-              lat: birthContext.lat,
-              lon: birthContext.lon,
-              timezoneId: birthContext.timezoneId,
+              placeName: (dryRunBirthContext as Record<string, unknown>).placeName,
+              lat: (dryRunBirthContext as Record<string, unknown>).lat,
+              lon: (dryRunBirthContext as Record<string, unknown>).lon,
+              timezoneId: (dryRunBirthContext as Record<string, unknown>).timezoneId,
               utcTimestamp:
-                typeof birthContext.utcTimestamp === "string"
-                  ? birthContext.utcTimestamp.slice(0, 19)
-                  : birthContext.utcTimestamp,
-              hasSun: !!birthContext.sun,
-              hasMoon: !!birthContext.moon,
+                typeof (dryRunBirthContext as Record<string, unknown>).utcTimestamp === "string"
+                  ? ((dryRunBirthContext as Record<string, unknown>).utcTimestamp as string).slice(0, 19)
+                  : (dryRunBirthContext as Record<string, unknown>).utcTimestamp,
+              hasSun: !!(dryRunBirthContext as Record<string, unknown>).sun,
+              hasMoon: !!(dryRunBirthContext as Record<string, unknown>).moon,
             }
           : null;
       console.log("DRY_RUN_AUDIT_BEFORE_SAVE", {
