@@ -15,11 +15,38 @@ import type { VectorZero } from "./vector-zero";
 import type { BeautyProfile } from "./eve-spec";
 import { log } from "./log";
 
+/** Persisted FIELD CONDITIONS physics from birth moment (sun/moon/solar season). Optional; set when engine/generate has birthContext. */
+export type FieldConditionsContext = {
+  sunAltitudeDeg?: number;
+  sunAzimuthDeg?: number;
+  sunriseLocal?: string;
+  sunsetLocal?: string;
+  dayLengthMinutes?: number;
+  moonPhaseName?: string;
+  moonIlluminationFrac?: number;
+  moonAltitudeDeg?: number;
+  moonAzimuthDeg?: number;
+  sunLonDeg?: number;
+  solarDeclinationDeg?: number;
+  solarPolarity?: string;
+  anchorType?: string;
+};
+
 export type StoredReport = {
   full_report: string;
   emotional_snippet: string;
   image_prompts: string[];
   vector_zero?: VectorZero;
+  /** FIELD CONDITIONS physics at birth moment; set by engine/generate when birthContext is available. */
+  field_conditions_context?: FieldConditionsContext;
+  /** Origin Coordinates display string (e.g. "Place, 40.7128°N, 74.0060°W") when birthContext had lat/lon; set by engine/generate so paid WHOIS can render without re-geocoding. */
+  originCoordinatesDisplay?: string;
+  /** Magnetic Field Index display (e.g. "K-index 3 (moderate)") from SWPC Kp at birth moment; set by engine/generate when lookup succeeds. */
+  magneticFieldIndexDisplay?: string;
+  /** Climate Signature display from location+time weather; set by engine/generate when Open-Meteo lookup succeeds. */
+  climateSignatureDisplay?: string;
+  /** Sensory Field Conditions display (day/night + weather); set by engine/generate when weather lookup succeeds. */
+  sensoryFieldConditionsDisplay?: string;
   createdAt: number;
 };
 
