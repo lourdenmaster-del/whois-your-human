@@ -3,6 +3,7 @@ import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { stripeTestModeRequired } from "@/lib/runtime-mode";
+import { getAgentEntitlementByReportId } from "@/lib/agent-entitlement-store";
 
 export async function GET(request: Request) {
   const requestId = crypto.randomUUID();
@@ -35,8 +36,19 @@ export async function GET(request: Request) {
     }
     const reportId = typeof session.metadata?.reportId === "string" ? session.metadata.reportId.trim() : "";
     const prePurchase = session.metadata?.prePurchase === "1";
+    let entitlementToken: string | undefined;
+    if (reportId) {
+      const entitlement = await getAgentEntitlementByReportId(reportId);
+      if (entitlement?.status === "active") {
+        entitlementToken = entitlement.token;
+      }
+    }
     log("info", "verify_session", { requestId, sessionId, paid: true, prePurchase: !!prePurchase });
-    return successResponse(200, { paid: true, reportId: reportId || undefined, prePurchase }, requestId);
+    return successResponse(
+      200,
+      { paid: true, reportId: reportId || undefined, prePurchase, entitlementToken },
+      requestId
+    );
   } catch (e) {
     log("error", "verify_session", { requestId, sessionId, error: e instanceof Error ? e.message : String(e) });
     return errorResponse(400, "INVALID_SESSION", requestId);

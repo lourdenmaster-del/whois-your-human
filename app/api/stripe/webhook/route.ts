@@ -4,6 +4,11 @@ import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
 import { stripeTestModeRequired } from "@/lib/runtime-mode";
+import {
+  getAgentEntitlementByReportId,
+  mintAgentEntitlementToken,
+  saveAgentEntitlement,
+} from "@/lib/agent-entitlement-store";
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
@@ -44,48 +49,88 @@ export async function POST(request: Request) {
     return successResponse(200, { received: true }, requestId);
   }
 
-  const email = typeof session.customer_details?.email === "string" ? session.customer_details.email.trim() : "";
+  const email =
+    typeof session.customer_details?.email === "string"
+      ? session.customer_details.email.trim()
+      : "";
 
   if (!reportId) {
     return errorResponse(400, "MISSING_REPORT_ID", requestId);
   }
-  if (!email) {
-    return errorResponse(400, "MISSING_EMAIL", requestId);
-  }
+
+  const checkoutSessionId = session.id;
+  log("info", "webhook_checkout_start", {
+    requestId,
+    trace_marker: "webhook_checkout_start",
+    trace_step: 1,
+    checkoutSessionId,
+    reportId,
+    payment_status: session.payment_status,
+  });
 
   try {
-    await loadBeautyProfileV1(reportId, requestId);
+    try {
+      await loadBeautyProfileV1(reportId, requestId);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (message === "BEAUTY_PROFILE_NOT_FOUND") {
+        return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
+      }
+      log("error", "webhook_checkout_profile_error", {
+        requestId,
+        checkoutSessionId,
+        reportId,
+        message,
+      });
+      throw e;
+    }
+    log("info", "webhook_checkout_stage", {
+      requestId,
+      trace_marker: "after_load_beauty_profile",
+      trace_step: 2,
+      stage: "after_load_beauty_profile",
+      checkoutSessionId,
+    });
+
+    const existingEntitlement = await getAgentEntitlementByReportId(reportId);
+    if (!existingEntitlement) {
+      const token = mintAgentEntitlementToken();
+      await saveAgentEntitlement({
+        token,
+        reportId,
+        status: "active",
+        createdAt: Date.now(),
+        stripeSessionId: session.id,
+        ...(email ? { purchaserRef: email } : {}),
+      });
+      log("info", "agent_entitlement_minted", {
+        requestId,
+        reportId,
+        stripeSessionId: session.id,
+        tokenPrefix: token.slice(0, 12),
+      });
+    }
+    log("info", "webhook_checkout_stage", {
+      requestId,
+      trace_marker: "after_entitlement",
+      trace_step: 3,
+      stage: "after_entitlement",
+      checkoutSessionId,
+      hadExistingEntitlement: !!existingEntitlement,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    if (message === "BEAUTY_PROFILE_NOT_FOUND") {
-      return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
-    }
+    const stack = e instanceof Error ? e.stack : undefined;
+    log("error", "webhook_checkout_unhandled", {
+      requestId,
+      trace_marker: "webhook_checkout_unhandled",
+      checkoutSessionId,
+      reportId,
+      message,
+      stack: stack?.slice(0, 800),
+    });
     throw e;
   }
-
-  const origin =
-    process.env.VERCEL_URL != null
-      ? `https://${process.env.VERCEL_URL}`
-      : new URL(request.url).origin;
-  const emailUrl = `${origin}/api/email/send-beauty-profile`;
-
-  log("info", "stage", { requestId, stage: "email_delivery_start" });
-  const res = await fetch(emailUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ reportId, email }),
-  });
-  const json = (await res.json().catch(() => ({}))) as { status?: string; error?: string };
-  if (res.status !== 200 || json?.status !== "ok") {
-    log("error", "email_delivery_failed", {
-      requestId,
-      reportId,
-      httpStatus: res.status,
-      error: json?.error ?? "EMAIL_SEND_FAILED",
-    });
-    return errorResponse(res.status >= 400 ? res.status : 500, json?.error ?? "EMAIL_SEND_FAILED", requestId);
-  }
-  log("info", "stage", { requestId, stage: "email_delivery_end" });
 
   log("info", "purchase_complete", { requestId, reportId });
 
