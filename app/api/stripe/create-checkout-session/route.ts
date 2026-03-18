@@ -62,16 +62,25 @@ export async function POST(request: Request) {
     ? { prePurchase: "1" }
     : { reportId };
 
+  const productData = prePurchase
+    ? {
+        name: "Light Signature",
+        description:
+          "Shareable Light Signature card, 3 signature images, full narrative report.",
+      }
+    : {
+        name: "Agent WHOIS access — Human report",
+        description:
+          "One-time API access. Unlocks the agent calibration record (WHOIS YOUR HUMAN) for report ID in session metadata. Not a subscription.",
+      };
+
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
     line_items: [
       {
         price_data: {
           currency: "usd",
-          product_data: {
-            name: "Light Signature",
-            description: "Shareable Light Signature card, 3 signature images, full narrative report.",
-          },
+          product_data: productData,
           unit_amount: 3999, // $39.99 in cents
         },
         quantity: 1,

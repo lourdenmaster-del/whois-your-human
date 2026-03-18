@@ -262,13 +262,18 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
             <p className="text-xs text-gray-500 text-center">
               Stripe test mode — no real charges
             </p>
-            <button
-              onClick={handleProceed}
-              disabled={apiDisabled || redirecting}
-              className="w-full px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Proceed to Checkout"}
-            </button>
+            <div className="flex flex-col items-center gap-1 w-full">
+              <button
+                onClick={handleProceed}
+                disabled={apiDisabled || redirecting}
+                className="w-full px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock agent WHOIS access"}
+              </button>
+              <p className="text-xs text-gray-500 text-center">
+                One-time · For this report only
+              </p>
+            </div>
           </div>
         </div>
       )}

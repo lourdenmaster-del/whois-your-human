@@ -194,14 +194,15 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
         <p className={`text-xs ${mutedClass} text-center mb-2`}>
           Stripe test mode — no real charges
         </p>
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex gap-3">
           <button
             type="button"
             onClick={handleProceed}
             disabled={apiDisabled || redirecting}
             className="flex-1 px-6 py-3 bg-[#7A4FFF] text-white text-sm font-semibold hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
           >
-            {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Proceed to checkout"}
+            {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock agent WHOIS access"}
           </button>
           <button
             type="button"
@@ -210,6 +211,10 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
           >
             Close
           </button>
+          </div>
+          <p className={`text-xs ${mutedClass} text-center`}>
+            One-time · For this report only
+          </p>
         </div>
       </div>
     </div>

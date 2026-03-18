@@ -499,7 +499,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
               Unlock your Light Identity
             </p>
             <p className={textClass}>
-              $39.99 — Shareable card, 3 signature images, full report. One-time.
+              $39.99 pre-purchase unlock: generate your full Light Signature (card, images, narrative). One-time. Agent WHOIS for a report you already have is purchased separately from that report&apos;s view — API access for that report only, not another bundle.
             </p>
             <a
               href="#form"
