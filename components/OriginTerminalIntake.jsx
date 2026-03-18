@@ -48,9 +48,17 @@ const INTAKE_PROMPTS = {
   email: "Contact email:",
 };
 
+/** Exact clipboard payload for “Use this with AI” (registryReveal). */
+const AI_WHOIS_USE_WITH_AI_BLOCK = `You can use my WHOIS profile to better understand how to work with me.
+
+Use it to:
+- adjust how you explain things
+- help me make decisions
+- avoid patterns I tend to fall into`;
+
 /** Sequential single-line status messages during processing (registry language). */
 const PROCESSING_MESSAGES = [
-  "Resolving identity request…",
+  "Creating your machine-readable WHOIS identity record…",
   "Resolving solar segment…",
   "Mapping archetypal structure…",
 ];
@@ -278,6 +286,8 @@ export default function OriginTerminalIntake() {
   /** Footer counter: only after reveal CTA + 400ms; never during handshake. */
   const [showRegistryCounter, setShowRegistryCounter] = useState(false);
   const [registryCount, setRegistryCount] = useState(null);
+  const [aiWhoisCopied, setAiWhoisCopied] = useState(false);
+  const aiCopyFeedbackRef = useRef(0);
 
   const dryRun = getDryRunFromUrl();
   const [unlocked, setUnlockedState] = useState(false);
@@ -750,9 +760,76 @@ export default function OriginTerminalIntake() {
             className="whois-aperture w-full min-w-0"
             style={{ borderBottom: "1px solid rgba(42,42,46,0.6)", paddingBottom: "1rem" }}
           >
-            <div className="font-mono text-sm sm:text-base py-2 px-1 min-h-[2.2em] flex items-center" style={{ color: bright }}>
-              <span style={{ color: muted }}>&gt;</span>
-              <span className="ml-1">{terminalLine || "Identity registration complete."}</span>
+            <div className="font-mono text-sm sm:text-base py-2 px-1 space-y-2" style={{ color: bright }}>
+              <div className="min-h-[2.2em] flex items-center">
+                <span style={{ color: muted }}>&gt;</span>
+                <span className="ml-1">{terminalLine || "Identity registration complete."}</span>
+              </div>
+              <div
+                className="font-mono text-[11px] uppercase tracking-[0.12em] space-y-0.5 pl-0 sm:pl-1"
+                style={{ color: bright }}
+              >
+                <p>WHOIS STATUS: ACTIVE</p>
+                <p>AI ACCESS: ENABLED</p>
+                <p>IDENTITY RECORD: GENERATED</p>
+              </div>
+              <p
+                className="font-mono text-[11px] uppercase tracking-[0.1em] pt-2"
+                style={{ color: muted }}
+              >
+                NEXT: Use your WHOIS with AI tools
+              </p>
+              <p
+                className="font-mono text-[11px] uppercase tracking-[0.1em] pt-1"
+                style={{ color: muted }}
+              >
+                NEXT ACTION: Open your WHOIS record preview
+              </p>
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-3">
+                <p
+                  className="font-mono text-[11px] uppercase tracking-[0.1em]"
+                  style={{ color: muted }}
+                >
+                  COPY: Use this with AI
+                </p>
+                <button
+                  type="button"
+                  className="cursor-pointer border-0 bg-transparent p-0 font-mono text-[11px] uppercase tracking-[0.08em] underline decoration-[#5a5a5e] underline-offset-2 hover:decoration-[#9a9aa0]"
+                  style={{ color: muted }}
+                  onClick={() => {
+                    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
+                    void navigator.clipboard.writeText(AI_WHOIS_USE_WITH_AI_BLOCK).then(() => {
+                      window.clearTimeout(aiCopyFeedbackRef.current);
+                      setAiWhoisCopied(true);
+                      aiCopyFeedbackRef.current = window.setTimeout(() => {
+                        setAiWhoisCopied(false);
+                      }, 2000);
+                    });
+                  }}
+                >
+                  [ COPY ]
+                </button>
+                {aiWhoisCopied ? (
+                  <span
+                    className="font-mono text-[11px] uppercase tracking-[0.12em]"
+                    style={{ color: bright }}
+                  >
+                    COPIED
+                  </span>
+                ) : null}
+              </div>
+              <pre
+                className="mt-2 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-left font-mono text-[11px] leading-relaxed select-text sm:text-xs"
+                style={{ color: bright }}
+              >
+                {AI_WHOIS_USE_WITH_AI_BLOCK}
+              </pre>
+              <p
+                className="font-mono text-[11px] uppercase tracking-[0.1em] pt-3"
+                style={{ color: muted }}
+              >
+                SAVE: Bookmark this page or share your WHOIS link
+              </p>
             </div>
           </div>
 
@@ -937,7 +1014,7 @@ export default function OriginTerminalIntake() {
                   href="#whois-preview"
                   className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
                 >
-                  View Your WHOIS Registration Report Preview
+                  Open your WHOIS record preview
                 </a>
               </div>
             </section>
@@ -1152,6 +1229,14 @@ export default function OriginTerminalIntake() {
               lineHeight: 1.9,
             }}
           >
+            {(phase === "idle" || phase === "intake") && (
+              <p
+                className="mb-3 w-full font-mono text-[10px] uppercase tracking-[0.14em] sm:text-[11px] sm:tracking-[0.15em]"
+                style={{ color: "rgba(154,154,160,0.85)" }}
+              >
+                WHOIS YOUR HUMAN — AI identity layer initialization
+              </p>
+            )}
             {showStatusOnly && (
               <div
                 className="min-h-[2.2em] flex items-center whitespace-pre-wrap break-words"

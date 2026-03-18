@@ -4,6 +4,8 @@
 
 First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to verify the full stack is wired correctly.
 
+**Orientation (AI / collaborators):** `AI_HANDOFF.md` (cold start) → `REPO_MAP.md` (tree) → `CURRENT_WORK.md` (priorities & gaps). **Canonical agent-operations doc (WHOIS YOUR HUMAN):** `docs/AGENT_USAGE.md` — when to call, how to interpret the record, safety, conversation patterns. **User-facing response shaping (post-fetch):** `docs/AGENT_RESPONSE_PATTERN.md`. **HTTP contract only:** `docs/AGENT-WHOIS-API.md`. This file remains the long-form stack authority; keep it in sync when you change routes, APIs, or env.
+
 ---
 
 ## 0. Imagery source of truth
@@ -22,11 +24,14 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
-## 0.5 Public surface area (lockdown: /origin only)
+## 0.5 Public surface area (lockdown: legacy routes → /origin)
 
 **Production entry points:**
 - `/` → rewrite to `/origin` (middleware; URL stays `/`).
-- `/origin` — **Only public page.** Canonical landing: Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
+- `/origin` — Canonical human intake. Renders **`OriginTerminalIntake`**: WHOIS-style terminal (idle → intake: name, date, time, place, email → waitlist / checkout path). Locked per `landing-lock.mdc`.
+- `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN as AI identity layer; primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`. Does not replace `/` or `/origin`.
+- `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
+- `/whois-your-human/api` — Static agent HTTP summary (register → checkout → verify → `GET /api/agent/whois`); points to repo docs for full detail.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
@@ -54,7 +59,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | **Public-surface lockdown:** /origin is the only public page. www→apex (308); /→rewrite /origin (no redirect). All legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice; /ligs-studio and /ligs-studio/* redirect to /origin unless `LIGS_STUDIO_TOKEN` set and valid studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human` and `/whois-your-human/*` are not redirected** (agent product landing + API reference page). /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -64,8 +69,14 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `app/origin/page.jsx` | Server | Renders `BeautyLandingClient`. Canonical public landing. |
+| `app/origin/page.jsx` | Server | Renders **`OriginTerminalIntake`**. Canonical public landing (terminal WHOIS intake). |
 | `app/origin/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent. |
+| `app/whois-your-human/page.jsx` | Server | Agent product landing → **`WhoisYourHumanLanding`**. |
+| `app/whois-your-human/layout.jsx` | Layout | Metadata; dark shell for WHOIS product page. |
+| `app/whois-your-human/unlock/page.jsx` | Server | Unlock bridge → **`WhoisYourHumanUnlock`**; **Begin** → `/origin`. |
+| `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). |
+| `components/WhoisYourHumanLanding.jsx` | Server | Marketing/infrastructure UI; primary unlock CTAs → `/whois-your-human/unlock`. |
+| `components/WhoisYourHumanUnlock.jsx` | Server | Pre-intake copy + **Begin** / **View API**. |
 
 **Beauty section** (nested under `app/beauty/` — all `/beauty` and `/beauty/*` redirect to `/origin` via middleware; see §0.5):
 
@@ -433,6 +444,28 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 **POST `/api/agent/register`:** Thin proxy to `POST /api/beauty/submit` (same body, same persistence, same `reportId`). Documents agent flow register → Stripe checkout → verify-session → agent/whois. `npm run build` verified.
 
 **Agent API doc:** `docs/AGENT-WHOIS-API.md` — curl + flow for register, checkout, verify-session, whois (no duplicate of full schema).
+
+---
+
+## Verification Log – 2026‑03‑16 (/whois-your-human/unlock)
+
+**Added:** `/whois-your-human/unlock` (`WhoisYourHumanUnlock`) — bridge before `/origin`. Landing primary CTAs now target unlock. No API, payment, or `/origin` changes.
+
+## Verification Log – 2026‑03‑16 (/whois-your-human agent landing)
+
+**Added:** `/whois-your-human` (WHOIS YOUR HUMAN product landing, `WhoisYourHumanLanding`) and `/whois-your-human/api` (static agent HTTP reference). Middleware unchanged. No API or payment changes.
+
+## Verification Log – 2026‑03‑16 (docs/AGENT_RESPONSE_PATTERN.md)
+
+**Added:** `docs/AGENT_RESPONSE_PATTERN.md` — how agents convert WHOIS JSON into user-facing text (calibration not conclusion; A–D construction; signal priority; DO/DO NOT phrasing; three case patterns; failure blocks; minimal template). Pointers in `AI_HANDOFF.md`, `REPO_MAP.md`, snapshot § top. No API or schema changes.
+
+## Verification Log – 2026‑03‑18 (docs/AGENT_USAGE.md)
+
+**Added:** `docs/AGENT_USAGE.md` — operational guide for AI agents consuming WHOIS YOUR HUMAN (`whois-your-human/v1`): when to call, interpretation, safety, conversation pattern; references `AGENT-WHOIS-API.md`. Snapshot § top links AGENT_USAGE + AGENT-WHOIS-API.
+
+## Verification Log – 2026‑03‑18 (AI collaborator orientation docs)
+
+**Added:** `AI_HANDOFF.md`, `CURRENT_WORK.md`, `REPO_MAP.md` — cold-start continuity; implemented vs risky zones; pointer from snapshot § top. **Corrected:** §0.5 and §1.1 `app/origin/page.jsx` now state **`OriginTerminalIntake`** (not BeautyLandingClient on `/origin`).
 
 **Entitlement persistence:** Added `lib/agent-entitlement-store.ts` using existing Blob JSON style with prefixes:
 - `ligs-agent-entitlements/by-token/{token}.json`
