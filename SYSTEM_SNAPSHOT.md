@@ -132,7 +132,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `lib/archetype-public-assets.ts` | Archetype → public asset URL mapping. `getArchetypePublicAssetUrls(archetype)` returns `{ marketingBackground, exemplarCard, shareCard }` from `public/{archetype}-images/` (prime1..3). **Deterministic rotation:** `getArchetypePublicAssetUrlsWithRotation(archetype, seed)` uses prime4+ when available (prime4,7,10…=marketing; prime5,8,11…=exemplar; prime6,9,12…=share); `hash(seed)` selects variant. Used when Blob manifest missing: beauty API (seed=reportId), exemplars API / getExemplarManifestsServer (seed=archetype:version). arc images folders NOT wired. |
 | `lib/archetype-static-images.ts` | Archetype → static image path mapping. `getArchetypeStaticImagePath`, `hasArchetypeStaticImage`, `getArchetypeStaticImagePathOrFallback`, `ARC_STATIC_FALLBACK`. Uses `public/arc-static-images/{archetype}-static1.png`. Fluxionis → fluxonis-static1.png (asset typo). Used by archetype-preview-config, compose-card, static-overlay, LigsStudio, LandingPreviews, etc. |
 | `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, archetype static image path (via getArchetypeStaticImagePath), sample artifact URLs, teaser for all 12 archetypes. Used by PreviewRevealSequence, TerminalResolutionSequence, ArchetypeArtifactCard, InteractiveReportSequence, LandingPreviews. |
-| `lib/report-composition.ts` | Report composition layer: `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`. Converts phrase-bank fragments into complete sentences. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Used by InteractiveReportSequence. |
+| `lib/report-composition.ts` | Report composition layer: `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`, `composeCivilizationalFunctionSection`. Converts phrase-bank and canonical civilizational-function data into section text. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Used by InteractiveReportSequence and paid WHOIS. |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
 | `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Previously used by `/beauty/sample-report`; route now redirects to /origin. Observational, scientific tone. |
 | `lib/runtime-mode.ts` | `isProd`, `isDryRun`, `isTestMode`, `allowExternalWrites`, `allowBlobWrites`, `stripeTestModeRequired` — unified env guard; when `TEST_MODE=1`: dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1` |
@@ -202,6 +202,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | POST | `/api/beauty/create` | Rate limit 5/60s. Validates engine body → POST to `/api/engine` → returns `reportId`. Uses `VERCEL_URL`. |
 | POST | `/api/beauty/dry-run` | Simulates Beauty flow. Body `birthData`, `dryRun`. Calls `POST /api/engine/generate` with `dryRun: true`; saves BeautyProfileV1 to Blob via `saveBeautyProfileV1` (when `BLOB_READ_WRITE_TOKEN` set) so previews and `/beauty/view` work locally for $0. Returns `{ reportId, beautyProfile, checkout }`. No Stripe call. |
 | GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; enriches marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl from Blob; 404 if not found. |
+| POST | `/api/beauty/submit` | Single server entry for Beauty flow: `validateEngineBody` → `deriveFromBirthData` (+ sun/moon/onThisDay) → `POST /api/engine`. Returns engine JSON envelope. Kill-switch when `LIGS_API_OFF`. |
+| POST | `/api/agent/register` | **Alias:** forwards request body to `POST /api/beauty/submit` (internal fetch). Same contract as beauty/submit; agent entrypoint for register → pay → verify → whois. Kill-switch when `LIGS_API_OFF`. |
 | GET | `/api/keepers/[reportId]` | Returns keeper manifest JSON from `ligs-keepers/{reportId}.json`. Query `?dry=1` loads from `ligs-keepers-dry/` for landing validation without spend. 404 when not found. Used by `/beauty?keeperReportId=X` for featured keeper hero. |
 | GET | `/api/exemplars` | Query `?version=v1`. Returns list of exemplar manifests for all 12 archetypes that exist in Blob. Used by landing Examples section. |
 | POST | `/api/exemplars/generate` | Body: `{ archetype, mode: "dry"|"live", version: "v1" }`. Exemplar pack: marketing_background (LIVE; Ignis: glyph-conditioned), share_card (non-Ignis: DALL·E; Ignis: composed from same background for coherence), exemplar_card (compose, always). Saves to `ligs-exemplars/{archetype}/{version}/`. Manifest.urls: marketingBackground, shareCard, exemplarCard. Stable idempotency for marketing_background, share_card (non-Ignis only). |
@@ -230,8 +232,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | POST | `/api/stripe/create-checkout-session` | Body `reportId` (report checkout) or `prePurchase: true` (pay-first). Session $39.99, success_url `/beauty/success?session_id={CHECKOUT_SESSION_ID}`. Uses `STRIPE_SECRET_KEY`, `VERCEL_URL`. |
-| GET | `/api/stripe/verify-session` | Query `session_id`. Stripe retrieve session; returns `{ paid: true, reportId?, prePurchase? }` only if `payment_status === "paid"`. Uses `STRIPE_SECRET_KEY`. |
-| POST | `/api/stripe/webhook` | Stripe signature verification with `STRIPE_WEBHOOK_SECRET`. On `checkout.session.completed`: read `reportId` + email from session → `loadBeautyProfileV1` → POST `/api/email/send-beauty-profile` (internal) → 200. Uses `STRIPE_SECRET_KEY`, `VERCEL_URL`. |
+| GET | `/api/stripe/verify-session` | Query `session_id`. Stripe retrieve session; if paid and session has `metadata.reportId`, includes `entitlementToken` from Blob when entitlement active. Returns `paid`, `reportId?`, `prePurchase?`, `entitlementToken?`. Uses `STRIPE_SECRET_KEY`. |
+| POST | `/api/stripe/webhook` | Stripe signature verification with `STRIPE_WEBHOOK_SECRET`. On `checkout.session.completed`: read `reportId` → `loadBeautyProfileV1` → mint/store agent entitlement if needed → **200**. Does not call `/api/email/send-beauty-profile`. Uses `STRIPE_SECRET_KEY`. |
 
 ### 2.5 Email & analytics
 
@@ -368,7 +370,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 Landing (engine)     → POST /api/engine/generate → saveReportAndConfirm → GET /api/report/[reportId]
 Landing (E.V.E.)     → POST /api/engine → POST /api/engine/generate → GET /api/report/[reportId] → OpenAI E.V.E. → saveBeautyProfileV1
 Beauty form          → POST /api/beauty/create → POST /api/engine (same chain)
-Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV1 → POST /api/email/send-beauty-profile
+Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV1 → agent entitlement mint (no email from webhook)
+Agent WHOIS flow     → POST /api/agent/register (alias: beauty/submit) → POST /api/stripe/create-checkout-session { reportId } → GET /api/stripe/verify-session → GET /api/agent/whois + Bearer token
 ```
 
 ### 6.2 External services
@@ -415,6 +418,32 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑18 (Stripe webhook: no email)
+
+**`POST /api/stripe/webhook`:** Paid `checkout.session.completed` (non–pre-purchase) loads Beauty Profile, mints/persists agent entitlement when missing, returns 200. **Removed** internal call to `/api/email/send-beauty-profile` and all email-delivery logging from this route.
+
+---
+
+## Verification Log – 2026‑03‑16 (Agent entitlement layer for WHOIS YOUR HUMAN)
+
+**New API routes:** Added `GET /api/agent/whois` token gating and new `POST /api/agent/feedback`. `/api/agent/whois` now requires entitlement token via `Authorization: Bearer <token>` or `?token=` and returns 401 for missing token, 403 for invalid token or token/report mismatch; existing payload generation is unchanged.
+
+## Verification Log – 2026‑03‑18 (POST /api/agent/register)
+
+**POST `/api/agent/register`:** Thin proxy to `POST /api/beauty/submit` (same body, same persistence, same `reportId`). Documents agent flow register → Stripe checkout → verify-session → agent/whois. `npm run build` verified.
+
+**Agent API doc:** `docs/AGENT-WHOIS-API.md` — curl + flow for register, checkout, verify-session, whois (no duplicate of full schema).
+
+**Entitlement persistence:** Added `lib/agent-entitlement-store.ts` using existing Blob JSON style with prefixes:
+- `ligs-agent-entitlements/by-token/{token}.json`
+- `ligs-agent-entitlements/by-report/{reportId}.json`
+- feedback: `ligs-agent-feedback/{reportId}/{timestamp}-{uuid}.json`
+Fallback in-memory maps are used when Blob is unavailable (local/dev).
+
+**Stripe reuse:** `POST /api/stripe/webhook` now mints and persists one active entitlement token for a paid `reportId` on `checkout.session.completed` (non-prePurchase), reusing existing Stripe metadata and paid-report verification flow. `GET /api/stripe/verify-session` now returns `entitlementToken` when paid and entitlement exists for the session reportId.
+
+---
+
 ## Verification Log – 2026‑03‑15 (Magnetic Field Index historical coverage)
 
 **Magnetic Field Index source chain:** (A) GFZ Potsdam Kp JSON API (historical since 1932, definitive 3-hourly Kp) tried first; (B) NOAA SWPC planetary_k_index_1m (recent only) as fallback. `lib/field-conditions/fetchGeomagneticKpGfz.ts` added for GFZ; `fetchGeomagneticKp` in `fetchGeomagneticKp.ts` now calls GFZ then SWPC. Same persistence and display; no report redesign. Build passes.
@@ -454,6 +483,12 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑03‑12 (Origin Coordinates live pipeline)
 
 **Origin Coordinates end-to-end:** `StoredReport` in `lib/report-store.ts` has optional `originCoordinatesDisplay`. Engine generate persists it when `birthContext` has lat/lon (dry-run and live). `buildPaidWhoisReport` sets `report.originCoordinatesDisplay` from: (1) explicit `birthContext`, (2) `storedReport.originCoordinatesDisplay`, (3) `profile.originCoordinatesDisplay`, (4) `birthLocation` fallback. Text, HTML, preview read `report.originCoordinatesDisplay`.
+
+---
+
+## Verification Log – 2026‑03‑16 (WHOIS CIVILIZATIONAL FUNCTION section)
+
+**CIVILIZATIONAL FUNCTION:** New WHOIS section rendered after ARCHETYPE EXPRESSION in paid report (HTML and plain text). Canonical content in `src/ligs/voice/civilizationalFunction.ts`: one `CivilizationalFunctionEntry` per LigsArchetype (all 12). Sections: Structural Function, Contribution Environments (bullets), Friction Environments (bullets), Civilizational Role, Integration Insight. `composeCivilizationalFunctionSection(profile)` in `lib/report-composition.ts` formats the section; `buildPaidWhoisReport` sets `report.civilizationalFunctionBody` and validates it for paid WHOIS. No changes to computeBirthContextForReport, field condition resolution, archetype classification, report persistence, or Studio test pipeline. Build and buildPaidWhoisReport-dry-run tests pass.
 
 ---
 
@@ -1425,7 +1460,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ## Verification Log – 2026‑02‑20
 
-**Production API kill-switch:** Added `LIGS_API_OFF=1` env var. When set, `lib/api-kill-switch.ts` returns 503 `{ disabled: true, reason: "maintenance" }` from all sensitive POST routes (image/generate, image/compose, generate-image, marketing/*, exemplars/*, beauty/submit, beauty/dry-run, beauty/create, engine, engine/generate, voice/generate, stripe/create-checkout-session, email/send-beauty-profile). GET `/api/status` returns `{ disabled }` for frontend. Frontend uses `useApiStatus()` to hide/disable CTAs in BeautyLandingClient, Beauty start, PayUnlockButton, PreviewCardModal, LigsStudio.
+**Production API kill-switch:** Added `LIGS_API_OFF=1` env var. When set, `lib/api-kill-switch.ts` returns 503 `{ disabled: true, reason: "maintenance" }` from all sensitive POST routes (image/generate, image/compose, generate-image, marketing/*, exemplars/*, beauty/submit, beauty/dry-run, beauty/create, agent/register, engine, engine/generate, voice/generate, stripe/create-checkout-session, email/send-beauty-profile). GET `/api/status` returns `{ disabled }` for frontend. Frontend uses `useApiStatus()` to hide/disable CTAs in BeautyLandingClient, Beauty start, PayUnlockButton, PreviewCardModal, LigsStudio.
 
 **E.V.E. archetype phrase bank:** Added `src/ligs/voice/archetypePhraseBank.ts` with deterministic phrase banks for all 12 archetypes (sensoryMetaphors 5, behavioralTells 5, relationalTells 5, shadowDrift 3, resetMoves 3). Injected into E.V.E. prompt via `buildPhraseBankBlock`. Updated voice rules: RAW SIGNAL 8–14 words, no "you", no archetype names; CUSTODIAN must include "In practice…" and "You tend to…"; ORACLE 1–2 sentences with concrete moment image. Tests: phrase bank coverage, RAW SIGNAL no "you", CUSTODIAN phrases, ORACLE sentence count. Example outputs: `docs/EVE-EXAMPLE-OUTPUTS.md`.
 

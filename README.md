@@ -1,3 +1,11 @@
+## Agent WHOIS API
+
+Register a human and retrieve a calibration record to improve AI interaction.
+
+→ See [docs/AGENT-WHOIS-API.md](docs/AGENT-WHOIS-API.md)
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 **Production is cloud-only:** Vercel and this repo are the single source of truth. Builds, env vars, Stripe handlers, and all routes run entirely on Vercel. No local machine is required for deployment.
