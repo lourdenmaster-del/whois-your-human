@@ -14,6 +14,7 @@ const CANONICAL_HOST = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//,
  *
  * 1) www → apex (308)
  * 2) / → rewrite to /origin (URL stays /)
+ * 2a) /whois-your-human, /unlock, /api (exact) → pass through (public agent landing)
  * 3) /beauty, /beauty/* → /origin (308)
  * 4) /dossier, /voice → /origin (308)
  * 5) /ligs-studio, /ligs-studio/* → /origin (308) unless LIGS_STUDIO_TOKEN set and valid cookie (then allow)
@@ -33,6 +34,23 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(new URL("/origin", request.url));
   }
 
+  if (
+    pathname === "/whois-your-human" ||
+    pathname === "/whois-your-human/" ||
+    pathname === "/whois-your-human/unlock" ||
+    pathname === "/whois-your-human/unlock/" ||
+    pathname === "/whois-your-human/api" ||
+    pathname === "/whois-your-human/api/"
+  ) {
+    return NextResponse.next();
+  }
+
+  // 2b) /origin/ligs-studio or /origin/ligs-studio/* → /ligs-studio (fix wrong path; no such route under /origin)
+  if (pathname === "/origin/ligs-studio" || pathname.startsWith("/origin/ligs-studio/")) {
+    const rest = pathname.slice("/origin".length); // /ligs-studio or /ligs-studio/login etc.
+    return NextResponse.redirect(new URL(rest + request.nextUrl.search, request.url), 302);
+  }
+
   // 3) /beauty and all /beauty/* → /origin (public-surface lockdown)
   if (pathname === "/beauty" || pathname.startsWith("/beauty/")) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
@@ -50,7 +68,7 @@ export function middleware(request: NextRequest) {
     }
     const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
     if (!verifyStudioAccess(cookieValue)) {
-      return NextResponse.redirect(new URL("/origin", request.url), 308);
+      return NextResponse.redirect(new URL("/ligs-studio/login", request.url), 302);
     }
     return NextResponse.next();
   }
