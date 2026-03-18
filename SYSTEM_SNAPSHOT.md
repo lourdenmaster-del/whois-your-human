@@ -22,17 +22,20 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
-## 0.5 Public surface area (lockdown: /origin only)
+## 0.5 Public surface area (lockdown: legacy routes → /origin)
 
 **Production entry points:**
 - `/` → rewrite to `/origin` (middleware; URL stays `/`).
-- `/origin` — **Only public page.** Canonical landing: Hero → Ignis exemplar + 3 bullets → waitlist form → static 12-grid (non-clickable) → footer. No View report, no Open Artifact, no modals, no Previous Reports, no Featured Keeper, no dev controls.
+- `/origin` — Canonical human intake. Renders **`OriginTerminalIntake`**: WHOIS-style terminal (idle → intake: name, date, time, place, email → waitlist / checkout path). Locked per `landing-lock.mdc`.
+- `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN as AI identity layer; primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`.
+- `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
+- `/whois-your-human/api` — Static agent HTTP summary (register → checkout → verify → `GET /api/agent/whois`); points to repo docs for full detail.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **`/whois-your-human` and `/whois-your-human/*` (unlock, api) are not redirected.** `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
@@ -54,7 +57,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | **Public-surface lockdown:** /origin is the only public page. www→apex (308); /→rewrite /origin (no redirect). All legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice; /ligs-studio and /ligs-studio/* redirect to /origin unless `LIGS_STUDIO_TOKEN` set and valid studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human`, `/whois-your-human/unlock`, `/whois-your-human/api` pass through** (explicit `next()`). /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -64,8 +67,14 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `app/origin/page.jsx` | Server | Renders `BeautyLandingClient`. Canonical public landing. |
+| `app/origin/page.jsx` | Server | Renders **`OriginTerminalIntake`**. Canonical public landing (terminal WHOIS intake). |
 | `app/origin/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent. |
+| `app/whois-your-human/page.jsx` | Server | Agent product landing → **`WhoisYourHumanLanding`**. |
+| `app/whois-your-human/layout.jsx` | Layout | Metadata; dark shell for WHOIS product page. |
+| `app/whois-your-human/unlock/page.jsx` | Server | Unlock bridge → **`WhoisYourHumanUnlock`**; **Begin** → `/origin`. |
+| `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). |
+| `components/WhoisYourHumanLanding.jsx` | Server | Marketing/infrastructure UI; primary unlock CTAs → `/whois-your-human/unlock`. |
+| `components/WhoisYourHumanUnlock.jsx` | Server | Pre-intake copy + **Begin** / **View API**. |
 
 **Beauty section** (nested under `app/beauty/` — all `/beauty` and `/beauty/*` redirect to `/origin` via middleware; see §0.5):
 
@@ -412,6 +421,12 @@ Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑16 (WHOIS YOUR HUMAN → nextjs-boilerplate / ligs.io)
+
+**Ported from whois-your-human repo:** `/whois-your-human`, `/unlock`, `/api` pages; `WhoisYourHumanLanding`, `WhoisYourHumanUnlock`; `OriginTerminalIntake` post-intake messaging + copy control; middleware explicit pass-through for WYH routes. `REPO_MAP.md` added (trimmed to paths present in this repo). Build verified.
 
 ---
 
