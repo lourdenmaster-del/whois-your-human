@@ -1,5 +1,7 @@
 # Repository map
 
+**Production (ligs.io):** Vercel deploy from **`nextjs-boilerplate` `main`** — WHOIS YOUR HUMAN live at **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**; Origin intake + activation messaging in **`OriginTerminalIntake`**.
+
 ## Root (high signal)
 
 | Path | Role |
