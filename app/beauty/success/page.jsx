@@ -16,7 +16,30 @@ function BeautySuccessContent() {
   const [prePurchase, setPrePurchase] = useState(false);
   const [entitlementToken, setEntitlementToken] = useState(null);
   const [tokenPollExhausted, setTokenPollExhausted] = useState(false);
+  const [apiOrigin, setApiOrigin] = useState("");
   const pollCountRef = useRef(0);
+  const handoffBlock = (
+    <div className="mb-6 rounded border border-[#2a2a2e] bg-[#0a0a0b] p-4">
+      <p
+        className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
+        style={{ color: "#58d68d" }}
+      >
+        YOU NOW HAVE WHOIS AGENT ACCESS
+      </p>
+      <ul className="mb-3 space-y-1 text-sm" style={{ color: "#c8c8cc" }}>
+        <li>- Your WHOIS record</li>
+        <li>- Your agent calibration record (API)</li>
+        <li>- Your access token for AI systems</li>
+      </ul>
+      <p className="text-sm" style={{ color: "#9a9aa0" }}>
+        Use this to allow AI tools to adapt how they interact with you.
+      </p>
+    </div>
+  );
+
+  useEffect(() => {
+    setApiOrigin(typeof window !== "undefined" ? window.location.origin : "");
+  }, []);
 
   useEffect(() => {
     track("beauty_success_page");
@@ -36,6 +59,13 @@ function BeautySuccessContent() {
           setPrePurchase(data.prePurchase === true);
           if (data.entitlementToken) {
             setEntitlementToken(data.entitlementToken);
+          }
+          if (typeof data.executionKey === "string" && data.executionKey) {
+            try {
+              sessionStorage.setItem("ligs_execution_key", data.executionKey);
+            } catch {
+              /* ignore quota / private mode */
+            }
           }
           setStatus("paid");
         } else {
@@ -135,7 +165,7 @@ function BeautySuccessContent() {
             className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
-            (L)IGS — Human WHOIS Resolution Engine
+            LIGS
           </p>
         </div>
       </div>
@@ -162,25 +192,26 @@ function BeautySuccessContent() {
             >
               You&apos;re Unlocked
             </h1>
+            {handoffBlock}
             <p
               className="text-sm leading-relaxed mb-8"
               style={{ color: "#9a9aa0" }}
             >
-              Generate your Light Signature report now.
+              Generate your WHOIS record now.
             </p>
             <Link
               href="/beauty/start"
               className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
               style={{ color: "#c8c8cc" }}
             >
-              Generate my report
+              Generate your WHOIS record
             </Link>
           </div>
           <p
             className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
-            (L)IGS — Human WHOIS Resolution Engine
+            LIGS
           </p>
         </div>
       </div>
@@ -205,15 +236,36 @@ function BeautySuccessContent() {
                 fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
               }}
             >
-              Agent WHOIS access active
+              WHOIS Agent Access active
             </h1>
+            {handoffBlock}
             <p className="text-sm mb-4" style={{ color: "#9a9aa0" }}>
               Save these values securely. The entitlement token is secret — anyone
-              with it can call the agent WHOIS API for this report.
+              with it can call the agent calibration API for this report.
+            </p>
+            <p className="text-xs mb-2" style={{ color: "#8a8a90" }}>
+              Also save your <strong style={{ color: "#c8c8cc" }}>session_id</strong> below.
+              If you lose the token, you can get it back by calling verify-session with that id
+              (see example at the bottom).
             </p>
             <div className="space-y-3 mb-6">
               <p
                 className="text-[11px] uppercase tracking-wider"
+                style={{ color: "#8a8a90" }}
+              >
+                session_id (recover token anytime)
+              </p>
+              <pre
+                className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
+                style={{
+                  color: "#e8e8ec",
+                  fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+                }}
+              >
+                {sessionId}
+              </pre>
+              <p
+                className="text-[11px] uppercase tracking-wider mt-4"
                 style={{ color: "#8a8a90" }}
               >
                 reportId
@@ -259,7 +311,29 @@ function BeautySuccessContent() {
               {`GET /api/agent/whois?reportId=${reportId}
 Authorization: Bearer ${entitlementToken}`}
             </pre>
-            <p className="mt-6 text-xs" style={{ color: "#7a7a80" }}>
+            <p
+              className="text-[11px] uppercase tracking-wider mt-6 mb-2"
+              style={{ color: "#8a8a90" }}
+            >
+              Re-fetch entitlement token (same session)
+            </p>
+            <pre
+              className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-2"
+              style={{
+                color: "#c8c8cc",
+                fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+              }}
+            >
+              {apiOrigin
+                ? `GET ${apiOrigin}/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
+                : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
+            </pre>
+            <p className="text-xs mb-6" style={{ color: "#7a7a80" }}>
+              Response JSON includes <code className="text-[#9a9aa0]">entitlementToken</code> when
+              payment is complete and the webhook has registered access (field may be inside{" "}
+              <code className="text-[#9a9aa0]">data</code>).
+            </p>
+            <p className="mt-2 text-xs" style={{ color: "#7a7a80" }}>
               Store the token in a password manager or secure vault. Do not commit
               it to source control or share it in public channels.
             </p>
@@ -268,7 +342,7 @@ Authorization: Bearer ${entitlementToken}`}
               className="inline-flex mt-8 items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
               style={{ color: "#c8c8cc" }}
             >
-              View human-facing report
+              View your WHOIS record
             </Link>
             <FlowNav variant="dark" className="mt-8" />
           </div>
@@ -276,7 +350,7 @@ Authorization: Bearer ${entitlementToken}`}
             className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
-            (L)IGS — Human WHOIS Resolution Engine
+            LIGS
           </p>
         </div>
       </div>
@@ -304,10 +378,48 @@ Authorization: Bearer ${entitlementToken}`}
           >
             Payment received
           </h1>
+          {handoffBlock}
           <p className="text-sm leading-relaxed mb-4" style={{ color: "#9a9aa0" }}>
             {tokenPollExhausted
-              ? "Agent access token is not available yet. Confirm the webhook ran, then reload this page or call GET /api/stripe/verify-session with your session_id again."
-              : "Waiting for agent access token (webhook). This page will update automatically…"}
+              ? "WHOIS Agent Access token is not available yet. Confirm Stripe delivered the webhook and your Beauty Profile exists for this report, then reload this page or use verify-session below."
+              : "Waiting for WHOIS Agent Access token (webhook). This page will update automatically…"}
+          </p>
+          <p
+            className="text-[11px] uppercase tracking-wider mb-2"
+            style={{ color: "#8a8a90" }}
+          >
+            session_id — copy and keep (recover token anytime)
+          </p>
+          <pre
+            className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-4"
+            style={{
+              color: "#e8e8ec",
+              fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+            }}
+          >
+            {sessionId}
+          </pre>
+          <p
+            className="text-[11px] uppercase tracking-wider mb-2"
+            style={{ color: "#8a8a90" }}
+          >
+            Re-fetch token (browser or curl)
+          </p>
+          <pre
+            className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-4"
+            style={{
+              color: "#c8c8cc",
+              fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+            }}
+          >
+            {apiOrigin
+              ? `GET ${apiOrigin}/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
+              : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
+          </pre>
+          <p className="text-xs mb-4" style={{ color: "#7a7a80" }}>
+            After <code className="text-[#9a9aa0]">entitlementToken</code> appears in the response,
+            call <code className="text-[#9a9aa0]">GET /api/agent/whois?reportId=…</code> with{" "}
+            <code className="text-[#9a9aa0]">Authorization: Bearer &lt;token&gt;</code>.
           </p>
           <p className="text-xs mb-6 font-mono" style={{ color: "#8a8a90" }}>
             reportId: {reportId}
@@ -317,7 +429,7 @@ Authorization: Bearer ${entitlementToken}`}
             className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
             style={{ color: "#c8c8cc" }}
           >
-            View Your Report
+            View your WHOIS record
           </Link>
           <FlowNav variant="dark" className="mt-8" />
         </div>
@@ -325,7 +437,7 @@ Authorization: Bearer ${entitlementToken}`}
           className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
           style={{ fontFamily: "inherit", color: "#8a8a90" }}
         >
-          (L)IGS — Human WHOIS Resolution Engine
+          LIGS
         </p>
       </div>
     </div>
