@@ -27,6 +27,32 @@ const FIELDS = {
 
 const TAIL_SECTIONS = [
   {
+    key: "agentEvaluationChatGPTFoundational",
+    label: "AGENT EVALUATION — CHATGPT (FOUNDATIONAL)",
+    content:
+      "baseline_cohesion_score: 0.72\n" +
+      "calibrated_cohesion_score: 0.84\n" +
+      "delta: 0.12\n" +
+      'state: "confirmed"\n' +
+      'confidence: "medium-high"\n\n' +
+      "summary:\n" +
+      '"Initial calibration test showing measurable improvement in interaction coherence after applying WHOIS-derived structure."\n\n' +
+      "verified:\n" +
+      "- directional, goal-driven interaction\n" +
+      "- improved alignment under structure-first responses\n" +
+      "- reduced verbosity mismatch after calibration\n" +
+      "- reduced friction when drift minimized\n" +
+      "- improved execution alignment\n\n" +
+      "partially_verified:\n" +
+      "- intolerance for drift (observed via correction behavior but dependent on agent performance)\n" +
+      "- stability under sustained interaction (limited observation window)\n\n" +
+      "unverified:\n" +
+      "- environmental / temporal effects\n" +
+      "- long-session behavioral stability\n" +
+      "- multi-option decision compression under load\n\n" +
+      'notes:\n"Foundational test conducted prior to current standardized evaluation schema. Metrics are observational and partially subjective. Results remain directionally consistent with later agent evaluations."',
+  },
+  {
     key: "agentEvaluationGrok",
     label: "AGENT EVALUATION — GROK",
     content:
