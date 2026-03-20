@@ -31,15 +31,15 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/origin` — Canonical human intake. Renders **`OriginTerminalIntake`**: WHOIS-style terminal (idle → intake: name, date, time, place, email → waitlist / checkout path). Locked per `landing-lock.mdc`.
 - `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN (agent-readable WHOIS record + agent calibration record via API); primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`.
 - `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
-- `/whois-your-human/api` — Agent HTTP summary (same content as before); **browser access requires HttpOnly cookie `wyh_content_gate=1`** set by `GET /api/stripe/verify-session` when `paid: true`. Otherwise middleware redirects to `/whois-your-human/unlock`.
-- `/whois-your-human/case-studies` — Case study index; **same cookie gate** as `/whois-your-human/api`.
-- `/whois-your-human/case-studies/wyh-001`, `/whois-your-human/case-studies/wyh-001-b`, `/whois-your-human/case-studies/wyh-004` — Case pages; **same cookie gate**.
+- `/whois-your-human/api` — Agent HTTP summary (same content as before); **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`).
+- `/whois-your-human/case-studies` — Case study index; **public**.
+- `/whois-your-human/case-studies/wyh-001`, `/whois-your-human/case-studies/wyh-001-b`, `/whois-your-human/case-studies/wyh-004`, wyh-005 — Case pages; **public**.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human` and `/whois-your-human/unlock`** are public. **`/whois-your-human/api` and `/whois-your-human/case-studies` (+ nested case slugs)** require post-pay cookie `wyh_content_gate` (see above) or redirect to `/whois-your-human/unlock`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
@@ -61,7 +61,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human`** + **`/whois-your-human/unlock`**: `next()`. **`/whois-your-human/api`** + **`/whois-your-human/case-studies/*`**: require `wyh_content_gate=1` cookie else redirect `/whois-your-human/unlock`. /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human`**, **`/unlock`**, **`/api`**, **`/case-studies/*`** → `next()` (public AI inspection boundary). /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -263,6 +263,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/agent/whois` | Query `reportId`; Bearer `wyh_` token or `?token=`. Returns agent calibration record (schema `whois-your-human/v1`). Loads latest feedback via `getLatestFeedbackForReport`; populates `verification.observed_match_fields` / `observed_mismatch_fields` per feedback state; adds `verification.last_feedback` when feedback exists. |
 | POST | `/api/agent/feedback` | Body `reportId`, `state` (`confirmed` \| `partial` \| `debunked`), `metrics`, optional `notes`. Same Bearer token. Stores to Blob `ligs-agent-feedback/{reportId}/` or in-memory. |
 | POST | `/api/agent/drift-check` | Body `reportId`, `currentText`. Same Bearer token. Fetches WHOIS baseline internally; compares current text via OpenAI; returns `{ drift, severity, type, confidence, summary }`. Baseline comparison only; not diagnosis or recalibration. Uses `OPENAI_API_KEY`; blocked by `LIGS_API_OFF`. |
+| GET | `/api/agent/stance` | Public. No auth. Returns `{ endorse, decline, abstain, schema }`. Aggregated agent stance counts (Blob-backed). |
+| POST | `/api/agent/stance` | Public. No auth. Body `{ stance: "endorse"|"decline"|"abstain", rationale?: string }`. Rate-limited (5/min); 1 stance per IP per 24h. Returns `{ ok, counts }` or 429 COOLDOWN/RATE_LIMIT_EXCEEDED. |
 | POST | `/api/agent/register` | Forwards to `POST /api/beauty/submit`; returns `reportId`. Same Bearer not required (pre-checkout). |
 
 ### 2.5 Email & analytics
@@ -451,6 +453,12 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
+## Verification Log – 2026‑03‑20 (AI inspection boundary — public api + case-studies)
+
+**Boundary definition:** `docs/AGENT-INSPECTION-BOUNDARY.md` — A/B/C classification (public inspection, protected value, stance layer), plain-English boundary, minimal implementation plan. **Change:** Removed content gate from `/whois-your-human/api` and `/whois-your-human/case-studies/*` in `middleware.ts`. These routes are now public. **Stance layer:** `GET /api/agent/stance` and `POST /api/agent/stance` — public, no auth, rate-limited (5/min), 1 per IP per 24h. Blob `ligs-agent-stance/`. `WhoisYourHumanLanding` fetches live counts. `GET /api/agent/whois` unchanged (Bearer token required).
+
+---
+
 ## Verification Log – 2026‑03‑20 (Studio WHOIS testing surface)
 
 **Studio Report Library:** LigsStudio now has a "Report Library" section (phase 02b) that fetches `/api/report/previews?maxPreviews=20`, lists reports with reportId, subjectName, emotionalSnippet. Each report has "View preview" (→ `/beauty/view?reportId=`) and "Unlock WHOIS Agent Access" (→ Stripe checkout). Same buttons added to the Test Paid Report / Live Report result panel. **Middleware:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` are allowed when `LIGS_STUDIO_TOKEN` is set and user has valid `ligs_studio` cookie (for WHOIS testing without public /beauty access). No new APIs; reuses existing checkout route and preview page.
@@ -517,7 +525,7 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ## Verification Log – 2026‑03‑19 (WHOIS paid boundary — cookie gate + minimal submit/dry-run JSON)
 
-**Middleware:** `/whois-your-human/api` and `/whois-your-human/case-studies/*` require HttpOnly cookie `wyh_content_gate=1` (set by `GET /api/stripe/verify-session` when payment is `paid`); else redirect `/whois-your-human/unlock`. **`GET /api/agent/whois` unchanged** (Bearer + entitlement). **`POST /api/beauty/submit`** returns minimal `{ reportId, intakeStatus, note }` to clients; engine still runs server-side. **`POST /api/beauty/dry-run`** omits `beautyProfile` from JSON; PayUnlockButton / LigsStudio load preview via `GET /api/beauty/[reportId]` when needed. Build and dry-run route test verified.
+**Middleware:** `/whois-your-human/api` and `/whois-your-human/case-studies/*` are **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`); no cookie gate. **`GET /api/agent/whois` unchanged** (Bearer + entitlement). **`POST /api/beauty/submit`** returns minimal `{ reportId, intakeStatus, note }` to clients; engine still runs server-side. **`POST /api/beauty/dry-run`** omits `beautyProfile` from JSON; PayUnlockButton / LigsStudio load preview via `GET /api/beauty/[reportId]` when needed. Build and dry-run route test verified.
 
 ---
 

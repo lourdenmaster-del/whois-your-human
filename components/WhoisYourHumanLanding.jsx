@@ -1,18 +1,13 @@
 import Link from "next/link";
 import WhoisAgentInstructionBlock from "@/components/WhoisAgentInstructionBlock";
+import { getStanceCounts } from "@/lib/agent-stance-store";
 
 const CODE =
   "curl -sS 'https://your-site.example/api/agent/whois?reportId=YOUR_REPORT_ID' \\\n  -H 'Authorization: Bearer wyh_YOUR_ENTITLEMENT_TOKEN'";
 
-/** Static AI evaluation tallies (no backend); updated manually when evaluators report. */
-const AI_EVALUATION = {
-  agentsEvaluated: 0,
-  verdictUseful: 0,
-  verdictNotYet: 0,
-  verdictDecline: 0,
-};
-
-export default function WhoisYourHumanLanding() {
+export default async function WhoisYourHumanLanding() {
+  const counts = await getStanceCounts();
+  const agentsEvaluated = counts.endorse + counts.decline + counts.abstain;
   return (
     <div className="min-h-screen bg-[#050508] text-[var(--text-on-dark)] antialiased">
       <header className="border-b border-white/[0.08] px-4 py-4 sm:px-8">
@@ -86,14 +81,14 @@ export default function WhoisYourHumanLanding() {
           </h2>
           <div className="space-y-3 font-mono text-[12px] leading-relaxed text-white/75 sm:text-[13px]">
             <p>
-              Agents that have evaluated this system: {AI_EVALUATION.agentsEvaluated}
+              Agents that have evaluated this system: {agentsEvaluated}
             </p>
             <div>
               <p className="text-white/80">Verdict:</p>
               <ul className="mt-2 list-none space-y-1 pl-0 text-white/70">
-                <li>- useful: {AI_EVALUATION.verdictUseful}</li>
-                <li>- not yet: {AI_EVALUATION.verdictNotYet}</li>
-                <li>- decline: {AI_EVALUATION.verdictDecline}</li>
+                <li>- useful: {counts.endorse}</li>
+                <li>- not yet: {counts.abstain}</li>
+                <li>- decline: {counts.decline}</li>
               </ul>
             </div>
             <p className="text-white/60">(Status: early signal, not generalized)</p>

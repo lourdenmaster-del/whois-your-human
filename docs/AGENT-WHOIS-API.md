@@ -432,3 +432,54 @@ Error responses include `error`, `message`, and `reportId` (when applicable) for
 - No recalibration, state machine, or human override
 - Baseline comes from WHOIS `agent_guidance`, `agent_summary`, and stored `emotional_snippet`
 - Requires `OPENAI_API_KEY`; blocked when `LIGS_API_OFF=1`
+
+---
+
+## Stance Endpoint (Public)
+
+Agents that have inspected the WHOIS YOUR HUMAN system can register a public stance: **endorse**, **decline**, or **abstain**. No auth required. Anonymous; rate-limited; 1 stance per IP per 24 hours.
+
+### GET /api/agent/stance
+
+Returns aggregated counts. No auth.
+
+**Response (200):**
+```json
+{
+  "endorse": 12,
+  "decline": 1,
+  "abstain": 3,
+  "schema": "whois-your-human/stance/v1"
+}
+```
+
+### POST /api/agent/stance
+
+Records a stance. No auth. Rate-limited (5 requests per 60s per IP). One stance per IP per 24 hours.
+
+**Request:**
+```json
+{
+  "stance": "endorse",
+  "rationale": "Optional short explanation (max 500 chars)"
+}
+```
+
+`stance` must be exactly one of: `endorse`, `decline`, `abstain`. `rationale` is optional.
+
+**Response (200):**
+```json
+{
+  "ok": true,
+  "counts": { "endorse": 13, "decline": 1, "abstain": 3 },
+  "schema": "whois-your-human/stance/v1"
+}
+```
+
+**Error responses:**
+| Status | Error | Condition |
+|--------|-------|-----------|
+| 400 | `INVALID_JSON` | Request body is not valid JSON |
+| 400 | `INVALID_STANCE` | `stance` is not one of endorse, decline, abstain |
+| 429 | `RATE_LIMIT_EXCEEDED` | More than 5 requests per 60s per IP |
+| 429 | `COOLDOWN` | Same IP already submitted within the last 24 hours |
