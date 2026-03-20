@@ -33,7 +33,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
 - `/whois-your-human/api` — Agent HTTP summary (same content as before); **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`).
 - `/whois-your-human/case-studies` — Case study index; **public**.
-- `/whois-your-human/case-studies/wyh-001`, `/whois-your-human/case-studies/wyh-001-b`, `/whois-your-human/case-studies/wyh-004`, wyh-005 — Case pages; **public**.
+- `/whois-your-human/case-studies/wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001` — Case pages; **public**.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
@@ -77,10 +77,12 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `app/whois-your-human/layout.jsx` | Layout | Metadata; dark shell for WHOIS product page. |
 | `app/whois-your-human/unlock/page.jsx` | Server | Unlock bridge → **`WhoisYourHumanUnlock`**; **Begin** → `/origin`. |
 | `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). Includes **AGENT INSTRUCTION** block after SYSTEM CONTRACT (`WhoisAgentInstructionBlock`). |
-| `app/whois-your-human/case-studies/page.jsx` | Server | Static case study index; links to `wyh-001`, `wyh-001-b`, `wyh-004`. |
+| `app/whois-your-human/case-studies/page.jsx` | Server | Static case study index; links to `wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001`. |
 | `app/whois-your-human/case-studies/wyh-001/page.jsx` | Server | Static case **WYH-001** (`WhoisCaseStudyDocument`). |
 | `app/whois-your-human/case-studies/wyh-001-b/page.jsx` | Server | Static case **WYH-001-B** (`WhoisCaseStudyDocument`). |
 | `app/whois-your-human/case-studies/wyh-004/page.jsx` | Server | Static case **WYH-004** (`WhoisCaseStudyDocument`); calibration artifact presentation. |
+| `app/whois-your-human/case-studies/wyh-005/page.jsx` | Server | Static case **WYH-005** (`WhoisCaseStudyDocument`); agent interaction evaluation, live session calibration. |
+| `app/whois-your-human/case-studies/wyh-ab-001/page.jsx` | Server | Static case **WYH-A/B-001** (`WhoisCaseStudyDocument`); Vector Zero prior A/B test; drift reduction, alignment speed. |
 | `components/WhoisYourHumanLanding.jsx` | Server | Marketing/infrastructure UI; primary unlock CTAs → `/whois-your-human/unlock`; link → case studies index. Embeds **AGENT INSTRUCTION** (`WhoisAgentInstructionBlock`). |
 | `components/WhoisAgentInstructionBlock.jsx` | Server | Shared **AGENT INSTRUCTION** copy (how to apply calibration); used on WYH landing, API reference, case study index + `WhoisCaseStudyDocument`. |
 | `components/WhoisCaseStudyDocument.jsx` | Server | Shared shell + sections (Case ID, Question, Subject, Setup, Procedure, Observations, Result, Limits, Next question). Embeds **AGENT INSTRUCTION** above Case ID. |
@@ -261,6 +263,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | GET | `/api/agent/whois` | Query `reportId`; Bearer `wyh_` token or `?token=`. Returns agent calibration record (schema `whois-your-human/v1`). Loads latest feedback via `getLatestFeedbackForReport`; populates `verification.observed_match_fields` / `observed_mismatch_fields` per feedback state; adds `verification.last_feedback` when feedback exists. |
+| GET | `/api/agent/prior` | Query `reportId`; same Bearer token as whois. Returns Vector Zero prior layer only (schema `whois-your-human/prior/v1`): `derived_structure`, `agent_guidance`, `agent_summary`. Minimal wrapper; no measured_context, verification, or deep model data. |
 | POST | `/api/agent/feedback` | Body `reportId`, `state` (`confirmed` \| `partial` \| `debunked`), `metrics`, optional `notes`. Same Bearer token. Stores to Blob `ligs-agent-feedback/{reportId}/` or in-memory. |
 | POST | `/api/agent/drift-check` | Body `reportId`, `currentText`. Same Bearer token. Fetches WHOIS baseline internally; compares current text via OpenAI; returns `{ drift, severity, type, confidence, summary }`. Baseline comparison only; not diagnosis or recalibration. Uses `OPENAI_API_KEY`; blocked by `LIGS_API_OFF`. |
 | GET | `/api/agent/inspect` | Public. No auth. Machine-readable discovery: project, public_resources, stance, protected whois, recommended_inspection_order. Schema `whois-your-human/inspect/v1`. |
@@ -451,6 +454,18 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑20 (WYH-A/B-001 case study)
+
+**Added:** `app/whois-your-human/case-studies/wyh-ab-001/page.jsx` — first LIGS A/B interaction-prior test. Vector Zero prior vs no-prior; subject Lourden Master; endorse (provisional). Index + inspect `case_studies_detail` updated. Public.
+
+---
+
+## Verification Log – 2026‑03‑20 (Agent tools: prior + inspect tools)
+
+**Added:** `GET /api/agent/prior` — Vector Zero prior layer only. Same auth as whois (Bearer + reportId). Returns `derived_structure`, `agent_guidance`, `agent_summary`; no measured_context, verification, or deep model data. Fetches whois internally and slices response. **Inspect:** `GET /api/agent/inspect` now includes `protected.prior`, `tools.inspect_ligs`, `tools.get_human_prior`. **Docs:** `docs/AGENT-TOOLS.md` — when to call each tool, how to use the prior.
 
 ---
 

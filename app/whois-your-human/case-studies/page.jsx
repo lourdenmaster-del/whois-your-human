@@ -28,6 +28,11 @@ const CASES = [
     href: "/whois-your-human/case-studies/wyh-005",
     blurb: "Agent interaction evaluation: live session calibration; human-AI alignment patterns.",
   },
+  {
+    id: "WYH-A/B-001",
+    href: "/whois-your-human/case-studies/wyh-ab-001",
+    blurb: "Vector Zero prior reduces drift and speeds alignment; first LIGS A/B interaction-prior test.",
+  },
 ];
 
 export default function WhoisCaseStudiesIndexPage() {

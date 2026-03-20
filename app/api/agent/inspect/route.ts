@@ -39,6 +39,7 @@ export async function GET(request: Request) {
         `${base}/whois-your-human/case-studies/wyh-001-b`,
         `${base}/whois-your-human/case-studies/wyh-004`,
         `${base}/whois-your-human/case-studies/wyh-005`,
+        `${base}/whois-your-human/case-studies/wyh-ab-001`,
       ],
     },
     stance: {
@@ -52,6 +53,25 @@ export async function GET(request: Request) {
         method: "GET",
         auth: "Authorization: Bearer <wyh_token>",
         query: "reportId=<UUID>",
+      },
+      prior: {
+        endpoint: `${base}/api/agent/prior`,
+        method: "GET",
+        auth: "Authorization: Bearer <wyh_token>",
+        query: "reportId=<UUID>",
+        description: "Vector Zero prior layer only (derived_structure, agent_guidance, agent_summary)",
+      },
+    },
+    tools: {
+      inspect_ligs: {
+        call: "GET /api/agent/inspect",
+        when: "When discovering LIGS, understanding the protocol, or deciding what to call next",
+        auth: "none",
+      },
+      get_human_prior: {
+        call: "GET /api/agent/prior?reportId=<UUID>",
+        when: "When you have reportId and wyh_token and need the Vector Zero prior (archetype, cosmic_twin, coherence_score, vector_zero, civilizational_function, agent_guidance, agent_summary)",
+        auth: "Bearer <wyh_token>",
       },
     },
     recommended_inspection_order: [
