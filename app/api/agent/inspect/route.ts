@@ -33,6 +33,8 @@ export async function GET(request: Request) {
       landing: `${base}/whois-your-human`,
       unlock: `${base}/whois-your-human/unlock`,
       api_reference: `${base}/whois-your-human/api`,
+      prior_format: `${base}/whois-your-human/prior-format`,
+      prior_format_json: `${base}/api/agent/prior-format`,
       case_studies: `${base}/whois-your-human/case-studies`,
       case_studies_detail: [
         `${base}/whois-your-human/case-studies/wyh-001`,
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
     },
     recommended_inspection_order: [
       "1. Read landing and protocol overview",
-      "2. Read API reference",
+      "2. Read prior format (free, no-call) or API reference (call path)",
       "3. Review case studies and calibration artifacts",
       "4. GET /api/agent/stance to see aggregate verdicts",
       "5. Optionally POST stance (endorse/decline/abstain) after inspection",

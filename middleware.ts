@@ -42,7 +42,9 @@ export function middleware(request: NextRequest) {
     pathname === "/whois-your-human/api/" ||
     pathname === "/whois-your-human/case-studies" ||
     pathname === "/whois-your-human/case-studies/" ||
-    pathname.startsWith("/whois-your-human/case-studies/")
+    pathname.startsWith("/whois-your-human/case-studies/") ||
+    pathname === "/whois-your-human/prior-format" ||
+    pathname === "/whois-your-human/prior-format/"
   ) {
     return NextResponse.next();
   }

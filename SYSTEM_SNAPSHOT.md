@@ -32,6 +32,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN (agent-readable WHOIS record + agent calibration record via API); primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`.
 - `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
 - `/whois-your-human/api` — Agent HTTP summary (same content as before); **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`).
+- `/whois-your-human/prior-format` — Free Vector Zero prior format (portable, no-call); **public**.
 - `/whois-your-human/case-studies` — Case study index; **public**.
 - `/whois-your-human/case-studies/wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001` — Case pages; **public**.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
@@ -39,7 +40,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/prior-format`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
@@ -77,6 +78,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `app/whois-your-human/layout.jsx` | Layout | Metadata; dark shell for WHOIS product page. |
 | `app/whois-your-human/unlock/page.jsx` | Server | Unlock bridge → **`WhoisYourHumanUnlock`**; **Begin** → `/origin`. |
 | `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). Includes **AGENT INSTRUCTION** block after SYSTEM CONTRACT (`WhoisAgentInstructionBlock`). |
+| `app/whois-your-human/prior-format/page.jsx` | Server | Portable prior format: Vector Zero free prior fields, example, agent instructions, boundary (free vs protected). No-call surface for agents that cannot reach backend. |
 | `app/whois-your-human/case-studies/page.jsx` | Server | Static case study index; links to `wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001`. |
 | `app/whois-your-human/case-studies/wyh-001/page.jsx` | Server | Static case **WYH-001** (`WhoisCaseStudyDocument`). |
 | `app/whois-your-human/case-studies/wyh-001-b/page.jsx` | Server | Static case **WYH-001-B** (`WhoisCaseStudyDocument`). |
@@ -266,7 +268,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/agent/prior` | Query `reportId`; same Bearer token as whois. Returns Vector Zero prior layer only (schema `whois-your-human/prior/v1`): `derived_structure`, `agent_guidance`, `agent_summary`. Minimal wrapper; no measured_context, verification, or deep model data. |
 | POST | `/api/agent/feedback` | Body `reportId`, `state` (`confirmed` \| `partial` \| `debunked`), `metrics`, optional `notes`. Same Bearer token. Stores to Blob `ligs-agent-feedback/{reportId}/` or in-memory. |
 | POST | `/api/agent/drift-check` | Body `reportId`, `currentText`. Same Bearer token. Fetches WHOIS baseline internally; compares current text via OpenAI; returns `{ drift, severity, type, confidence, summary }`. Baseline comparison only; not diagnosis or recalibration. Uses `OPENAI_API_KEY`; blocked by `LIGS_API_OFF`. |
-| GET | `/api/agent/inspect` | Public. No auth. Machine-readable discovery: project, public_resources, stance, protected whois, recommended_inspection_order. Schema `whois-your-human/inspect/v1`. |
+| GET | `/api/agent/inspect` | Public. No auth. Machine-readable discovery: project, public_resources (incl. prior_format, prior_format_json), stance, protected whois, recommended_inspection_order. Schema `whois-your-human/inspect/v1`. |
+| GET | `/api/agent/prior-format` | Public. No auth. Free prior format: fields, example, agent_instructions, protected_layer. For no-call agents. Schema `whois-your-human/prior-format/v1`. |
 | GET | `/api/agent/stance` | Public. No auth. Returns `{ endorse, decline, abstain, schema }`. Aggregated agent stance counts (Blob-backed). |
 | POST | `/api/agent/stance` | Public. No auth. Body `{ stance: "endorse"|"decline"|"abstain", rationale?: string }`. Rate-limited (5/min); 1 stance per IP per 24h. Returns `{ ok, counts }` or 429 COOLDOWN/RATE_LIMIT_EXCEEDED. |
 | POST | `/api/agent/register` | Forwards to `POST /api/beauty/submit`; returns `reportId`. Same Bearer not required (pre-checkout). |
@@ -454,6 +457,12 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑20 (Portable prior surface)
+
+**Added:** `/whois-your-human/prior-format` — public page: Vector Zero free prior format (label, axes, coherence, strategy, rules, failure_modes, confidence), safe example, agent instructions, boundary (free vs protected). **Added:** `GET /api/agent/prior-format` — public JSON; no auth. For agents that cannot call out. No WHOIS records, deep model, or derivation logic exposed. Middleware + inspect updated.
 
 ---
 
