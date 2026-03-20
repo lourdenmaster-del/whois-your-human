@@ -76,6 +76,36 @@ More.
       expect(result.initiationFound).toBe(true);
       expect(result.sectionContent).toContain("INITIATION");
     });
+
+    it("accepts ## 1. INITIATION markdown-style heading", () => {
+      const result = parseInitiationSection(`
+## 1. INITIATION
+
+Content here.
+
+2. Spectral Origin
+
+More.
+`);
+      expect(result.initiationFound).toBe(true);
+      expect(result.contentStart).toBeGreaterThan(0);
+      expect(result.sectionContent).toContain("INITIATION");
+    });
+
+    it("accepts Section 1: Initiation alternative format", () => {
+      const result = parseInitiationSection(`
+Section 1: Initiation
+
+Content here.
+
+2. Spectral Origin
+
+More.
+`);
+      expect(result.initiationFound).toBe(true);
+      expect(result.contentStart).toBeGreaterThan(0);
+      expect(result.sectionContent).toContain("Initiation");
+    });
   });
 
   describe("subjectNamePresentInInitiation / fullBirthAnchorPresentInInitiation", () => {

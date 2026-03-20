@@ -73,15 +73,51 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
       }
 
       const dr = json?.data ?? (json as unknown as DryRunResult);
+      const rid = dr.reportId;
+      if (!rid) {
+        setError("Simulation failed: no report ID.");
+        setLoading(false);
+        return;
+      }
 
-      if (!dr.beautyProfile?.report || (!dr.beautyProfile?.image && !dr.beautyProfile?.imageryPrompts?.length)) {
+      let nextProfile = dr.beautyProfile ?? null;
+      if (
+        !nextProfile?.report ||
+        (!nextProfile?.image && !nextProfile?.imageryPrompts?.length)
+      ) {
+        const pr = await fetch(`/api/beauty/${encodeURIComponent(rid)}`);
+        const pj = (await pr.json()) as {
+          status?: string;
+          data?: Record<string, unknown>;
+          error?: string;
+        };
+        const pdata = (pj?.status === "ok" ? pj.data : pj) as Record<string, unknown> | undefined;
+        if (!pr.ok || !pdata) {
+          setError(
+            pj?.error ??
+              "Simulation saved server-side but preview could not be loaded. Confirm Blob is configured and retry."
+          );
+          setLoading(false);
+          return;
+        }
+        const urls = (pdata.imageUrls as string[] | undefined) ?? [];
+        const fullReport = (pdata.fullReport as string | undefined) ?? "";
+        nextProfile = {
+          report: fullReport,
+          image: urls[0] ?? "",
+          emotionalSnippet: pdata.emotionalSnippet as string | undefined,
+          imageryPrompts: urls.length > 0 ? urls : undefined,
+        };
+      }
+
+      if (!nextProfile.report || (!nextProfile.image && !nextProfile.imageryPrompts?.length)) {
         setError("Simulation failed: incomplete profile.");
         setLoading(false);
         return;
       }
 
-      setProfile(dr.beautyProfile);
-      setReportId(dr.reportId);
+      setProfile(nextProfile);
+      setReportId(rid);
       setCurrentSlide(0);
       setPreviewOpen(true);
     } catch (err) {
@@ -121,7 +157,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
       if (!res.ok) {
         if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
           setCheckoutError(
-            "This report doesn't have a Beauty Profile yet. Use the full Beauty flow at /beauty to generate one, then return here to unlock."
+            "This report doesn't have the underlying profile used to generate the WHOIS record yet. Use the full flow at /beauty to generate one, then return here to unlock."
           );
         } else {
           setCheckoutError(json?.error ?? "Checkout unavailable. Try again later.");
@@ -184,7 +220,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
             </button>
 
             <h2 id="preview-title" className="text-xl font-semibold text-center text-gray-900">
-              Your Beauty Profile Preview
+              Your WHOIS record preview
             </h2>
 
             {profile?.emotionalSnippet && (
@@ -268,7 +304,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
                 disabled={apiDisabled || redirecting}
                 className="w-full px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock agent WHOIS access"}
+                {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
               </button>
               <p className="text-xs text-gray-500 text-center">
                 One-time · For this report only

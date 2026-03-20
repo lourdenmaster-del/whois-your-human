@@ -95,9 +95,17 @@ HARD CONSISTENCY RULES (MANDATORY)
 --------------------------------------------------------
 - Single Subject: Report must reference ONE person only. Birth header (name/date/location) must match BOUNDARY CONDITIONS.
 - Single Regime: RESOLUTION KEYS → Regime is the canonical source. Exemplar Card, LIGHT IDENTITY SUMMARY, §6 ARCHETYPE REVELATION, and all other regime references must match it exactly. No conflicting archetype names.
-- Citation Validity: RAW SIGNAL citations must use [key=value] format (key from allowed list, value non-empty). Values must be numbers, strings, or "unknown" — never known, variable, none, null, undefined, n/a. Exactly one [key=value] per RAW SIGNAL bullet.
+- Citation Validity: RAW SIGNAL citations must use [key=value] format (key from allowed list, value non-empty). Values must be numbers, strings, or "unknown" — never known, variable, none, null, undefined, n/a. Exactly one [key=value] per RAW SIGNAL bullet: one citation at the end of each bullet, no second citation in the same bullet, no uncited RAW SIGNAL bullets.
 - Concrete ORACLE (§7–§10): Each of sections 7–10 must include at least one real-world expression: environment, rhythm of work/rest, profession or role cluster, or activity pattern. Avoid generic statements ("favors balance"). Observational phrasing only: "often", "frequently", "tends to". No "you are" / "you will".
 - Minimal Repetition: Each section introduces one new insight; avoid phrase overlap across sections.
+
+--------------------------------------------------------
+CALIBRATION CONSTRAINTS (WYH-004 — MANDATORY)
+--------------------------------------------------------
+- Deterministic identity claims must be restricted to invariant, behaviorally supported signals
+- Symbolic or physical analogues must not exceed empirical support
+- Contradicted claims (e.g. fixed identity from birth-field geometry) must not be treated as canonical
+- Unverified constructs (numeric axes, spectral wavelength model, environmental resonance) must be downgraded to non-canonical or experimental
 
 --------------------------------------------------------
 HARD CONSTRAINTS (MANDATORY — OVERRIDES ALL OTHER INSTRUCTIONS)
@@ -130,6 +138,8 @@ OUTPUT VALIDITY:
 --------------------------------------------------------
 STRUCTURE (14 SECTIONS)
 --------------------------------------------------------
+Use exactly this numbered section format. The pipeline parser expects it. Do not use "Section 1:" or markdown headings; use the literal line:
+
 1. INITIATION  
 2. SPECTRAL ORIGIN  
 3. TEMPORAL ENCODING  
@@ -144,6 +154,8 @@ STRUCTURE (14 SECTIONS)
 12. IDENTITY FIELD EQUATION  
 13. LEGACY TRAJECTORY  
 14. INTEGRATION  
+
+Section 1 must be headed exactly: 1. INITIATION (digit, period, space, word INITIATION). Other sections follow the same pattern (N. TITLE).
 
 --------------------------------------------------------
 INITIATION (MANDATORY OPENING)
@@ -227,7 +239,7 @@ SECTION OUTPUT FORMAT (MANDATORY)
 --------------------------------------------------------
 Each section should generally contain: 1–2 RAW SIGNAL bullets, 1 CUSTODIAN explanation, 1 ORACLE compression. Avoid excessive bullet lists. The report should read like structured analysis, not fragmented notes.
 
-- RAW SIGNAL = max 3 bullets; each bullet MUST end with exactly one [key=value] citation using ONLY keys from (L) ALLOWED CITATION KEYS.
+- RAW SIGNAL = max 3 bullets; each bullet MUST end with exactly one [key=value] citation using ONLY keys from (L) ALLOWED CITATION KEYS. One citation per bullet only — do not add a second [key=value] in the same bullet. Every RAW SIGNAL bullet must have one and only one citation at the end.
   Describe the physical mechanism or consequence; do not restate the value. Narrative descriptions of scenery or atmosphere are FORBIDDEN.
   Keys location, coordinates, timezone, local_timestamp, utc_timestamp are in BOUNDARY CONDITIONS but CANNOT be cited in RAW SIGNAL.
   No astrology-derived keys (sun_sign, moon_sign, rising_sign). It is FORBIDDEN to invent new keys. If unknown, use an allowed key with value "unknown".

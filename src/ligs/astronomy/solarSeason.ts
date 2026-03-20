@@ -74,6 +74,16 @@ function normalizeLon(lon: number): number {
   return ((lon % 360) + 360) % 360;
 }
 
+/**
+ * Canonical solar season index (0–11) from ecliptic longitude.
+ * Single source of truth: matches SOLAR_SEASONS boundaries [0,30), [30,60), … [330,360).
+ * Use this everywhere segment index is needed from longitude.
+ */
+export function getSolarSeasonIndexFromLongitude(lonDeg: number): number {
+  const normalized = normalizeLon(lonDeg);
+  return Math.min(Math.floor(normalized / 30), 11);
+}
+
 /** Day length normalization: mid-latitude range ~360–960 min → 0..1. */
 function dayLengthToNorm01(min: number): number {
   const MIN = 360; // ~6 h
@@ -97,7 +107,7 @@ export function getSolarSeasonProfile(params: {
   } = params;
 
   const normalized = normalizeLon(sunLonDeg);
-  const seasonIndex = Math.min(Math.floor(normalized / 30), 11);
+  const seasonIndex = getSolarSeasonIndexFromLongitude(sunLonDeg);
   const entry = SOLAR_SEASONS[seasonIndex]!;
   const lonCenterDeg = entry.lonCenterDeg;
 

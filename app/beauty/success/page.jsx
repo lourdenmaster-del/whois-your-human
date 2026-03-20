@@ -192,19 +192,23 @@ function BeautySuccessContent() {
             >
               You&apos;re Unlocked
             </h1>
-            {handoffBlock}
-            <p
-              className="text-sm leading-relaxed mb-8"
-              style={{ color: "#9a9aa0" }}
-            >
-              Generate your WHOIS record now.
-            </p>
+            <div className="mb-6 rounded border border-[#2a2a2e] bg-[#0a0a0b] p-4">
+              <p
+                className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
+                style={{ color: "#58d68d" }}
+              >
+                NEXT: CREATE YOUR WHOIS RECORD
+              </p>
+              <p className="text-sm leading-relaxed" style={{ color: "#9a9aa0" }}>
+                Enter your birth details to create your WHOIS record. You&apos;ll receive your agent calibration record and API token after creation.
+              </p>
+            </div>
             <Link
               href="/beauty/start"
               className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
               style={{ color: "#c8c8cc" }}
             >
-              Generate your WHOIS record
+              Create your WHOIS record
             </Link>
           </div>
           <p

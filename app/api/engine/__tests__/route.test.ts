@@ -42,8 +42,9 @@ vi.mock("openai", () => ({
   })),
 }));
 
+const mockSaveBeautyProfileV1 = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/beauty-profile-store", () => ({
-  saveBeautyProfileV1: vi.fn().mockResolvedValue(undefined),
+  saveBeautyProfileV1: (reportId: string, payload: unknown) => mockSaveBeautyProfileV1(reportId, payload),
 }));
 
 const mockBirthContext = {
@@ -80,6 +81,17 @@ const engineResponse = {
   },
 };
 
+/** Report with archetype that can conflict with solar-derived (for identity invariance tests). */
+const reportWithRadiantis = {
+  status: "ok",
+  data: {
+    reportId: "r-123",
+    full_report: "Initiation: forces.\nSpectral Origin.\nDominant: Radiantis.\nTemporal Encoding.",
+    emotional_snippet: engineResponse.data.emotional_snippet,
+    vector_zero: engineResponse.data.vector_zero,
+  },
+};
+
 const reportResponse = {
   status: "ok",
   data: {
@@ -98,7 +110,8 @@ function jsonRequest(body: unknown, url = "http://localhost:3000/api/engine") {
   });
 }
 
-function createFetchMock() {
+function createFetchMock(reportOverride?: typeof reportResponse) {
+  const report = reportOverride ?? reportResponse;
   return vi.fn().mockImplementation((input: string | URL | Request) => {
     const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
     if (url.includes("/api/engine/generate")) {
@@ -110,7 +123,7 @@ function createFetchMock() {
     if (url.includes("/api/report/")) {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve(reportResponse),
+        json: () => Promise.resolve(report),
       } as Response);
     }
     return Promise.reject(new Error(`Unmocked fetch: ${url}`));
@@ -186,5 +199,77 @@ describe("POST /api/engine", () => {
     expect(engineGenerateCalls.length).toBeGreaterThanOrEqual(1);
     const body = JSON.parse((engineGenerateCalls[0][1] as RequestInit).body as string);
     expect(body).not.toHaveProperty("birthContext");
+  });
+
+  it("identity invariance: when sunLonDeg exists, dominantArchetype === solarSeasonProfile.archetype", async () => {
+    /** sunLonDeg 295 → Structoris (segment 9). Report says "Dominant: Radiantis" — solar must win. */
+    const birthContextWithSunLon = { ...mockBirthContext, sunLonDeg: 295 };
+    fetchMock = createFetchMock(reportWithRadiantis);
+    vi.stubGlobal("fetch", fetchMock);
+    mockSaveBeautyProfileV1.mockClear();
+
+    const req = jsonRequest({
+      fullName: "Identity Test",
+      birthDate: "1990-01-15",
+      birthTime: "14:30",
+      birthLocation: "New York, NY",
+      email: "id@example.com",
+      birthContext: birthContextWithSunLon,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(mockSaveBeautyProfileV1).toHaveBeenCalled();
+    const [, payload] = mockSaveBeautyProfileV1.mock.calls[0] as [string, { dominantArchetype?: string; solarSeasonProfile?: { archetype?: string }; fullReport?: string }];
+    expect(payload.dominantArchetype).toBe("Structoris");
+    expect(payload.solarSeasonProfile?.archetype).toBe("Structoris");
+    expect(payload.dominantArchetype).toBe(payload.solarSeasonProfile?.archetype);
+    /** E.V.E. alignment: fullReport (buildCondensedFullReport) uses canonical archetype; Key Moves = Structoris phrase bank. */
+    expect(payload.fullReport).toContain("draw or list the current structure");
+  });
+
+  it("E.V.E. alignment: fullReport Key Moves use canonical archetype (Structoris) when report says Radiantis", async () => {
+    /** Report says "Dominant: Radiantis"; solar 295° → Structoris. buildCondensedFullReport uses canonicalArchetype → Structoris phrase bank. */
+    const birthContextWithSunLon = { ...mockBirthContext, sunLonDeg: 295 };
+    fetchMock = createFetchMock(reportWithRadiantis);
+    vi.stubGlobal("fetch", fetchMock);
+    mockSaveBeautyProfileV1.mockClear();
+
+    const req = jsonRequest({
+      fullName: "EVE Alignment Test",
+      birthDate: "1990-01-15",
+      birthTime: "14:30",
+      birthLocation: "New York, NY",
+      email: "eve@example.com",
+      birthContext: birthContextWithSunLon,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    const [, payload] = mockSaveBeautyProfileV1.mock.calls[0] as [string, { fullReport?: string }];
+    expect(payload.fullReport).toContain("draw or list the current structure");
+  });
+
+  it("identity fallback: when sunLonDeg missing, dominantArchetype from extractArchetypeFromReport", async () => {
+    /** No sunLonDeg in birthContext — fallback to report parse. */
+    const birthContextNoSunLon = { timezoneId: "America/New_York", lat: 40.7, lon: -74 };
+    fetchMock = createFetchMock(reportWithRadiantis);
+    vi.stubGlobal("fetch", fetchMock);
+    mockSaveBeautyProfileV1.mockClear();
+
+    const req = jsonRequest({
+      fullName: "Fallback Test",
+      birthDate: "1990-01-15",
+      birthTime: "14:30",
+      birthLocation: "New York, NY",
+      email: "fb@example.com",
+      birthContext: birthContextNoSunLon,
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(200);
+    expect(mockSaveBeautyProfileV1).toHaveBeenCalled();
+    const [, payload] = mockSaveBeautyProfileV1.mock.calls[0] as [string, { dominantArchetype?: string }];
+    expect(payload.dominantArchetype).toBe("Radiantis");
   });
 });

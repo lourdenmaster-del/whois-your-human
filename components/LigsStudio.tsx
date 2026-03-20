@@ -21,7 +21,8 @@ import MarketingHeader from "./MarketingHeader";
 import ArtifactCompare from "./ArtifactCompare";
 import ArchetypeArtifactCard, { buildArtifactsFromProfile } from "./ArchetypeArtifactCard";
 import { useApiStatus } from "@/hooks/useApiStatus";
-import { PROOF_ONLY } from "@/lib/dry-run-config";
+import { PROOF_ONLY, FAKE_PAY } from "@/lib/dry-run-config";
+import { setBeautyUnlocked } from "@/lib/landing-storage";
 import { buildImagePromptSpec } from "@/src/ligs/image/buildImagePromptSpec";
 import { getArchetypeStaticImagePath } from "@/lib/archetype-static-images";
 
@@ -719,6 +720,56 @@ export default function LigsStudio() {
   const [waitlistOperatorMessage, setWaitlistOperatorMessage] = useState<string | null>(null);
   const [waitlistActionEmail, setWaitlistActionEmail] = useState<string | null>(null);
 
+  const [reportLibrary, setReportLibrary] = useState<Array<{ reportId: string; subjectName: string; emotionalSnippet: string }>>([]);
+  const [reportLibraryLoading, setReportLibraryLoading] = useState(false);
+  const [reportLibraryError, setReportLibraryError] = useState<string | null>(null);
+  const [unlockReportId, setUnlockReportId] = useState<string | null>(null);
+
+  const loadReportLibrary = useCallback(() => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    setReportLibraryLoading(true);
+    setReportLibraryError(null);
+    fetch(`${base}/api/report/previews?maxPreviews=20`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("Failed to load"))))
+      .then((json: { previewCards?: Array<{ reportId: string; subjectName: string; emotionalSnippet: string }> }) => {
+        const cards = json.previewCards ?? [];
+        setReportLibrary(cards.filter((c) => c.reportId && !c.reportId.startsWith("preview-")));
+      })
+      .catch((err) => setReportLibraryError(err?.message ?? "Failed to load"))
+      .finally(() => setReportLibraryLoading(false));
+  }, []);
+
+  const handleUnlockCheckout = useCallback(async (reportId: string) => {
+    if (!reportId) return;
+    if (FAKE_PAY) {
+      setBeautyUnlocked();
+      window.location.href = "/beauty/start";
+      return;
+    }
+    setUnlockReportId(reportId);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { data?: { url?: string }; url?: string };
+      if (!res.ok) {
+        setUnlockReportId(null);
+        return;
+      }
+      const url = json?.data?.url ?? json?.url;
+      if (url && typeof url === "string") {
+        window.location.href = url;
+        return;
+      }
+    } catch {
+      /* ignore */
+    } finally {
+      setUnlockReportId(null);
+    }
+  }, []);
+
   const loadWaitlist = useCallback(() => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     setWaitlistLoading(true);
@@ -850,6 +901,10 @@ export default function LigsStudio() {
       .then(setPipelineStatus)
       .catch((e) => setPipelineStatusError(e?.message ?? "Failed"));
   }, []);
+
+  useEffect(() => {
+    loadReportLibrary();
+  }, [loadReportLibrary]);
 
   const effectiveDryRun = forceDryRun;
   const liveBlocked = effectiveDryRun || PROOF_ONLY;
@@ -1691,8 +1746,22 @@ export default function LigsStudio() {
         const data = json.data ?? json;
         const reportId = data.reportId as string | undefined;
         const beautyProfile = data.beautyProfile as { report?: string; emotionalSnippet?: string } | undefined;
-        const full_report = (beautyProfile?.report ?? "") as string;
-        const emotional_snippet = (beautyProfile?.emotionalSnippet ?? "") as string;
+        let full_report = (beautyProfile?.report ?? "") as string;
+        let emotional_snippet = (beautyProfile?.emotionalSnippet ?? "") as string;
+        if (reportId && !full_report) {
+          try {
+            const pr = await fetch(`${getBaseUrl()}/api/beauty/${encodeURIComponent(reportId)}`);
+            const pj = (await pr.json()) as { status?: string; data?: Record<string, unknown> };
+            const pdata = (pj?.status === "ok" ? pj.data : pj) as Record<string, unknown> | undefined;
+            if (pr.ok && pdata) {
+              full_report = (pdata.fullReport as string) ?? full_report;
+              emotional_snippet =
+                (pdata.emotionalSnippet as string) ?? emotional_snippet;
+            }
+          } catch {
+            /* keep empty; operator can reload */
+          }
+        }
         setReportOnlyResult({ full_report, reportId, emotional_snippet });
         if (reportId) setLastReportId(reportId);
         // Fetch rendered paid WHOIS for primary display (operator testing)
@@ -2085,6 +2154,54 @@ export default function LigsStudio() {
       </div>
       </section>
 
+      {/* 02b — Report Library (view preview + unlock) */}
+      <section className="mb-8 pb-8 border-b border-[#2e2e34]" aria-label="Report Library">
+        {phaseBand("02b", "Report Library", "View existing reports, open WHOIS preview, trigger Stripe checkout. No intake required.")}
+        <div className="mb-5 p-5 rounded-lg border border-[#2e2e34] bg-[#1a1a20] space-y-3 text-[#d0d0d8]">
+          {reportLibraryLoading && <p className="text-sm text-[#8a8a90]">Loading reports…</p>}
+          {reportLibraryError && <p className="text-sm text-red-400">{reportLibraryError}</p>}
+          {!reportLibraryLoading && !reportLibraryError && reportLibrary.length === 0 && (
+            <p className="text-sm text-[#8a8a90]">No reports in Blob. Run Test Paid Report to create one.</p>
+          )}
+          {!reportLibraryLoading && reportLibrary.length > 0 && (
+            <ul className="space-y-2">
+              {reportLibrary.map((r) => (
+                <li key={r.reportId} className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-[#2a2a2e] bg-[#141418]">
+                  <span className="font-mono text-xs text-[#a0a0a8]">{r.reportId}</span>
+                  <span className="text-sm text-[#d0d0d8]">{r.subjectName}</span>
+                  <span className="text-xs text-[#8a8a90] truncate max-w-[200px]" title={r.emotionalSnippet}>{r.emotionalSnippet?.slice(0, 60)}…</span>
+                  <div className="flex gap-2 ml-auto">
+                    <a
+                      href={`/beauty/view?reportId=${encodeURIComponent(r.reportId)}`}
+                      className="px-3 py-1.5 text-xs rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+                    >
+                      View preview
+                    </a>
+                    <button
+                      type="button"
+                      disabled={unlockReportId === r.reportId}
+                      onClick={() => handleUnlockCheckout(r.reportId)}
+                      className="px-3 py-1.5 text-xs rounded-lg bg-[#7A4FFF] text-white hover:bg-[#8b5fff] disabled:opacity-50"
+                    >
+                      {unlockReportId === r.reportId ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+          {reportLibrary.length > 0 && (
+            <button
+              type="button"
+              className="text-xs text-[#a0a0a8] hover:text-[#d0d0d8] underline"
+              onClick={loadReportLibrary}
+            >
+              Refresh list
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* 03–05 — Operator console (flight → telemetry → engine notes; DOM order preserved) */}
       <section className="mb-6 pb-6 border-b border-[#2a2a2e]" aria-label="Operator console">
         {phaseBand("03–05", "Run a Test", "Report test, live controls, results, and reference — scroll for Test Paid Report, Live Report, Results, VoiceProfile grid.")}
@@ -2216,9 +2333,27 @@ export default function LigsStudio() {
               <p className="text-sm font-semibold text-[#e0e0e8]">
                 {effectiveDryRun && reportOnlyResult.paidWhoisText ? "Paid WHOIS report" : "Report result"}
               </p>
-              <div className="flex gap-2 items-center">
+              <div className="flex flex-wrap gap-2 items-center">
                 {reportOnlyResult.reportId && (
                   <span className="text-sm text-[#a0a0a8]">ID: {reportOnlyResult.reportId}</span>
+                )}
+                {reportOnlyResult.reportId && (
+                  <>
+                    <a
+                      href={`/beauty/view?reportId=${encodeURIComponent(reportOnlyResult.reportId)}`}
+                      className="px-3 py-1.5 text-sm rounded-lg bg-teal-600 text-white hover:bg-teal-700"
+                    >
+                      View preview
+                    </a>
+                    <button
+                      type="button"
+                      disabled={unlockReportId === reportOnlyResult.reportId}
+                      onClick={() => reportOnlyResult.reportId && handleUnlockCheckout(reportOnlyResult.reportId)}
+                      className="px-3 py-1.5 text-sm rounded-lg bg-[#7A4FFF] text-white hover:bg-[#8b5fff] disabled:opacity-50"
+                    >
+                      {unlockReportId === reportOnlyResult.reportId ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -2238,7 +2373,9 @@ export default function LigsStudio() {
               <p className="text-xs text-[#90909a] mb-2">Rendered from stored report (buildPaidWhoisReport).</p>
             )}
             <pre className="text-sm font-mono text-[#d0d0d8] overflow-auto max-h-96 p-4 rounded-lg bg-[#25252c] border border-[#3a3a42] whitespace-pre-wrap leading-relaxed">
-              {effectiveDryRun && reportOnlyResult.paidWhoisText ? reportOnlyResult.paidWhoisText : reportOnlyResult.full_report}
+              {effectiveDryRun
+                ? (reportOnlyResult.paidWhoisText ?? "Loading expanded paid WHOIS report…")
+                : reportOnlyResult.full_report}
             </pre>
             {effectiveDryRun && reportOnlyResult.paidWhoisText && (
               <div className="mt-3">

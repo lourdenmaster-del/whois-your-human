@@ -29,6 +29,10 @@ import { buildIdentityOverlaySpec } from "@/src/ligs/marketing/identity-spec";
 import { buildGlyphReferenceLogoMarkPrompt } from "@/lib/marketing/glyphReferencePrompt";
 import { allowExternalWrites, isDryRun } from "@/lib/runtime-mode";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 import sharp from "sharp";
 import { buildImagePromptSpec } from "@/src/ligs/image";
 
@@ -137,6 +141,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const exemplarExKey = extractExecutionKey(req, b);
+    if (isLive) {
+      const gv = await getEngineExecutionGrantViolation(exemplarExKey, { dryRun: false });
+      if (gv) {
+        return NextResponse.json({ error: gv, requestId }, { status: 403 });
+      }
+    }
+
     const baseUrl = getBaseUrl(req);
     const profile = buildMinimalVoiceProfile(arch, { deterministicId: `exemplar_${arch}_${version}` });
     const exemplarBaseKey = "a1b2c3d4-e5f6-4789-a012-345678901234"; // fixed base for exemplar derivation
@@ -154,7 +166,10 @@ export async function POST(req: Request) {
     if (isLive) {
       const res = await fetch(`${baseUrl}/api/image/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(exemplarExKey ? { "X-LIGS-Execution-Key": exemplarExKey } : {}),
+        },
         body: JSON.stringify({
           profile,
           purpose: "marketing_background",

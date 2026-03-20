@@ -7,6 +7,10 @@ import { successResponse } from "@/lib/success-response";
 import { getImageUrlFromBlob, saveImageToBlob } from "@/lib/report-store";
 import { isTestMode } from "@/lib/runtime-mode";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 
 /** Placeholder data URL for TEST_MODE dry image generation. */
 const DRY_IMAGE_PLACEHOLDER =
@@ -36,6 +40,13 @@ export async function POST(request: Request) {
     if (reportId && slug !== "image") {
       const existingUrl = await getImageUrlFromBlob(reportId, slug);
       if (existingUrl) return successResponse(200, { url: existingUrl }, requestId);
+    }
+
+    const bodyRec = body as Record<string, unknown>;
+    const exKey = extractExecutionKey(request, bodyRec);
+    const gv = await getEngineExecutionGrantViolation(exKey, { dryRun: false });
+    if (gv) {
+      return errorResponse(403, gv, requestId);
     }
 
     const apiKey = process.env.OPENAI_API_KEY?.trim();

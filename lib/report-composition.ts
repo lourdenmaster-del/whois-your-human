@@ -8,6 +8,10 @@ import type { LigsArchetype } from "@/src/ligs/voice/schema";
 import { getArchetypePhraseBank } from "@/src/ligs/voice/archetypePhraseBank";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
+import {
+  getCivilizationalFunction,
+  hasCivilizationalFunction,
+} from "@/src/ligs/voice/civilizationalFunction";
 
 function hasContent(v: unknown): v is string {
   return v != null && typeof v === "string" && v.trim() !== "" && v !== "—";
@@ -49,7 +53,9 @@ export function composeArchetypeOpening(
   const displayName = cfg?.displayName ?? (typeof arch === "string" ? arch.toUpperCase() : "IGNISPECTRUM");
   const humanExpression = cfg?.teaser?.humanExpression;
   if (humanExpression && humanExpression !== "—") {
-    return [`This identity operates as the ${humanExpression} within the ${displayName} regime.`];
+    const expr = humanExpression.trim();
+    const article = /^\s*The\s/.test(expr) ? "" : "the ";
+    return [`This identity operates as ${article}${expr} within the ${displayName} regime.`];
   }
   return [`This identity operates within the ${displayName} regime.`];
 }
@@ -177,4 +183,33 @@ export function composeReturnToCoherence(profile: {
     }
   }
   return [];
+}
+
+/** Format canonical civilizational function entry as paid WHOIS CIVILIZATIONAL FUNCTION section body. */
+export function composeCivilizationalFunctionSection(profile: {
+  dominantArchetype?: string;
+}): string {
+  const arch = profile?.dominantArchetype?.trim();
+  const archetype: LigsArchetype = arch && hasCivilizationalFunction(arch) ? (arch as LigsArchetype) : "Ignispectrum";
+  const entry = getCivilizationalFunction(archetype);
+  const parts: string[] = [
+    "Every archetypal structure performs a role in the larger human system.",
+    "The following describes where this pattern most naturally contributes.",
+    "",
+    "Structural Function",
+    entry.structuralFunction,
+    "",
+    "Contribution Environments",
+    ...entry.contributionEnvironments.map((e) => `• ${e}`),
+    "",
+    "Friction Environments",
+    ...entry.frictionEnvironments.map((e) => `• ${e}`),
+    "",
+    "Civilizational Role",
+    entry.civilizationalRole,
+    "",
+    "Integration Insight",
+    entry.integrationInsight,
+  ];
+  return parts.join("\n");
 }

@@ -64,14 +64,14 @@ export async function POST(request: Request) {
 
   const productData = prePurchase
     ? {
-        name: "Light Signature",
+        name: "WHOIS Agent Access",
         description:
-          "Shareable Light Signature card, 3 signature images, full narrative report.",
+          "Generates your WHOIS record and provides a token for agent-readable calibration via API. One-time unlock.",
       }
     : {
-        name: "Agent WHOIS access — Human report",
+        name: "WHOIS Agent Access",
         description:
-          "One-time API access. Unlocks the agent calibration record (WHOIS YOUR HUMAN) for report ID in session metadata. Not a subscription.",
+          "Generates your WHOIS record and provides a token for agent-readable calibration via API. Not a subscription.",
       };
 
   const session = await stripe.checkout.sessions.create({

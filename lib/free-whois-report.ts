@@ -12,17 +12,19 @@ import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import type { LigsArchetype } from "@/src/ligs/voice/schema";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
-import { getSolarSeasonByIndex } from "@/src/ligs/astronomy/solarSeason";
+import { getSolarSeasonByIndex, getSolarSeasonIndexFromLongitude } from "@/src/ligs/astronomy/solarSeason";
 import { getVectorZeroImageUrl } from "@/lib/vector-zero-assets";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
-import { getReport } from "@/lib/report-store";
+import { getReport, type FieldConditionsContext } from "@/lib/report-store";
 import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
-import { composeCosmicTwin, composeArchetypeSummary } from "@/lib/report-composition";
+import { log } from "@/lib/log";
+import { composeCosmicTwin, composeArchetypeSummary, composeCivilizationalFunctionSection } from "@/lib/report-composition";
 import type { BirthContextForReport } from "@/lib/engine/computeBirthContextForReport";
 
 /**
- * Solar Segment names: 12 equal 30° segments with boundaries shifted +15° so equinox/solstice names are centered on anchor points.
- * Index = floor(((lon % 360 + 360) % 360 + 15) % 360 / 30). Windows: 345°–15° March Equinox, 15°–45° Early-Spring, … 315°–345° Late-Winter.
+ * Solar Segment names: 12 equal 30° segments aligned with SOLAR_SEASONS.
+ * Index = getSolarSeasonIndexFromLongitude(lon) = floor(normalized / 30), cap 11.
+ * Boundaries: [0,30) March Equinox, [30,60) Early-Spring, … [330,360) Late-Winter.
  */
 const CANONICAL_SOLAR_SEGMENT_NAMES: readonly string[] = [
   "March Equinox",     // 0
@@ -88,6 +90,10 @@ export interface FreeWhoisReport {
   interpretiveNotesBody?: string | null;
   /** Paid WHOIS only. When set, full report uses this as expanded Vector Zero addendum content (before archetype line and image). */
   vectorZeroAddendumBody?: string | null;
+  /** Paid WHOIS only. CIVILIZATIONAL FUNCTION section body (from composeCivilizationalFunctionSection). */
+  civilizationalFunctionBody?: string | null;
+  /** Paid WHOIS only. INTEGRATION NOTE section body; when unset, default closing prose is used. */
+  integrationNoteBody?: string | null;
 
   /** Paid WHOIS only. When set, Genesis table shows this for Origin Coordinates; else "Restricted Node Data". */
   originCoordinatesDisplay?: string | null;
@@ -101,9 +107,50 @@ export interface FreeWhoisReport {
 
 const DEFAULT_SITE_URL = "https://ligs.io";
 
+/** Canonical INTEGRATION NOTE section body for paid WHOIS. */
+const INTEGRATION_NOTE_DEFAULT =
+  "This registry record describes the physical and structural pattern present at the moment of origin.\n" +
+  "No pattern is better or worse than another. Each represents a different way human systems remain functional and adaptive.\n\n" +
+  "Coherence increases when individuals operate in environments aligned with their structural role.\n" +
+  "Friction increases when they attempt to function against it.\n\n" +
+  "Use this record as a reference for understanding where your contribution flows naturally.";
+
 /** Solar longitude for public display: max 2 decimal places. Does not change underlying value. */
 function formatSolarLongitudeDisplay(deg: number): string {
   return `${Number(deg).toFixed(2)}° solar longitude`;
+}
+
+/** Format persisted field_conditions_context (from engine/generate) as FIELD CONDITIONS body for paid WHOIS. */
+function formatFieldConditionsContextForWhois(ctx: FieldConditionsContext): string {
+  const lines: string[] = [];
+  if (typeof ctx.sunAltitudeDeg === "number") {
+    lines.push(`Sun altitude ${ctx.sunAltitudeDeg}°`);
+  }
+  if (typeof ctx.sunAzimuthDeg === "number") {
+    lines.push(`Sun azimuth ${ctx.sunAzimuthDeg}°`);
+  }
+  if (typeof ctx.sunriseLocal === "string" && ctx.sunriseLocal.trim() !== "") {
+    lines.push(`Sunrise: ${ctx.sunriseLocal.trim()}`);
+  }
+  if (typeof ctx.sunsetLocal === "string" && ctx.sunsetLocal.trim() !== "") {
+    lines.push(`Sunset: ${ctx.sunsetLocal.trim()}`);
+  }
+  if (typeof ctx.dayLengthMinutes === "number") {
+    lines.push(`Day length ${ctx.dayLengthMinutes} min`);
+  }
+  if (typeof ctx.moonPhaseName === "string" && ctx.moonPhaseName.trim() !== "") {
+    lines.push(`Moon phase ${ctx.moonPhaseName.trim()}`);
+  }
+  if (typeof ctx.moonIlluminationFrac === "number") {
+    lines.push(`Moon illumination ${Math.round(ctx.moonIlluminationFrac * 100)}%`);
+  }
+  if (typeof ctx.sunLonDeg === "number") {
+    lines.push(`Solar longitude ${ctx.sunLonDeg}°`);
+  }
+  if (typeof ctx.anchorType === "string" && ctx.anchorType.trim() !== "") {
+    lines.push(`Anchor type: ${ctx.anchorType.trim()}`);
+  }
+  return lines.join("\n");
 }
 
 /** Human-facing solar anchor type. Display only; stored values unchanged. */
@@ -306,16 +353,14 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
   if (rawBirthDate) {
     const lon = approximateSunLongitudeFromDate(rawBirthDate);
     if (lon != null) {
-      const normalized = ((lon % 360) + 360) % 360;
-      const shifted = (normalized + 15) % 360;
-      const seasonIndex = Math.floor(shifted / 30);
+      const seasonIndex = getSolarSeasonIndexFromLongitude(lon);
       const name = CANONICAL_SOLAR_SEGMENT_NAMES[seasonIndex];
       if (name) solarSegmentName = name;
       archetypeClassification = getPrimaryArchetypeFromSolarLongitude(lon);
       sunLongitudeDeg = lon;
-      const seasonIndexForAnchor = Math.min(Math.floor(normalized / 30), 11);
-      const seasonEntry = getSolarSeasonByIndex(seasonIndexForAnchor);
+      const seasonEntry = getSolarSeasonByIndex(seasonIndex);
       solarAnchorType = seasonEntry?.anchorType;
+      const normalized = ((lon % 360) + 360) % 360;
       seasonalPolarity = normalized >= 0 && normalized < 180 ? "waxing" : "waning";
     }
   }
@@ -330,7 +375,7 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
     registryId,
     registryStatus: "Registered",
     created_at,
-    recordAuthority: "LIGS Human Identity Registry",
+    recordAuthority: "LIGS Human WHOIS Registry",
     name: data.name?.trim() ?? "—",
     birthDate: data.birthDate?.trim() ?? "—",
     birthLocation: data.birthPlace?.trim() ?? "—",
@@ -386,9 +431,9 @@ export async function buildPaidWhoisReport(
   const registryId = generateLirId(seed);
 
   const name = profile.subjectName?.trim() ?? "—";
-  const birthDateStr = birthDate?.trim() ?? "—";
-  const birthLocationStr = birthLocation?.trim() ?? "—";
-  const birthTimeStr = birthTime?.trim() ?? "—";
+  const birthDateStr = (birthDate?.trim() ?? profile.birthDate?.trim()) ?? "—";
+  const birthLocationStr = (birthLocation?.trim() ?? profile.birthLocation?.trim()) ?? "—";
+  const birthTimeStr = (birthTime?.trim() ?? profile.birthTime?.trim()) ?? "—";
 
   let solarSegmentName = "—";
   let archetypeClassification = profile.dominantArchetype?.trim() ?? "—";
@@ -412,16 +457,14 @@ export async function buildPaidWhoisReport(
     if (/^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
       const lon = approximateSunLongitudeFromDate(rawDate);
       if (lon != null) {
-        const normalized = ((lon % 360) + 360) % 360;
-        const shifted = (normalized + 15) % 360;
-        const seasonIndex = Math.floor(shifted / 30);
+        const seasonIndex = getSolarSeasonIndexFromLongitude(lon);
         const nameSeg = CANONICAL_SOLAR_SEGMENT_NAMES[seasonIndex];
         if (nameSeg) solarSegmentName = nameSeg;
         archetypeClassification = getPrimaryArchetypeFromSolarLongitude(lon);
         sunLongitudeDeg = lon;
-        const seasonIndexForAnchor = Math.min(Math.floor(normalized / 30), 11);
-        const seasonEntry = getSolarSeasonByIndex(seasonIndexForAnchor);
+        const seasonEntry = getSolarSeasonByIndex(seasonIndex);
         solarAnchorType = seasonEntry?.anchorType;
+        const normalized = ((lon % 360) + 360) % 360;
         seasonalPolarity = normalized >= 0 && normalized < 180 ? "waxing" : "waning";
       }
     }
@@ -437,7 +480,7 @@ export async function buildPaidWhoisReport(
     registryId,
     registryStatus: "Registered",
     created_at: createdAt,
-    recordAuthority: "LIGS Human Identity Registry",
+    recordAuthority: "LIGS Human WHOIS Registry",
     name,
     birthDate: birthDateStr,
     birthLocation: birthLocationStr,
@@ -471,6 +514,20 @@ export async function buildPaidWhoisReport(
 
   if (birthContext != null) {
     report.originCoordinatesDisplay = formatOriginCoordinatesDisplay(birthContext);
+  } else if (profile.originCoordinatesDisplay != null && String(profile.originCoordinatesDisplay).trim() !== "") {
+    report.originCoordinatesDisplay = profile.originCoordinatesDisplay.trim();
+  } else if (storedReport.originCoordinatesDisplay != null && String(storedReport.originCoordinatesDisplay).trim() !== "") {
+    report.originCoordinatesDisplay = storedReport.originCoordinatesDisplay.trim();
+  }
+
+  if (storedReport.magneticFieldIndexDisplay != null && String(storedReport.magneticFieldIndexDisplay).trim() !== "") {
+    report.magneticFieldIndexDisplay = storedReport.magneticFieldIndexDisplay.trim();
+  }
+  if (storedReport.climateSignatureDisplay != null && String(storedReport.climateSignatureDisplay).trim() !== "") {
+    report.climateSignatureDisplay = storedReport.climateSignatureDisplay.trim();
+  }
+  if (storedReport.sensoryFieldConditionsDisplay != null && String(storedReport.sensoryFieldConditionsDisplay).trim() !== "") {
+    report.sensoryFieldConditionsDisplay = storedReport.sensoryFieldConditionsDisplay.trim();
   }
 
   const v0 = storedReport.vector_zero ?? profile.vector_zero;
@@ -488,12 +545,29 @@ export async function buildPaidWhoisReport(
   const s12to14 = parseSectionRange(fullReport, 12, 14);
   const s2to5 = parseSectionRange(fullReport, 2, 5);
 
+  const IDENTITY_ARCHITECTURE_UNAVAILABLE = "[Identity Architecture section unavailable]";
+  const INTERPRETIVE_NOTES_UNAVAILABLE = "[Interpretive Notes section unavailable]";
+
   if (s1 || s2) {
     const combined = [s1, s2].filter(Boolean).join("\n\n");
-    if (combined.trim()) report.identityArchitectureBody = combined.trim();
+    if (combined.trim()) {
+      report.identityArchitectureBody = combined.trim();
+    } else {
+      report.identityArchitectureBody = IDENTITY_ARCHITECTURE_UNAVAILABLE;
+      log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "identityArchitectureBody", reason: "s1+s2 empty after trim" });
+    }
+  } else {
+    report.identityArchitectureBody = IDENTITY_ARCHITECTURE_UNAVAILABLE;
+    log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "identityArchitectureBody", reason: "s1 and s2 both null" });
   }
-  if (s2to5) {
+  const FIELD_CONDITIONS_UNAVAILABLE = "[Field Conditions section unavailable]";
+  if (storedReport.field_conditions_context != null) {
+    report.fieldConditionsBody = formatFieldConditionsContextForWhois(storedReport.field_conditions_context);
+  } else if (s2to5) {
     report.fieldConditionsBody = s2to5;
+  } else {
+    report.fieldConditionsBody = FIELD_CONDITIONS_UNAVAILABLE;
+    log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "fieldConditionsBody", reason: "field_conditions_context and s2to5 both null" });
   }
   if (s11) {
     report.cosmicTwinBody = s11;
@@ -514,7 +588,13 @@ export async function buildPaidWhoisReport(
   }
   if (s12to14) {
     report.interpretiveNotesBody = s12to14;
+  } else {
+    report.interpretiveNotesBody = INTERPRETIVE_NOTES_UNAVAILABLE;
+    log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "interpretiveNotesBody", reason: "s12to14 null" });
   }
+
+  report.civilizationalFunctionBody = composeCivilizationalFunctionSection({ dominantArchetype: archetypeClassification });
+  report.integrationNoteBody = INTEGRATION_NOTE_DEFAULT;
 
   return report;
 }
@@ -609,11 +689,11 @@ export function renderFreeWhoisReport(
   const identityArchitecture =
     report.identityArchitectureBody != null && String(report.identityArchitectureBody).trim() !== ""
       ? report.identityArchitectureBody.trim()
-      : "The registry identifies a stable identity structure arising within the total field of forces present at birth.";
+      : "[Identity Architecture section unavailable]";
   const fieldConditions =
     report.fieldConditionsBody != null && String(report.fieldConditionsBody).trim() !== ""
       ? report.fieldConditionsBody.trim()
-      : "Classification emerges from field conditions and force structure at the birth event.";
+      : "[Field Conditions section unavailable]";
   const cosmicTwinSection =
     report.cosmicTwinBody != null && String(report.cosmicTwinBody).trim() !== ""
       ? report.cosmicTwinBody.trim()
@@ -625,11 +705,19 @@ export function renderFreeWhoisReport(
   const interpretiveNotes =
     report.interpretiveNotesBody != null && String(report.interpretiveNotesBody).trim() !== ""
       ? report.interpretiveNotesBody.trim()
-      : "Expanded interpretive sections ship with the complete registration report.";
+      : "[Interpretive Notes section unavailable]";
+  const civilizationalFunction =
+    report.civilizationalFunctionBody != null && String(report.civilizationalFunctionBody).trim() !== ""
+      ? report.civilizationalFunctionBody.trim()
+      : "[Civilizational Function section unavailable]";
+  const integrationNote =
+    report.integrationNoteBody != null && String(report.integrationNoteBody).trim() !== ""
+      ? report.integrationNoteBody.trim()
+      : INTEGRATION_NOTE_DEFAULT;
   const vectorZeroIntro =
     report.vectorZeroAddendumBody != null && String(report.vectorZeroAddendumBody).trim() !== ""
       ? report.vectorZeroAddendumBody.trim()
-      : null;
+      : "[Vector Zero addendum unavailable]";
 
   return `
 <!DOCTYPE html>
@@ -679,8 +767,14 @@ ${artifactBlock || ""}
     <p style="${sectionHeading}">ARCHETYPE EXPRESSION</p>
     <p style="${sectionBody}">${escapeHtml(archetypeExpressionSection)}</p>
 
+    <p style="${sectionHeading}">CIVILIZATIONAL FUNCTION</p>
+    <p style="${sectionBody};white-space:pre-line;">${escapeHtml(civilizationalFunction)}</p>
+
     <p style="${sectionHeading}">INTERPRETIVE NOTES</p>
     <p style="${sectionBody}">${escapeHtml(interpretiveNotes)}</p>
+
+    <p style="${sectionHeading}">INTEGRATION NOTE</p>
+    <p style="${sectionBody};white-space:pre-line;">${escapeHtml(integrationNote)}</p>
 
     <p style="margin:24px 0 0 0;font-size:13px;">
       <a href="${escapeHtml(siteUrl)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a>
@@ -693,8 +787,7 @@ ${artifactBlock || ""}
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e0e0e0;">
       <p style="${sectionHeading}">OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO</p>
-      ${vectorZeroIntro != null ? `<p style="${sectionBody}">${escapeHtml(vectorZeroIntro)}</p>` : `<p style="${sectionBody}">As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.</p>
-      <p style="${sectionBody}">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>`}
+      <p style="${sectionBody}">${escapeHtml(vectorZeroIntro)}</p>
       <p style="${sectionBody}">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>
       ${vectorZeroImageBlock}
     </div>
@@ -753,12 +846,12 @@ export function renderFreeWhoisReportText(
     "IDENTITY ARCHITECTURE",
     report.identityArchitectureBody != null && String(report.identityArchitectureBody).trim() !== ""
       ? report.identityArchitectureBody.trim()
-      : "The registry identifies a stable identity structure arising within the total field of forces present at birth.",
+      : "[Identity Architecture section unavailable]",
     "",
     "FIELD CONDITIONS",
     report.fieldConditionsBody != null && String(report.fieldConditionsBody).trim() !== ""
       ? report.fieldConditionsBody.trim()
-      : "Classification emerges from field conditions and force structure at the birth event.",
+      : "[Field Conditions section unavailable]",
     "",
     "COSMIC TWIN RELATION",
     report.cosmicTwinBody != null && String(report.cosmicTwinBody).trim() !== ""
@@ -770,10 +863,22 @@ export function renderFreeWhoisReportText(
       ? report.archetypeExpressionBody.trim()
       : "Archetype Classification: " + report.archetypeClassification,
     "",
+    "CIVILIZATIONAL FUNCTION",
+    "",
+    report.civilizationalFunctionBody != null && String(report.civilizationalFunctionBody).trim() !== ""
+      ? report.civilizationalFunctionBody.trim()
+      : "[Civilizational Function section unavailable]",
+    "",
     "INTERPRETIVE NOTES",
     report.interpretiveNotesBody != null && String(report.interpretiveNotesBody).trim() !== ""
       ? report.interpretiveNotesBody.trim()
-      : "Expanded interpretive sections ship with the complete registration report.",
+      : "[Interpretive Notes section unavailable]",
+    "",
+    "INTEGRATION NOTE",
+    "",
+    report.integrationNoteBody != null && String(report.integrationNoteBody).trim() !== ""
+      ? report.integrationNoteBody.trim()
+      : INTEGRATION_NOTE_DEFAULT,
     "",
     "Return to the registry: " + siteUrl,
     "",
@@ -784,7 +889,7 @@ export function renderFreeWhoisReportText(
     "",
     report.vectorZeroAddendumBody != null && String(report.vectorZeroAddendumBody).trim() !== ""
       ? report.vectorZeroAddendumBody.trim()
-      : "As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.\n\nVector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
+      : "[Vector Zero addendum unavailable]",
     "",
     "Archetype Classification: " + report.archetypeClassification,
     ...(getVectorZeroImageUrl(
@@ -977,7 +1082,7 @@ export function renderFreeWhoisCard(
     <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid #e8e8e8;">
       <img src="${escapeHtml(logoUrl)}" alt="LIGS" width="64" height="32" style="display:block;height:32px;width:auto;" />
       <p style="margin:8px 0 0 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#1a1a1a;">WHOIS Human Registration Card</p>
-      <p style="margin:2px 0 0 0;font-size:10px;color:#666;">LIGS Human Identity Registry</p>
+      <p style="margin:2px 0 0 0;font-size:10px;color:#666;">LIGS Human WHOIS Registry</p>
     </div>
     <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:20px;" cellpadding="0" cellspacing="0">
 ${coreRows}
@@ -990,7 +1095,7 @@ ${coreRows}
     ${artifactBlock || ""}
     <div style="margin-top:28px;padding-top:24px;border-top:1px solid #e0e0e0;">
       <p style="${sectionTitleStyle}">Official Registry Addendum — Vector Zero</p>
-      <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.</p>
+      <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">As an early registry participant, your WHOIS record has been expanded with an additional section now cleared for release: Vector Zero.</p>
       <p style="margin:0 0 12px 0;font-size:12px;color:#333;line-height:1.5;">Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.</p>
       <p style="margin:0 0 12px 0;font-size:12px;color:#333;">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>
       ${vectorZeroImageBlock}
@@ -1017,7 +1122,7 @@ export function renderFreeWhoisCardText(
 
   const lines: string[] = [
     "WHOIS HUMAN REGISTRATION CARD",
-    "LIGS Human Identity Registry",
+    "LIGS Human WHOIS Registry",
     "",
     "Subject Name: " + report.name,
     "Birth Date: " + report.birthDate,
@@ -1054,7 +1159,7 @@ export function renderFreeWhoisCardText(
     "",
     "OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO",
     "",
-    "As an early registry participant, your record has been expanded with an additional identity layer now cleared for release: Vector Zero.",
+    "As an early registry participant, your WHOIS record has been expanded with an additional section now cleared for release: Vector Zero.",
     "",
     "Vector Zero is the structural origin point of the archetype. It represents the directional bias the identity system takes when interacting with the world. In LIGS, Vector Zero marks the starting geometry from which behavior, coherence, and environmental interaction unfold.",
     "",

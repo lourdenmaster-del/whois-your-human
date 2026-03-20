@@ -13,6 +13,10 @@ import {
 } from "@/lib/idempotency-store";
 import { LigsArchetypeEnum } from "@/src/ligs/voice/schema";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 
 function getBaseUrl(req: Request): string {
   try {
@@ -82,6 +86,14 @@ export async function POST(req: Request) {
       }
     }
 
+    const executionKeyM = extractExecutionKey(req, body as Record<string, unknown>);
+    if (!dryRun) {
+      const gv = await getEngineExecutionGrantViolation(executionKeyM, { dryRun: false });
+      if (gv) {
+        return NextResponse.json({ error: gv, requestId }, { status: 403 });
+      }
+    }
+
     const descriptor = getMarketingDescriptor(primary_archetype, { contrastDelta });
     const assets: MarketingAssets = {};
 
@@ -99,24 +111,32 @@ export async function POST(req: Request) {
       const baseUrl = getBaseUrl(req);
 
       // Use cached path: POST /api/image/generate (LRU + cache keying applies)
-      const logoResult = await fetchImageGenerate(baseUrl, {
-        profile,
-        purpose: "marketing_logo_mark",
-        image: { aspectRatio: "1:1", size: "1024", count: 1 },
-        variationKey: vk,
-        archetype: profileArchetype,
-        idempotencyKey: deriveIdempotencyKey(idempotencyKey!, "logo-mark"),
-      });
+      const logoResult = await fetchImageGenerate(
+        baseUrl,
+        {
+          profile,
+          purpose: "marketing_logo_mark",
+          image: { aspectRatio: "1:1", size: "1024", count: 1 },
+          variationKey: vk,
+          archetype: profileArchetype,
+          idempotencyKey: deriveIdempotencyKey(idempotencyKey!, "logo-mark"),
+        },
+        executionKeyM
+      );
       if (logoResult) assets.logoMark = logoResult;
 
-      const bgResult = await fetchImageGenerate(baseUrl, {
-        profile,
-        purpose: "marketing_background",
-        image: { aspectRatio: "16:9", size: "1024", count: 1 },
-        variationKey: vk,
-        archetype: profileArchetype,
-        idempotencyKey: deriveIdempotencyKey(idempotencyKey!, "marketing-bg"),
-      });
+      const bgResult = await fetchImageGenerate(
+        baseUrl,
+        {
+          profile,
+          purpose: "marketing_background",
+          image: { aspectRatio: "16:9", size: "1024", count: 1 },
+          variationKey: vk,
+          archetype: profileArchetype,
+          idempotencyKey: deriveIdempotencyKey(idempotencyKey!, "marketing-bg"),
+        },
+        executionKeyM
+      );
       if (bgResult) assets.marketingBackground = bgResult;
     }
 
@@ -156,13 +176,17 @@ export async function POST(req: Request) {
 
 async function fetchImageGenerate(
   baseUrl: string,
-  body: Record<string, unknown>
+  payload: Record<string, unknown>,
+  executionKey?: string
 ): Promise<{ url?: string; b64?: string } | null> {
   try {
     const res = await fetch(`${baseUrl}/api/image/generate`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        ...(executionKey ? { "X-LIGS-Execution-Key": executionKey } : {}),
+      },
+      body: JSON.stringify(payload),
     });
     const data = (await res.json()) as Record<string, unknown>;
     if (!res.ok) return null;

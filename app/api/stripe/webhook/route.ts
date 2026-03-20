@@ -132,6 +132,39 @@ export async function POST(request: Request) {
     throw e;
   }
 
+  if (email) {
+    const origin =
+      process.env.VERCEL_URL != null
+        ? `https://${process.env.VERCEL_URL}`
+        : new URL(request.url).origin;
+    const emailUrl = `${origin}/api/email/send-beauty-profile`;
+    try {
+      const emailRes = await fetch(emailUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId, email }),
+      });
+      if (!emailRes.ok) {
+        const errText = await emailRes.text();
+        log("error", "webhook_post_purchase_email_failed", {
+          requestId,
+          reportId,
+          status: emailRes.status,
+          error: errText?.slice(0, 500),
+        });
+      } else {
+        log("info", "webhook_post_purchase_email_sent", { requestId, reportId });
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      log("error", "webhook_post_purchase_email_error", {
+        requestId,
+        reportId,
+        message,
+      });
+    }
+  }
+
   log("info", "purchase_complete", { requestId, reportId });
 
   return successResponse(200, { received: true }, requestId);

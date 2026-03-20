@@ -6,6 +6,10 @@ import { getOnThisDayContext, type OnThisDayContext } from "@/lib/history/onThis
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 
 /** Base derivation + optional sun/moon/onThisDay enrichment. */
 type EnrichedBirthContext = DeriveFromBirthDataResult & {
@@ -35,6 +39,15 @@ export async function POST(request: Request) {
     }
 
     const { fullName, birthDate, birthTime, birthLocation, email, dryRun } = validation.value;
+
+    const bodyRecord = body as Record<string, unknown>;
+    const executionKey = extractExecutionKey(request, bodyRecord);
+    const grantErr = await getEngineExecutionGrantViolation(executionKey, {
+      dryRun: dryRun === true,
+    });
+    if (grantErr) {
+      return errorResponse(403, grantErr, requestId);
+    }
 
     // Always run deriveFromBirthData so birth context is available server-side.
     let birthContext: EnrichedBirthContext | null = await deriveFromBirthData({
@@ -97,6 +110,7 @@ export async function POST(request: Request) {
       ...(dryRun === true && { dryRun: true }),
       ...(birthContext != null && { birthContext }),
       ...(idempotencyKey && { idempotencyKey }),
+      ...(executionKey && { executionKey }),
     };
 
     log("info", "stage", { requestId, stage: "beauty_submit_forward", engineUrl });
@@ -106,7 +120,11 @@ export async function POST(request: Request) {
       body: JSON.stringify(engineBody),
     });
 
-    const engineData = await engineRes.json().catch(() => ({})) as Record<string, unknown> & { error?: string };
+    const engineData = await engineRes.json().catch(() => ({})) as Record<string, unknown> & {
+      error?: string;
+      data?: { reportId?: string };
+      reportId?: string;
+    };
     if (!engineRes.ok) {
       const status = engineRes.status >= 500 ? 503 : engineRes.status;
       return errorResponse(
@@ -116,7 +134,27 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(engineData);
+    const reportId =
+      typeof engineData.data?.reportId === "string"
+        ? engineData.data.reportId
+        : typeof engineData.reportId === "string"
+          ? engineData.reportId
+          : undefined;
+    if (!reportId) {
+      log("warn", "beauty_submit_missing_report_id", { requestId });
+      return errorResponse(502, "ENGINE_MISSING_REPORT_ID", requestId);
+    }
+
+    // Do not return full engine / Beauty profile to the browser on unpaid intake.
+    return NextResponse.json({
+      status: "ok",
+      requestId,
+      data: {
+        reportId,
+        intakeStatus: "CREATED",
+        note: "Report created server-side. Full identity payload is available after checkout and unlock.",
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     log("error", "Beauty submit error", { requestId, message });

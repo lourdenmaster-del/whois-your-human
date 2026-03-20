@@ -3,6 +3,7 @@ import {
   SOLAR_SEASONS,
   getSolarSeasonProfile,
   getSolarSeasonByIndex,
+  getSolarSeasonIndexFromLongitude,
 } from "../solarSeason";
 
 describe("solarSeason", () => {
@@ -60,5 +61,30 @@ describe("solarSeason", () => {
     expect(getSolarSeasonByIndex(0)?.archetype).toBe("Ignispectrum");
     expect(getSolarSeasonByIndex(11)?.archetype).toBe("Fluxionis");
     expect(getSolarSeasonByIndex(12)).toBeUndefined();
+  });
+
+  it("getSolarSeasonIndexFromLongitude matches SOLAR_SEASONS boundaries", () => {
+    expect(getSolarSeasonIndexFromLongitude(0)).toBe(0);
+    expect(getSolarSeasonIndexFromLongitude(14.9)).toBe(0);
+    expect(getSolarSeasonIndexFromLongitude(15)).toBe(0);
+    expect(getSolarSeasonIndexFromLongitude(29.9)).toBe(0);
+    expect(getSolarSeasonIndexFromLongitude(30)).toBe(1);
+    expect(getSolarSeasonIndexFromLongitude(120)).toBe(4);
+    expect(getSolarSeasonIndexFromLongitude(329.9)).toBe(10);
+    expect(getSolarSeasonIndexFromLongitude(330)).toBe(11);
+    expect(getSolarSeasonIndexFromLongitude(350)).toBe(11);
+    expect(getSolarSeasonIndexFromLongitude(359.9)).toBe(11);
+  });
+
+  it("getSolarSeasonIndexFromLongitude normalizes negative and >360", () => {
+    expect(getSolarSeasonIndexFromLongitude(-15)).toBe(11); // 345°
+    expect(getSolarSeasonIndexFromLongitude(375)).toBe(0); // 375° ≡ 15° → [0,30)
+  });
+
+  it("getSolarSeasonIndexFromLongitude matches getSolarSeasonProfile", () => {
+    for (const lon of [0, 15, 30, 90, 180, 270, 330, 350]) {
+      const profile = getSolarSeasonProfile({ sunLonDeg: lon, latitudeDeg: 40, date: new Date() });
+      expect(getSolarSeasonIndexFromLongitude(lon)).toBe(profile.seasonIndex);
+    }
   });
 });

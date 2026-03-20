@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Light Identity Report",
-  description: "Your Light Identity Report begins here. Registry-based identity resolution.",
+  title: "WHOIS record",
+  description: "Your WHOIS record begins here. LIGS Human WHOIS Registry.",
 };
 
 // Use system serif to avoid font fetch failures (Google Fonts can fail in offline/sandbox)

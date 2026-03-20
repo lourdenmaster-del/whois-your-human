@@ -31,7 +31,7 @@ const getInitialDefaults = () =>
 export default function LightIdentityForm({
   onSubmit,
   showOptionalNotes = false,
-  submitButtonLabel = "Generate My Light Identity Report",
+  submitButtonLabel = "Generate my WHOIS record",
   showDryRunButton = false,
   hideSubmitButton = false,
   initialFormData = null,

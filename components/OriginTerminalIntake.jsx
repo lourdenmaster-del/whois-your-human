@@ -13,6 +13,7 @@ import {
   setBeautyDraft,
   saveLastFormData,
   saveOriginIntake,
+  loadLastFormData,
   isBeautyUnlocked,
 } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
@@ -291,6 +292,9 @@ export default function OriginTerminalIntake() {
   const [registryCount, setRegistryCount] = useState(null);
   const [aiWhoisCopied, setAiWhoisCopied] = useState(false);
   const aiCopyFeedbackRef = useRef(0);
+  const [lastReportId, setLastReportId] = useState(null);
+  const [purchaseRedirecting, setPurchaseRedirecting] = useState(false);
+  const [purchaseError, setPurchaseError] = useState(null);
 
   const dryRun = getDryRunFromUrl();
   const [unlocked, setUnlockedState] = useState(false);
@@ -379,6 +383,13 @@ export default function OriginTerminalIntake() {
     const t = setTimeout(() => setShowRegistryCounter(true), 400);
     return () => clearTimeout(t);
   }, [showCTA]);
+
+  /** Load reportId from storage when entering registryReveal (e.g. refresh). */
+  useEffect(() => {
+    if (phase !== "registryReveal") return;
+    const stored = loadLastFormData();
+    if (stored?.reportId && !lastReportId) setLastReportId(stored.reportId);
+  }, [phase, lastReportId]);
 
   const goToErrorAndComplete = useCallback((message) => {
     setCtaError(message);
@@ -567,6 +578,7 @@ export default function OriginTerminalIntake() {
           return;
         }
         saveLastFormData(reportId, payload);
+        setLastReportId(reportId);
         beginRegistryReveal();
         return;
       }
@@ -577,6 +589,7 @@ export default function OriginTerminalIntake() {
         const reportId = result?.reportId;
         if (reportId) {
           saveLastFormData(reportId, payload);
+          setLastReportId(reportId);
           beginRegistryReveal();
         }
         return;
@@ -616,6 +629,40 @@ export default function OriginTerminalIntake() {
 
   const executeSubmitRef = useRef(null);
   executeSubmitRef.current = handleRunWhoisClick;
+
+  const handlePurchaseClick = useCallback(async () => {
+    if (purchaseRedirecting) return;
+    if (FAKE_PAY) {
+      setBeautyUnlocked();
+      window.location.href = "/beauty/start";
+      return;
+    }
+    setPurchaseError(null);
+    setPurchaseRedirecting(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lastReportId ? { reportId: lastReportId } : { prePurchase: true }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPurchaseError(json?.error ?? "Checkout unavailable.");
+        setPurchaseRedirecting(false);
+        return;
+      }
+      const url = json?.data?.url ?? json?.url;
+      if (url && typeof url === "string") {
+        window.location.href = url;
+        return;
+      }
+      setPurchaseError("No checkout URL returned.");
+    } catch {
+      setPurchaseError("Could not start checkout.");
+    } finally {
+      setPurchaseRedirecting(false);
+    }
+  }, [lastReportId, purchaseRedirecting]);
 
   useEffect(() => {
     if (phase !== "processing") return;
@@ -1028,16 +1075,29 @@ export default function OriginTerminalIntake() {
                 Full WHOIS Human Registration Report — Not Yet Released
               </span>
               <div className="flex flex-col gap-3 pt-4 items-start sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
-                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
-                  ← Return to Origin
-                </a>
+                <button
+                  type="button"
+                  onClick={handlePurchaseClick}
+                  disabled={purchaseRedirecting}
+                  className="inline-block px-4 py-2.5 text-[12px] font-mono font-semibold bg-[#7A4FFF] text-white rounded border-0 hover:bg-[#8b5fff] disabled:opacity-50 disabled:cursor-not-allowed w-fit"
+                >
+                  {purchaseRedirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+                </button>
                 <a
                   href="#whois-preview"
                   className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
                 >
                   Open your WHOIS record preview
                 </a>
+                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
+                  ← Return to Origin
+                </a>
               </div>
+              {purchaseError && (
+                <p className="text-[11px] text-red-400 mt-2" role="alert">
+                  {purchaseError}
+                </p>
+              )}
             </section>
           )}
         </div>

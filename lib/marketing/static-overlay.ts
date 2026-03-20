@@ -302,8 +302,8 @@ async function loadSmallArchetypeMark(
  * Render scientific identity share card overlay (square_identity_v1).
  * Background: full-bleed, no blur, no opacity reduction.
  * Top-left: ARCHETYPE SIGNATURE + archetype name + optional small mark.
- * Bottom-left: LIGHT IDENTITY REPORT block (name, archetype, LIR-ID, timestamp).
- * Bottom-right: (L)IGS WHOIS PROTOCOL — HUMAN.
+ * Bottom-left: WHOIS RECORD block (name, archetype, LIR-ID, timestamp).
+ * Bottom-right: LIGS WHOIS PROTOCOL — HUMAN.
  * Optional: ultra-faint 1% measurement grid.
  */
 export async function renderIdentityCardOverlay(
@@ -374,7 +374,7 @@ export async function renderIdentityCardOverlay(
   const generatedStr = formatGeneratedTimestamp(spec.generatedAt);
   const lineH = 22;
   const idLines = [
-    "LIGHT IDENTITY REPORT",
+    "WHOIS RECORD",
     "",
     `Name: ${escapeXml(spec.subjectName)}`,
     `Archetype: ${escapeXml(spec.archetypeName)}`,
@@ -399,9 +399,9 @@ export async function renderIdentityCardOverlay(
       idY += 6;
       continue;
     }
-    const fontSize = line.startsWith("LIGHT IDENTITY") ? 13 : line.startsWith("Generated") ? 12 : 16;
-    const fill = line.startsWith("LIGHT IDENTITY") ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.9)";
-    const weight = line.startsWith("LIGHT IDENTITY") ? "500" : "400";
+    const fontSize = line.startsWith("WHOIS RECORD") ? 13 : line.startsWith("Generated") ? 12 : 16;
+    const fill = line.startsWith("WHOIS RECORD") ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.9)";
+    const weight = line.startsWith("WHOIS RECORD") ? "500" : "400";
     idParts.push(
       `<text x="${idBlock.x}" y="${idY}" font-family="monospace,sans-serif" font-size="${fontSize}" font-weight="${weight}" fill="${fill}">${escapeXml(line)}</text>`
     );
@@ -417,7 +417,7 @@ export async function renderIdentityCardOverlay(
   const sysRightX = sys.x + sys.w;
   const sysSvg = Buffer.from(
     `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
-      <text x="${sysRightX}" y="${sys.y + 10}" text-anchor="end" font-family="monospace,sans-serif" font-size="7" font-weight="400" fill="rgba(255,255,255,0.38)" letter-spacing="0.06em">(L)IGS</text>
+      <text x="${sysRightX}" y="${sys.y + 10}" text-anchor="end" font-family="monospace,sans-serif" font-size="7" font-weight="400" fill="rgba(255,255,255,0.38)" letter-spacing="0.06em">LIGS</text>
       <text x="${sysRightX}" y="${sys.y + 22}" text-anchor="end" font-family="monospace,sans-serif" font-size="6" font-weight="400" fill="rgba(255,255,255,0.3)">WHOIS PROTOCOL — HUMAN</text>
     </svg>`
   );

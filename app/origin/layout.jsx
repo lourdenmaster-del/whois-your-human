@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Origin",
-  description: "Your Light Signature begins here. LIGS reveals the pattern. The Light Identity Report interprets it.",
+  description: "Your WHOIS record begins here. LIGS reveals the pattern. Your WHOIS record structures it for calibration.",
 };
 
 // Use system serif to avoid font fetch failures (Google Fonts can fail in offline/sandbox)

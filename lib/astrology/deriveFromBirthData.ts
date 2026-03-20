@@ -41,6 +41,9 @@ export interface DeriveFromBirthDataResult {
 type GeoCacheEntry = { lat: number; lon: number; displayName?: string };
 const geoCache = new Map<string, GeoCacheEntry>();
 
+const NOMINATIM_DELAY_MS = 1100;
+const GEOCODE_TIMEOUT_MS = 10000;
+
 export async function geocodePlace(
   place: string
 ): Promise<{ lat: number; lon: number; displayName?: string } | null> {
@@ -50,16 +53,24 @@ export async function geocodePlace(
   if (cached) return cached;
   const q = encodeURIComponent(place.trim());
   const url = `https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1`;
+  await new Promise((r) => setTimeout(r, NOMINATIM_DELAY_MS));
   const res = await fetch(url, {
     headers: { Accept: "application/json", "User-Agent": "LIGS-BeautyEngine/1.0" },
+    signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    throw new Error(`Geocoding failed: HTTP ${res.status} ${res.statusText} for place "${place.trim()}"`);
+  }
   const data = (await res.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>;
   const first = data?.[0];
-  if (!first?.lat || !first?.lon) return null;
+  if (!first?.lat || !first?.lon) {
+    throw new Error(`Geocoding failed: no results for place "${place.trim()}"`);
+  }
   const lat = parseFloat(first.lat);
   const lon = parseFloat(first.lon);
-  if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
+  if (Number.isNaN(lat) || Number.isNaN(lon)) {
+    throw new Error(`Geocoding failed: invalid lat/lon for place "${place.trim()}"`);
+  }
   const entry: GeoCacheEntry = { lat, lon, displayName: first.display_name };
   geoCache.set(key, entry);
   return entry;
@@ -73,7 +84,9 @@ export async function deriveFromBirthData(
   input: DeriveFromBirthDataInput
 ): Promise<DeriveFromBirthDataResult | null> {
   const { birthdate, birthtime, birthplace } = input;
-  if (!birthdate?.trim() || !birthtime?.trim() || !birthplace?.trim()) return null;
+  if (!birthdate?.trim() || !birthtime?.trim() || !birthplace?.trim()) {
+    throw new Error("Birth context computation failed: missing birthdate, birthtime, or birthplace");
+  }
 
   const coords = await geocodePlace(birthplace);
   if (!coords) return null;
@@ -84,26 +97,34 @@ export async function deriveFromBirthData(
   try {
     timezoneId = tzlookup(lat, lon);
   } catch {
-    // fallback to UTC if lookup fails
+    // fallback to UTC if lookup fails (e.g. coords in ocean)
   }
 
   // Parse local birth datetime and convert to UTC
   const dStr = birthdate.trim().slice(0, 10);
   const tStr = birthtime.trim().replace(/\s/g, "").slice(0, 8);
-  if (!dStr || !/^\d{4}-\d{2}-\d{2}$/.test(dStr)) return null;
-  const [hh, mm, ss] = tStr.split(/[:\-]/).map((x) => parseInt(x, 10) || 0);
+  if (!dStr || !/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+    throw new Error("Birth context computation failed: invalid birth date format (expect YYYY-MM-DD)");
+  }
+  const parts = tStr.split(/[:\-]/).map((x) => parseInt(x, 10) || 0);
+  const hh = parts[0] ?? 0;
+  const mm = parts[1] ?? 0;
+  const ss = parts[2] ?? 0;
   const localIso = `${dStr}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   const localDt = DateTime.fromISO(localIso, { zone: timezoneId });
-  if (!localDt.isValid) return null;
+  if (!localDt.isValid) {
+    throw new Error(`Birth context computation failed: invalid local datetime "${localIso}" in zone ${timezoneId} (${localDt.invalidReason ?? "unknown"})`);
+  }
   const utcDt = localDt.toUTC();
   const utcTimestamp = utcDt.toISO() ?? "";
   const localTimestamp = localDt.toISO() ?? utcTimestamp;
   const date = utcDt.toJSDate();
 
-  const { Body, AstroTime, EclipticLongitude, SiderealTime } = await import("astronomy-engine");
+  const { Body, AstroTime, EclipticLongitude, SunPosition, SiderealTime } = await import("astronomy-engine");
   const time = new AstroTime(date);
 
-  const sunLon = EclipticLongitude(Body.Sun, time);
+  // Sun: use geocentric ecliptic longitude (SunPosition). EclipticLongitude is heliocentric and throws for Body.Sun.
+  const sunLon = SunPosition(date).elon;
   const moonLon = EclipticLongitude(Body.Moon, time);
 
   const GAST_hours = SiderealTime(time);

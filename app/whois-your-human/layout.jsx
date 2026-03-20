@@ -1,7 +1,7 @@
 export const metadata = {
-  title: "WHOIS YOUR HUMAN | Agent identity layer",
+  title: "WHOIS YOUR HUMAN | Agent-readable WHOIS record",
   description:
-    "Machine-readable identity layer for AI—structure, patterns, and decision style. Register, unlock, GET /api/agent/whois.",
+    "Agent-readable WHOIS record and agent calibration record (API)—hypothesis-style calibration for structure, patterns, and decision style. Early-stage; limited validation. Register, unlock, GET /api/agent/whois.",
 };
 
 export default function WhoisYourHumanLayout({ children }) {

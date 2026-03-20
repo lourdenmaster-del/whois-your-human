@@ -26,7 +26,12 @@ import {
   getArchetypePublicAssetUrls,
 } from "@/lib/archetype-public-assets";
 import type { FreeWhoisReport } from "@/lib/free-whois-report";
-import { renderFreeWhoisCard, renderFreeWhoisCardText } from "@/lib/free-whois-report";
+import {
+  renderFreeWhoisCard,
+  renderFreeWhoisCardText,
+  renderFreeWhoisReport,
+  renderFreeWhoisReportText,
+} from "@/lib/free-whois-report";
 
 const DEFAULT_FROM = "LIGS <onboarding@resend.dev>";
 
@@ -245,6 +250,154 @@ export async function sendWaitlistConfirmation(
   }
   console.error(
     "[waitlist] confirmation reason=provider_rejected provider=sendgrid to=" +
+      maskedTo +
+      " from=" +
+      fromEmail +
+      " status=" +
+      res.status +
+      " body=" +
+      bodyText.slice(0, 200)
+  );
+  return { sent: false, reason: "provider_rejected" };
+}
+
+/**
+ * Send post-purchase paid WHOIS report email. Uses same provider path, from handling,
+ * and SITE_URL as sendWaitlistConfirmation. Subject: "Your WHOIS record".
+ */
+export async function sendPaidWhoisEmail(
+  email: string,
+  report: FreeWhoisReport
+): Promise<WaitlistConfirmationResult> {
+  const resendKey = process.env.RESEND_API_KEY?.trim();
+  const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
+
+  const maskedTo =
+    email.length > 4 ? email.charAt(0) + "***@" + (email.split("@")[1] ?? "") : "***";
+
+  if (!resendKey && !sendgridKey) {
+    console.warn(
+      "[paid_whois] provider=none reason=provider_key_missing to=" + maskedTo + " from_attempt=n/a"
+    );
+    return { sent: false, reason: "provider_key_missing" };
+  }
+
+  const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
+  const subject = "Your WHOIS record";
+  const html = renderFreeWhoisReport(report, { siteUrl: SITE_URL });
+  const text = renderFreeWhoisReportText(report, { siteUrl: SITE_URL });
+
+  if (resendKey) {
+    const fromValue = from.includes("<") ? from : `LIGS <${from}>`;
+    const fromForLog = fromValue.replace(/</g, "").replace(/>/g, "");
+    console.log("[paid_whois] provider_selected=resend to=" + maskedTo + " from_attempt=" + fromForLog);
+    let res: Response;
+    try {
+      res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${resendKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: fromValue,
+          to: [email],
+          subject,
+          html,
+          text,
+        }),
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(
+        "[paid_whois] provider=resend reason=provider_error to=" +
+          maskedTo +
+          " from_attempt=" +
+          fromForLog +
+          " error=" +
+          msg.slice(0, 120)
+      );
+      return { sent: false, reason: "provider_error" };
+    }
+    const bodyText = await res.text();
+    let bodyJson: { id?: string } | null = null;
+    try {
+      bodyJson = bodyText ? JSON.parse(bodyText) : null;
+    } catch {
+      /* ignore */
+    }
+    if (res.ok) {
+      console.log(
+        "[paid_whois] reason=sent provider=resend to=" +
+          maskedTo +
+          " from=" +
+          fromForLog +
+          " status=" +
+          res.status +
+          (bodyJson?.id ? " id=" + bodyJson.id : "")
+      );
+      return { sent: true, reason: "sent" };
+    }
+    console.error(
+      "[paid_whois] reason=provider_rejected provider=resend to=" +
+        maskedTo +
+        " from_attempt=" +
+        fromForLog +
+        " status=" +
+        res.status +
+        " body=" +
+        bodyText.slice(0, 200)
+    );
+    return { sent: false, reason: "provider_rejected" };
+  }
+
+  console.log(
+    "[paid_whois] provider_selected=sendgrid to=" +
+      maskedTo +
+      " from_attempt=" +
+      (from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from)
+  );
+
+  const fromEmail = from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from;
+  const fromName = from.includes("<") ? from.replace(/\s*<[^>]+>$/, "").trim() : "LIGS";
+  let res: Response;
+  try {
+    res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${sendgridKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        personalizations: [{ to: [{ email }], subject }],
+        from: { email: fromEmail, name: fromName },
+        content: [
+          { type: "text/html", value: html },
+          { type: "text/plain", value: text },
+        ],
+      }),
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(
+      "[paid_whois] reason=provider_error provider=sendgrid to=" +
+        maskedTo +
+        " from=" +
+        fromEmail +
+        " error=" +
+        msg.slice(0, 120)
+    );
+    return { sent: false, reason: "provider_error" };
+  }
+  const bodyText = await res.text();
+  if (res.ok) {
+    console.log(
+      "[paid_whois] reason=sent provider=sendgrid to=" + maskedTo + " from=" + fromEmail + " status=" + res.status
+    );
+    return { sent: true, reason: "sent" };
+  }
+  console.error(
+    "[paid_whois] reason=provider_rejected provider=sendgrid to=" +
       maskedTo +
       " from=" +
       fromEmail +

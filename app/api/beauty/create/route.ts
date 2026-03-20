@@ -4,6 +4,10 @@ import { rateLimit } from "@/lib/rate-limit";
 import { successResponse } from "@/lib/success-response";
 import { validateEngineBody } from "@/lib/validate-engine-body";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 
 export async function POST(request: Request) {
   const kill = killSwitchResponse();
@@ -30,6 +34,13 @@ export async function POST(request: Request) {
   }
 
   const { fullName, birthDate, birthTime, birthLocation, email } = validation.value;
+  const bodyRecord = body as Record<string, unknown>;
+  const executionKey = extractExecutionKey(request, bodyRecord);
+  const grantErr = await getEngineExecutionGrantViolation(executionKey, { dryRun: false });
+  if (grantErr) {
+    return errorResponse(403, grantErr, requestId);
+  }
+
   const origin =
     process.env.VERCEL_URL != null
       ? `https://${process.env.VERCEL_URL}`
@@ -46,6 +57,7 @@ export async function POST(request: Request) {
       birthTime: birthTime ?? "",
       birthLocation,
       email,
+      ...(executionKey && { executionKey }),
     }),
   });
   log("info", "stage", { requestId, stage: "eve_request_end" });

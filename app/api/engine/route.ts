@@ -45,6 +45,13 @@ import {
 } from "@/lib/keeper-manifest";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
 import { getSolarSeasonProfile } from "@/src/ligs/astronomy/solarSeason";
+import {
+  ENGINE_EXECUTION_DEFER_CONSUME_HEADER,
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+  consumeEngineExecutionGrant,
+  isEngineExecutionGateEnforced,
+} from "@/lib/engine-execution-grant";
 
 const IMAGE_SLUGS = [
   "vector_zero_beauty_field",
@@ -77,6 +84,7 @@ export async function POST(req: Request) {
     const validated = validation.value as Record<string, unknown>;
     const derivedData = validated.birthContext ?? validated.astrology;
     const idempotencyKey = validated.idempotencyKey as string | undefined;
+    const executionKey = extractExecutionKey(req, body as Record<string, unknown>);
     const willSpend = allowExternalWrites && bodyDryRun !== true;
 
     if (willSpend && !isValidIdempotencyKey(idempotencyKey)) {
@@ -117,6 +125,13 @@ export async function POST(req: Request) {
       }
     }
 
+    const grantErr = await getEngineExecutionGrantViolation(executionKey, {
+      dryRun: bodyDryRun === true,
+    });
+    if (grantErr) {
+      return errorResponse(403, grantErr, requestId);
+    }
+
     const origin =
       process.env.VERCEL_URL != null
         ? `https://${process.env.VERCEL_URL}`
@@ -126,7 +141,10 @@ export async function POST(req: Request) {
     const tEngineStart = Date.now();
     const engineRes = await fetch(engineUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        [ENGINE_EXECUTION_DEFER_CONSUME_HEADER]: "1",
+      },
       body: JSON.stringify({
         fullName,
         birthDate,
@@ -136,6 +154,7 @@ export async function POST(req: Request) {
         ...(derivedData != null && { birthContext: derivedData }),
         ...(bodyDryRun === true && { dryRun: true }),
         ...(idempotencyKey && { idempotencyKey }),
+        ...(executionKey && { executionKey }),
       }),
     });
     const engineMs = Date.now() - tEngineStart;
@@ -210,9 +229,36 @@ export async function POST(req: Request) {
     const fullReport = reportData.full_report ?? "";
     const emotionalSnippet = reportData.emotional_snippet ?? "";
     const vectorZeroFromReport = reportData.vector_zero ?? vectorZero;
-    const archetypeName = extractArchetypeFromReport(fullReport) ?? FALLBACK_PRIMARY_ARCHETYPE;
-    const archetypeVoiceBlock = buildArchetypeVoiceBlock(archetypeName);
-    const phraseBankBlock = buildArchetypePhraseBankBlock(archetypeName);
+
+    /** Canonical identity: compute before E.V.E. so prompt uses solar archetype, not extracted. */
+    const derived = derivedData as Record<string, unknown> | undefined;
+    const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
+    const lat = typeof derived?.lat === "number" ? derived.lat : 0;
+    const utcTimestamp = typeof derived?.utcTimestamp === "string" ? derived.utcTimestamp : "";
+    const sunCtx = derived?.sun as Record<string, unknown> | undefined;
+    const twilightPhase = (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as
+      | "day"
+      | "civil"
+      | "nautical"
+      | "astronomical"
+      | "night";
+    const solarProfile = { sunLonDeg, twilightPhase };
+    const solarSeasonProfile = getSolarSeasonProfile({
+      sunLonDeg,
+      latitudeDeg: lat,
+      date: utcTimestamp ? new Date(utcTimestamp) : new Date(),
+      sunAltitudeDeg: typeof sunCtx?.sunAltitudeDeg === "number" ? sunCtx.sunAltitudeDeg : undefined,
+      dayLengthMinutes: typeof sunCtx?.dayLengthMinutes === "number" ? sunCtx.dayLengthMinutes : undefined,
+      twilightPhase,
+    });
+    const hasValidSunLon = typeof derived?.sunLonDeg === "number";
+    const canonicalArchetype =
+      hasValidSunLon && solarSeasonProfile?.archetype
+        ? solarSeasonProfile.archetype
+        : extractArchetypeFromReport(fullReport) ?? FALLBACK_PRIMARY_ARCHETYPE;
+
+    const archetypeVoiceBlock = buildArchetypeVoiceBlock(canonicalArchetype);
+    const phraseBankBlock = buildArchetypePhraseBankBlock(canonicalArchetype);
 
     if (!fullReport) {
       log("warn", "stored report has no full_report", { requestId });
@@ -321,26 +367,14 @@ export async function POST(req: Request) {
       { slug: IMAGE_SLUGS[2], prompt: beautyProfile.imagery_prompts.final_beauty_field },
     ];
 
-    const derived = derivedData as Record<string, unknown> | undefined;
-    const sunLonDeg = typeof derived?.sunLonDeg === "number" ? derived.sunLonDeg : 0;
-    const lat = typeof derived?.lat === "number" ? derived.lat : 0;
-    const utcTimestamp = typeof derived?.utcTimestamp === "string" ? derived.utcTimestamp : "";
-    const sunCtx = derived?.sun as Record<string, unknown> | undefined;
-    const twilightPhase = (typeof sunCtx?.twilightPhase === "string" ? sunCtx.twilightPhase : "day") as
-      | "day"
-      | "civil"
-      | "nautical"
-      | "astronomical"
-      | "night";
-    const solarProfile = { sunLonDeg, twilightPhase };
-    const solarSeasonProfile = getSolarSeasonProfile({
-      sunLonDeg,
-      latitudeDeg: lat,
-      date: utcTimestamp ? new Date(utcTimestamp) : new Date(),
-      sunAltitudeDeg: typeof sunCtx?.sunAltitudeDeg === "number" ? sunCtx.sunAltitudeDeg : undefined,
-      dayLengthMinutes: typeof sunCtx?.dayLengthMinutes === "number" ? sunCtx.dayLengthMinutes : undefined,
-      twilightPhase,
-    });
+    /** Origin coordinates display for paid WHOIS when birthContext has lat/lon (no new data). */
+    let originCoordinatesDisplay: string | undefined;
+    if (typeof derived?.lat === "number" && typeof derived?.lon === "number") {
+      const placeName = typeof derived?.placeName === "string" ? derived.placeName.trim() : birthLocation?.trim() || "Unknown location";
+      const latStr = derived.lat >= 0 ? `${Number(derived.lat).toFixed(4)}°N` : `${Number(-derived.lat).toFixed(4)}°S`;
+      const lonStr = derived.lon >= 0 ? `${Number(derived.lon).toFixed(4)}°E` : `${Number(-derived.lon).toFixed(4)}°W`;
+      originCoordinatesDisplay = `${placeName}, ${latStr}, ${lonStr}`;
+    }
 
     const payload: BeautyProfileV1 = {
       version: "1.0",
@@ -348,7 +382,7 @@ export async function POST(req: Request) {
       engineVersion: getEngineVersion(),
       reportId,
       subjectName: fullName,
-      dominantArchetype: archetypeName,
+      dominantArchetype: canonicalArchetype,
       emotionalSnippet: emotionalSnippet || undefined,
       ...beautyProfile,
       timings,
@@ -356,11 +390,15 @@ export async function POST(req: Request) {
       /** Full prompts + params used for image generation (no truncation). */
       imagePromptsUsed,
       fullReport: buildCondensedFullReport(beautyProfile, {
-        archetypeName,
+        archetypeName: canonicalArchetype,
         useElegantLabels: true,
       }),
       solarProfile,
       solarSeasonProfile,
+      birthDate,
+      birthTime: birthTime ?? undefined,
+      birthLocation,
+      ...(originCoordinatesDisplay != null && { originCoordinatesDisplay }),
     };
     await saveBeautyProfileV1(reportId, payload, requestId);
 
@@ -373,8 +411,8 @@ export async function POST(req: Request) {
         prompts.final_beauty_field,
       ];
 
-      const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
-        ? archetypeName
+      const secondaryFromReport = (canonicalArchetype && LIGS_ARCHETYPES.includes(canonicalArchetype as LigsArchetype)
+        ? canonicalArchetype
         : FALLBACK_PRIMARY_ARCHETYPE) as LigsArchetype;
       const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
       const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
@@ -411,7 +449,12 @@ export async function POST(req: Request) {
           const genRes = await fetch(`${origin}/api/generate-image`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt, reportId, slug }),
+            body: JSON.stringify({
+              prompt,
+              reportId,
+              slug,
+              ...(executionKey && { executionKey }),
+            }),
           });
           const genData = (await genRes.json().catch(() => ({}))) as { data?: { url?: string }; url?: string; error?: string };
           const url = genData.data?.url ?? genData.url;
@@ -441,8 +484,8 @@ export async function POST(req: Request) {
       // Step 3 – share_card (triangulated)
       const payloadRecord = payload as unknown as Record<string, unknown>;
       if (isValidIdempotencyKey(idempotencyKey)) {
-        const profile = buildMinimalVoiceProfile(archetypeName, {
-          deterministicId: `minimal_${archetypeName}_${reportId}`,
+        const profile = buildMinimalVoiceProfile(canonicalArchetype, {
+          deterministicId: `minimal_${canonicalArchetype}_${reportId}`,
         });
         const vk = `cd0.15_${reportId}`;
         const imageGenBody = (purpose: string, keySuffix: string, aspectRatio: "1:1" | "16:9" = "16:9") =>
@@ -451,9 +494,13 @@ export async function POST(req: Request) {
             purpose,
             image: { aspectRatio, size: "1024" as const, count: 1 },
             variationKey: vk,
-            archetype: archetypeName,
+            archetype: canonicalArchetype,
             idempotencyKey: deriveIdempotencyKey(idempotencyKey, keySuffix),
           });
+        const imageGenHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+          ...(executionKey ? { "X-LIGS-Execution-Key": executionKey } : {}),
+        };
 
         let marketingBackgroundUrl = payloadRecord.marketingBackgroundUrl as string | undefined;
         let logoMarkUrl = payloadRecord.logoMarkUrl as string | undefined;
@@ -475,7 +522,7 @@ export async function POST(req: Request) {
           try {
             const res = await fetch(`${origin}/api/image/generate`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: imageGenHeaders,
               body: imageGenBody("marketing_background", "marketing-bg"),
             });
             const data = (await res.json()) as { images?: Array<{ url?: string }>; providerPrompt?: { positive: string; negative: string; full: string } };
@@ -499,7 +546,7 @@ export async function POST(req: Request) {
           try {
             const res = await fetch(`${origin}/api/image/generate`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: imageGenHeaders,
               body: imageGenBody("marketing_logo_mark", "logo-mark", "1:1"),
             });
             const data = (await res.json()) as { images?: Array<{ url?: string }>; providerPrompt?: { positive: string; negative: string; full: string } };
@@ -530,11 +577,11 @@ export async function POST(req: Request) {
             if (bgRes.ok && logoRes.ok) {
               const bgBuf = Buffer.from(await bgRes.arrayBuffer());
               const logoBuf = Buffer.from(await logoRes.arrayBuffer());
-              const overlaySpec = buildOverlaySpecWithCopy(
+              const overlaySpec =               buildOverlaySpecWithCopy(
                 profile,
                 { purpose: "beauty_marketing_card", templateId: "square_card_v1", size: "1024", variationKey: reportId },
                 undefined,
-                archetypeName
+                canonicalArchetype
               );
               overlaySpecForKeeper = { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta };
               const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, bgBuf, { size: 1024, logoBuffer: logoBuf });
@@ -554,7 +601,7 @@ export async function POST(req: Request) {
                 profile,
                 { purpose: "beauty_marketing_card", templateId: "square_card_v1", size: "1024", variationKey: reportId },
                 undefined,
-                archetypeName
+                canonicalArchetype
               );
               overlaySpecForKeeper = { headline: overlaySpec.copy.headline, subhead: overlaySpec.copy.subhead, cta: overlaySpec.copy.cta };
               const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, bgBuf, { size: 1024 });
@@ -579,10 +626,10 @@ export async function POST(req: Request) {
                 const bgBuf = Buffer.from(await imgRes.arrayBuffer());
                 const identitySpec = buildIdentityOverlaySpec({
                   subjectName: fullName || "Subject",
-                  archetypeName: archetypeName || "Unknown",
+                  archetypeName: canonicalArchetype || "Unknown",
                   reportId,
                   generatedAt: new Date().toISOString(),
-                  markArchetype: archetypeName || undefined,
+                  markArchetype: canonicalArchetype || undefined,
                 });
                 const composedBuf = await renderIdentityCardOverlay(identitySpec, bgBuf);
                 shareCardUrl =
@@ -611,13 +658,13 @@ export async function POST(req: Request) {
           shareCardUrl;
         // Only write keeper when we have EXACT provider prompts (no rebuild via buildImagePromptSpec)
         if (hasAllUrls && marketingBgSpec && logoMarkSpec && shareCardSpec) {
-          const descriptor = getMarketingDescriptor(archetypeName);
+          const descriptor = getMarketingDescriptor(canonicalArchetype);
           if (!overlaySpecForKeeper) {
             const os = buildOverlaySpecWithCopy(
               profile,
               { purpose: "beauty_marketing_card", templateId: "square_card_v1", size: "1024", variationKey: reportId },
               undefined,
-              archetypeName
+              canonicalArchetype
             );
             overlaySpecForKeeper = { headline: os.copy.headline, subhead: os.copy.subhead, cta: os.copy.cta };
           }
@@ -673,19 +720,19 @@ export async function POST(req: Request) {
       process.env.DRY_RUN === "true";
     if (marketingDry) {
       try {
-        const profile = buildMinimalVoiceProfile(archetypeName);
+        const profile = buildMinimalVoiceProfile(canonicalArchetype);
         const overlaySpec = buildOverlaySpecWithCopy(profile, {
           purpose: "beauty_marketing_card",
           templateId: "square_card_v1",
           size: "1024",
           variationKey: reportId,
-        }, undefined, archetypeName);
-        const backgroundBuffer = createArchetypeGradientSvgBuffer(archetypeName);
+        }, undefined, canonicalArchetype);
+        const backgroundBuffer = createArchetypeGradientSvgBuffer(canonicalArchetype);
         const { buffer: pngBuffer } = await renderStaticCardOverlay(overlaySpec, backgroundBuffer, { size: 1024 });
         log("info", "marketing_card_composed", {
           requestId,
           reportId,
-          archetypeName,
+          archetypeName: canonicalArchetype,
         });
         const imageBuffer = new Uint8Array(pngBuffer).buffer;
         const url = await saveImageToBlob(
@@ -700,12 +747,12 @@ export async function POST(req: Request) {
           log("info", "marketing_card_saved", { requestId, reportId, url });
 
           // DRY keeper: write to ligs-keepers-dry/ for landing validation without spend
-          const secondaryFromReport = (archetypeName && LIGS_ARCHETYPES.includes(archetypeName as LigsArchetype)
-            ? archetypeName
+          const secondaryFromReport = (canonicalArchetype && LIGS_ARCHETYPES.includes(canonicalArchetype as LigsArchetype)
+            ? canonicalArchetype
             : FALLBACK_PRIMARY_ARCHETYPE) as LigsArchetype;
           const primaryArchetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
           const secondaryArchetype = resolveSecondaryArchetype(secondaryFromReport, primaryArchetype);
-          const descriptor = getMarketingDescriptor(archetypeName);
+          const descriptor = getMarketingDescriptor(canonicalArchetype);
           const emptyPrompt = { positive: "", negative: "", full: "" };
           const dryKeeper: KeeperManifest = {
             reportId,
@@ -796,6 +843,14 @@ export async function POST(req: Request) {
         },
         { requestId }
       );
+    }
+
+    if (
+      isEngineExecutionGateEnforced() &&
+      bodyDryRun !== true &&
+      executionKey
+    ) {
+      await consumeEngineExecutionGrant(executionKey);
     }
 
     return successResponse(200, { ...payload, meta: cylindersMeta }, requestId);

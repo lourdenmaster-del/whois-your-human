@@ -19,12 +19,28 @@ export default function WhoisYourHumanUnlock() {
           Before you begin
         </p>
         <h1 className="text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl">
-          Unlock your AI identity layer
+          Unlock WHOIS Agent Access
         </h1>
         <p className="mt-6 text-base leading-relaxed text-white/75 sm:text-lg">
-          This creates a machine-readable WHOIS record that AI tools can use to
-          better understand how to work with you.
+          After intake and unlock, your WHOIS record is available in an agent-readable
+          form that AI tools may use to calibrate how they work with you—hypothesis-style,
+          not ground truth.
         </p>
+
+        <p className="mt-3 text-base leading-relaxed text-white/70 sm:text-lg">
+          Generates your WHOIS record and provides a token for agent-readable calibration via API.
+        </p>
+
+        <div className="mt-8 text-sm leading-relaxed text-white/70">
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-white/50">
+            How it works:
+          </p>
+          <ol className="mt-3 list-decimal space-y-2 pl-5">
+            <li>Complete intake → creates your WHOIS record</li>
+            <li>Unlock access → enables agent-readable version</li>
+            <li>Use with AI → via token or prompt context</li>
+          </ol>
+        </div>
 
         <section className="mt-12 border-t border-white/[0.08] pt-10">
           <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-white/45">
@@ -32,13 +48,13 @@ export default function WhoisYourHumanUnlock() {
           </h2>
           <ul className="mt-6 space-y-4 text-sm leading-relaxed text-white/70">
             <li className="flex gap-3 border-l-2 border-emerald-500/35 pl-4">
-              <span>A structured identity record</span>
+              <span>A structured WHOIS record</span>
             </li>
             <li className="flex gap-3 border-l-2 border-emerald-500/35 pl-4">
-              <span>Agent-readable WHOIS access</span>
+                <span>API access to your agent calibration record</span>
             </li>
             <li className="flex gap-3 border-l-2 border-emerald-500/35 pl-4">
-              <span>A tokenized layer for AI use</span>
+                <span>A token for agent-readable calibration via API</span>
             </li>
           </ul>
         </section>
@@ -48,9 +64,9 @@ export default function WhoisYourHumanUnlock() {
             What it helps with
           </h2>
           <ul className="mt-6 space-y-3 text-sm text-white/65">
-            <li>Better explanations</li>
-            <li>Better decision support</li>
-            <li>Better calibration in conversation</li>
+            <li>May improve explanation style</li>
+            <li>May improve decision framing</li>
+            <li>May improve calibration in conversation</li>
           </ul>
         </section>
 

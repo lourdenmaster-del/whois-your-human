@@ -1,7 +1,7 @@
 /**
  * Tests for POST /api/beauty/dry-run — Studio "Test Paid Report" path.
  * Validates: Studio-shaped payload, dry-run safety (engine called with dryRun: true),
- * response shape (reportId, beautyProfile, checkout), profile persistence (saveBeautyProfileV1).
+ * response shape (reportId, intakeStatus, checkout; no beautyProfile in JSON), profile persistence (saveBeautyProfileV1).
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -59,7 +59,7 @@ describe("POST /api/beauty/dry-run", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("returns 200 with reportId, beautyProfile, and checkout when payload matches Studio test path", async () => {
+  it("returns 200 with reportId, intakeStatus, and checkout when payload matches Studio test path", async () => {
     const res = await POST(
       jsonRequest({
         birthData: {
@@ -78,10 +78,9 @@ describe("POST /api/beauty/dry-run", () => {
     expect(out.status).toBe("ok");
     expect(out.data).toBeDefined();
     expect(out.data.reportId).toBe("dry-run-test-report-id");
-    expect(out.data.beautyProfile).toBeDefined();
-    expect(out.data.beautyProfile.report).toBeDefined();
-    expect(out.data.beautyProfile.report).toContain("1. INITIATION");
-    expect(out.data.beautyProfile.emotionalSnippet).toBeDefined();
+    expect(out.data.intakeStatus).toBe("DRY_RUN_CREATED");
+    expect(out.data.note).toBeDefined();
+    expect(out.data.beautyProfile).toBeUndefined();
     expect(out.data.checkout).toBeDefined();
     expect(out.data.checkout.url).toContain("reportId=dry-run-test-report-id");
   });

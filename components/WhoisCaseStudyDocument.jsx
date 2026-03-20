@@ -42,7 +42,11 @@ export function WhoisCaseStudyShell({ children }) {
   );
 }
 
-export default function WhoisCaseStudyDocument({ caseId, fields }) {
+export default function WhoisCaseStudyDocument({
+  caseId,
+  fields,
+  tailSections = [],
+}) {
   return (
     <WhoisCaseStudyShell>
       <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-emerald-400/90 sm:text-xs">
@@ -74,6 +78,19 @@ export default function WhoisCaseStudyDocument({ caseId, fields }) {
           </h2>
           <div className="mt-3 text-sm leading-relaxed text-white/70 whitespace-pre-wrap">
             {fields[key] ?? "—"}
+          </div>
+        </section>
+      ))}
+      {tailSections.map((section) => (
+        <section
+          key={section.key}
+          className="mt-10 border-t border-white/[0.08] pt-8"
+        >
+          <h2 className="font-mono text-xs uppercase tracking-[0.2em] text-white/45">
+            {section.label}
+          </h2>
+          <div className="mt-3 text-sm leading-relaxed text-white/70 whitespace-pre-wrap">
+            {section.content ?? "—"}
           </div>
         </section>
       ))}

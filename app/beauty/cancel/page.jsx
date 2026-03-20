@@ -38,7 +38,7 @@ export default function BeautyCancelPage() {
           className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
           style={{ fontFamily: "inherit", color: "#8a8a90" }}
         >
-          (L)IGS — Human WHOIS Resolution Engine
+          LIGS
         </p>
       </div>
     </div>

@@ -22,7 +22,14 @@ export function verifyStudioAccess(cookieValue: string | null): boolean {
   const expected = getStudioToken();
   if (!expected) return true;
   if (!cookieValue) return false;
-  return cookieValue === expected;
+  const decoded = (() => {
+    try {
+      return decodeURIComponent(cookieValue.trim());
+    } catch {
+      return cookieValue.trim();
+    }
+  })();
+  return decoded === expected;
 }
 
 export function getStudioAuthCookieHeader(): string {
