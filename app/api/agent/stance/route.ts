@@ -106,10 +106,10 @@ export async function POST(request: Request) {
     });
   } catch (err) {
     console.error("[agent/stance] POST failed:", err);
-    const message = err instanceof Error ? err.message : "Stance recording failed";
-    return NextResponse.json(
-      { error: "INTERNAL_ERROR", message },
-      { status: 500 }
+    const msg = err instanceof Error ? String(err.message).slice(0, 200) : "Stance recording failed";
+    return new NextResponse(
+      JSON.stringify({ error: "INTERNAL_ERROR", message: msg }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 }
