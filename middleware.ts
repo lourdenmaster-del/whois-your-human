@@ -92,5 +92,18 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Allowlist: run middleware only on page routes. /api/* is never touched.
+  matcher: [
+    "/",
+    "/origin",
+    "/origin/:path*",
+    "/whois-your-human",
+    "/whois-your-human/:path*",
+    "/beauty",
+    "/beauty/:path*",
+    "/dossier",
+    "/voice",
+    "/ligs-studio",
+    "/ligs-studio/:path*",
+  ],
 };
