@@ -23,14 +23,14 @@ const IMAGE_SLUGS = [
 ] as const;
 
 const PLACEHOLDER_SVG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3ELight Signature%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3EWHOIS%20record%3C/text%3E%3C/svg%3E";
 
 const MOCK_PREVIEW_CARDS = [
   {
     reportId: "preview-1",
     subjectName: "Anonymous",
     emotionalSnippet:
-      "A resonance between structure and expression — the Light Signature reveals coherence where pattern meets possibility.",
+      "A resonance between structure and expression — the WHOIS record reveals coherence where pattern meets possibility.",
     imageUrls: [PLACEHOLDER_SVG, PLACEHOLDER_SVG, PLACEHOLDER_SVG],
     summaryText: "DRY_RUN: No Beauty Profiles in Blob. Generate a report via /beauty to see previews.",
   },

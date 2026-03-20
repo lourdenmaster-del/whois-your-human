@@ -4,6 +4,11 @@ import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { stripeTestModeRequired } from "@/lib/runtime-mode";
 import { getAgentEntitlementByReportId } from "@/lib/agent-entitlement-store";
+import {
+  WYH_CONTENT_GATE_COOKIE,
+  wyhContentGateCookieOptions,
+} from "@/lib/wyh-content-gate";
+import { createEngineExecutionGrant } from "@/lib/engine-execution-grant";
 
 export async function GET(request: Request) {
   const requestId = crypto.randomUUID();
@@ -43,12 +48,34 @@ export async function GET(request: Request) {
         entitlementToken = entitlement.token;
       }
     }
+    let executionKey: string | undefined;
+    try {
+      executionKey = await createEngineExecutionGrant({
+        stripeSessionId: sessionId,
+        ...(reportId ? { reportId } : {}),
+        prePurchase,
+      });
+    } catch (e) {
+      log("error", "verify_session_execution_grant", {
+        requestId,
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+
     log("info", "verify_session", { requestId, sessionId, paid: true, prePurchase: !!prePurchase });
-    return successResponse(
+    const res = successResponse(
       200,
-      { paid: true, reportId: reportId || undefined, prePurchase, entitlementToken },
+      {
+        paid: true,
+        reportId: reportId || undefined,
+        prePurchase,
+        entitlementToken,
+        ...(executionKey ? { executionKey } : {}),
+      },
       requestId
     );
+    res.cookies.set(WYH_CONTENT_GATE_COOKIE, "1", wyhContentGateCookieOptions());
+    return res;
   } catch (e) {
     log("error", "verify_session", { requestId, sessionId, error: e instanceof Error ? e.message : String(e) });
     return errorResponse(400, "INVALID_SESSION", requestId);

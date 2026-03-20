@@ -11,6 +11,10 @@ import {
 } from "@/src/ligs/voice/api/generate-request-schema";
 import { log } from "@/lib/log";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 import type {
   ValidationIssue,
   VoiceValidationResult,
@@ -227,6 +231,16 @@ export async function POST(req: Request) {
 
     const dryRun = !ALLOW_EXTERNAL_WRITES;
     const maxTokens = computeMaxTokens(constraints);
+
+    if (!dryRun) {
+      const gv = await getEngineExecutionGrantViolation(
+        extractExecutionKey(req, body as Record<string, unknown>),
+        { dryRun: false }
+      );
+      if (gv) {
+        return NextResponse.json({ error: gv, requestId }, { status: 403 });
+      }
+    }
 
     const pack = buildPromptPack(profile, { channel });
     const systemBase = toSystemPrompt(pack);

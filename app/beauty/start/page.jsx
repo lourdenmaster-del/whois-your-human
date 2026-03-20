@@ -108,7 +108,7 @@ export default function BeautyStartPage() {
               className="text-[10px] font-mono uppercase tracking-[0.2em] mb-6"
               style={{ color: "#9a9aa0" }}
             >
-              (L)IGS Human WHOIS Resolution Engine
+              LIGS
             </p>
             <h1
               className="text-xl sm:text-2xl font-semibold tracking-wide mb-4"
@@ -117,7 +117,7 @@ export default function BeautyStartPage() {
               Preparing your report…
             </h1>
             <p className="text-sm leading-relaxed mb-10" style={{ color: "#9a9aa0" }}>
-              One moment while we bring your Light Signature into view.
+              One moment while we bring your WHOIS record into view.
             </p>
             <div className="flex items-center justify-center gap-2" role="status" aria-label="Loading">
               <span className="w-2 h-2 rounded-full bg-[#7a7a80] animate-pulse" style={{ animationDuration: "1s" }} />
@@ -129,7 +129,7 @@ export default function BeautyStartPage() {
             className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
-            (L)IGS — Human WHOIS Resolution Engine
+            LIGS
           </p>
         </div>
       </div>
@@ -153,7 +153,7 @@ export default function BeautyStartPage() {
             <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
             <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
             <span className="ml-2 text-[10px] uppercase tracking-widest font-mono" style={{ color: "#a8a8b0" }}>
-              (L)IGS Human WHOIS Resolution Engine
+              LIGS
             </span>
           </div>
           <div className="px-5 sm:px-6 py-8 space-y-6">
@@ -162,10 +162,10 @@ export default function BeautyStartPage() {
                 className="text-xl sm:text-2xl font-semibold tracking-wide"
                 style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
               >
-                Generate your Light Signature Report
+                Generate your WHOIS record
               </h1>
               <p className="text-sm leading-relaxed" style={{ color: "#9a9aa0" }}>
-                Your Light Signature is already active. LIGS gives you the structure to understand it.
+                Your WHOIS record is already active. LIGS gives you the structure to understand it.
               </p>
             </div>
             {error && (
@@ -192,7 +192,7 @@ export default function BeautyStartPage() {
           className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
           style={{ fontFamily: "inherit", color: "#8a8a90" }}
         >
-          (L)IGS — Human WHOIS Resolution Engine
+          LIGS
         </p>
       </div>
     </div>

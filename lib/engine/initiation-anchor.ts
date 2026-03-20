@@ -25,12 +25,15 @@ export interface InitiationParseResult {
   section2Start: number;
 }
 
-/** Section boundary: "N. Title" — flexible on spacing and case */
-const SECTION_HEADING_RE = /(?:\n|^)(\s*)(\d+)\.\s*([^\n]+)/g;
+/** Section boundary: "N. Title" — optional leading # (e.g. ## 1. INITIATION), flexible spacing and case */
+const SECTION_HEADING_RE = /(?:\n|^)(\s*)(#+\s*)?(\d+)\.\s*([^\n]+)/g;
+
+/** Fallback: "Section 1: Initiation" or "Section 1: INITIATION" */
+const SECTION_1_ALT_RE = /(?:\n|^)\s*Section\s+1\s*:\s*([^\n]+)/gi;
 
 /**
  * Parse report to locate section 1 (INITIATION).
- * Tolerates: "1. INITIATION", "1. Initiation", "1.Initiation", "  1.  Initiation"
+ * Tolerates: "1. INITIATION", "1. Initiation", "  1.  Initiation", "## 1. INITIATION", "Section 1: Initiation"
  */
 export function parseInitiationSection(report: string): InitiationParseResult {
   const result: InitiationParseResult = {
@@ -47,19 +50,29 @@ export function parseInitiationSection(report: string): InitiationParseResult {
   let m;
   SECTION_HEADING_RE.lastIndex = 0;
   while ((m = SECTION_HEADING_RE.exec(report)) !== null) {
-    const num = parseInt(m[2]!, 10);
+    const num = parseInt(m[3]!, 10);
     const start = m.index;
     const end = m.index + m[0].length;
     matches.push({ num, start, end, fullMatch: m[0] });
   }
 
-  const sect1 = matches.find((x) => x.num === 1);
+  let sect1 = matches.find((x) => x.num === 1);
   const sect2 = matches.find((x) => x.num === 2);
 
-  if (!sect1) return result;
+  if (sect1) {
+    const title = report.slice(sect1.start, sect1.end).toLowerCase();
+    if (!title.includes("initiation")) sect1 = undefined;
+  }
 
-  const title = report.slice(sect1.start, sect1.end).toLowerCase();
-  if (!title.includes("initiation")) return result;
+  if (!sect1) {
+    SECTION_1_ALT_RE.lastIndex = 0;
+    const alt = SECTION_1_ALT_RE.exec(report);
+    if (alt && alt[1] && alt[1].toLowerCase().includes("initiation")) {
+      sect1 = { num: 1, start: alt.index, end: alt.index + alt[0].length, fullMatch: alt[0] };
+    }
+  }
+
+  if (!sect1) return result;
 
   result.initiationFound = true;
   result.contentStart = sect1.end;

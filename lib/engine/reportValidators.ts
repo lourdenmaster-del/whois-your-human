@@ -216,8 +216,9 @@ function extractRawSignalCitations(report: string): Array<{ bullet: string; cita
       } else {
         results.push({ bullet: bulletTrim, citation: inner, key: undefined, value: undefined });
       }
-      const multipleCitations = (bulletTrim.match(/\[/g) ?? []).length;
-      if (multipleCitations > 1) {
+      // Only flag MULTIPLE when there are 2+ valid [key=value] citations (ignore other brackets e.g. [see note])
+      const citationBrackets = bulletTrim.match(/\[[a-z0-9_]+=[^\]]*\]/g);
+      if (citationBrackets && citationBrackets.length > 1) {
         results[results.length - 1]!.citation = "MULTIPLE";
       }
     }
@@ -424,7 +425,7 @@ RULES:
 - Do NOT change section headings or structure.
 - For SUBJECT: Use the provided full name, birth date, birth location in INITIATION.${subjectInsertBlock}
 - For REGIME: Rewrite all regime references to match the canonical regime (RESOLUTION KEYS). No conflicting archetype names.
-- For CITATIONS: Each RAW SIGNAL bullet must end with exactly one [key=value]. Key in allowed list. Value must be number, string, or "unknown" — never known, variable, none, null, undefined, n/a.
+- For CITATIONS: Each RAW SIGNAL bullet must end with exactly one [key=value]. One citation per bullet only — no second [key=value] in the same bullet; no uncited bullets. Key in allowed list. Value must be number, string, or "unknown" — never known, variable, none, null, undefined, n/a.
 - For ORACLE (§7–§10): Include at least one real-world expression (environment, rhythm of work/rest, profession/role cluster, activity pattern). Avoid generic "favors balance" statements.
 - Reduce jargon: describe consequences in plain language.
 - Each section must introduce one new insight; avoid repetition.`,

@@ -24,7 +24,7 @@ import { sendWaitlistConfirmation, getRegistryArtifactImageUrl } from "@/lib/ema
 import { buildFreeWhoisReport, enrichReportChrono } from "@/lib/free-whois-report";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
-import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
+import { SOLAR_SEASONS, getSolarSeasonIndexFromLongitude } from "@/src/ligs/astronomy/solarSeason";
 
 /** Resend cooldown for duplicate-path: allow resend after this many ms since last send. */
 const RESEND_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
     if (lon != null) {
       const archetype = getPrimaryArchetypeFromSolarLongitude(lon);
       preview_archetype = archetype;
-      const seasonIndex = Math.min(Math.floor(lon / 30), 11);
+      const seasonIndex = getSolarSeasonIndexFromLongitude(lon);
       const entry = SOLAR_SEASONS[seasonIndex];
       // Use archetype name only for email (e.g. "Fluxionis") so template never shows "(none)" when anchorType is "none".
       solar_season = entry ? entry.archetype : archetype;

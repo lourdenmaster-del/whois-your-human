@@ -134,6 +134,24 @@ Regime:          Stabiliora`;
     expect(issues.some((i) => i.code === "CITATION_PLACEHOLDER")).toBe(true);
   });
 
+  it("validateCitations passes bullet with one citation and other bracket text (e.g. [see note] [regime=X])", () => {
+    const reportWithExtraBracket = fullReport.replace(
+      "Declining solar altitude produces twilight-dominant light. [solar_altitude=-6]",
+      "Declining solar altitude [see section 2] produces twilight-dominant light. [solar_altitude=-6]"
+    );
+    const issues = validateCitations(reportWithExtraBracket);
+    expect(issues.some((i) => i.code === "CITATION_MULTIPLE")).toBe(false);
+  });
+
+  it("validateCitations flags bullet with two valid [key=value] citations", () => {
+    const reportWithTwoCitations = fullReport.replace(
+      "Day length gates spectral input. [day_length_minutes=585]",
+      "Day length gates spectral input. [day_length_minutes=585] [regime=Stabiliora]"
+    );
+    const issues = validateCitations(reportWithTwoCitations);
+    expect(issues.some((i) => i.code === "CITATION_MULTIPLE")).toBe(true);
+  });
+
   it("validateRepetition passes when sections differ", () => {
     const issues = validateRepetition(fullReport);
     expect(issues.filter((i) => i.code === "REPETITION_HIGH")).toHaveLength(0);

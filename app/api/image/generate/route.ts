@@ -18,6 +18,10 @@ import {
   isValidIdempotencyKey,
 } from "@/lib/idempotency-store";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+} from "@/lib/engine-execution-grant";
 
 export async function POST(req: Request) {
   const kill = killSwitchResponse();
@@ -201,6 +205,16 @@ export async function POST(req: Request) {
         providerUsed: null,
         cacheHit: false,
       });
+    }
+
+    const exBody = body as Record<string, unknown>;
+    const exKeyImg = extractExecutionKey(req, exBody);
+    const gvImg = await getEngineExecutionGrantViolation(exKeyImg, { dryRun: false });
+    if (gvImg) {
+      return NextResponse.json(
+        { error: gvImg, message: "Payment verification required for live image generation", requestId },
+        { status: 403 }
+      );
     }
 
     const positive = sanitizePromptForDenylist(spec.prompt.positive);

@@ -13,7 +13,7 @@ const REPORT_BASE_PROMPT = `Generate the full field-resolution report and emotio
 
 {{BIRTH_DATA}}
 
-Output valid JSON only with exactly these keys: "full_report" (string, the complete 14-section field-resolution report: Initiation MUST begin with "(L) denotes the identity field..." law statement — then 14 sections. In EVERY section: RAW SIGNAL (max 3 bullets, each ending with [key=value] citation from BOUNDARY/RESOLUTION KEYS/FIELD SOLUTION), CUSTODIAN (max 2 bullets), ORACLE (1-2 lines). Max 18 words per sentence; each section under 90 words total. Use observational language only; no chakras, Kabbalah, mystical claims, or "Light Identity Grid System". Tone: mythic-scientific, elegant, readable. The full_report must be a complete string.) and "emotional_snippet" (string, 1-2 declarative sentences). No other text.`;
+Output valid JSON only with exactly these keys: "full_report" (string, the complete 14-section field-resolution report: Initiation MUST begin with "(L) denotes the identity field..." law statement — then 14 sections. In EVERY section: RAW SIGNAL (max 3 bullets; each bullet must end with exactly one [key=value] citation from BOUNDARY/RESOLUTION KEYS/FIELD SOLUTION — one citation per bullet, no second citation in the same bullet, no uncited bullets), CUSTODIAN (max 2 bullets), ORACLE (1-2 lines). Max 18 words per sentence; each section under 90 words total. Use observational language only; no chakras, Kabbalah, mystical claims, or "Light Identity Grid System". Tone: mythic-scientific, elegant, readable. The full_report must be a complete string.) and "emotional_snippet" (string, 1-2 declarative sentences). No other text.`;
 
 /** Builds minimal ground-truth context for LLM (values only). Deterministic blocks are injected after generation. */
 function buildBirthContextBlock(birthContext: unknown): string {
@@ -166,7 +166,7 @@ function buildResolutionKeysPreview(birthContext: unknown, archetype: string): s
       : "unknown";
   return `
 ------------------------------------------------------------
-(L) RESOLUTION KEYS — RAW SIGNAL bullets must cite values; each bullet ends with exactly one [key=value]
+(L) RESOLUTION KEYS — RAW SIGNAL bullets must cite values; each bullet ends with exactly one [key=value] (one citation per bullet only; no second citation in the same bullet)
 ------------------------------------------------------------
 Regime:          ${archetype}
 Solar season:    ${solarLine}
@@ -187,7 +187,7 @@ SOLAR STRUCTURE
 FIELD RESOLUTION
   regime, cosmic_analogue, vector_zero_coherence, vector_zero_axes_lateral, vector_zero_axes_vertical, vector_zero_axes_depth, primary_wavelength, secondary_wavelength
 
-Each RAW SIGNAL bullet must end with exactly one [key=value] citation. Location/coordinates/timezone/timestamps stay in BOUNDARY but cannot be cited. No astrology-derived keys (sun_sign, moon_sign, rising_sign). If unknown, use "unknown". Inventing keys is FORBIDDEN.
+Each RAW SIGNAL bullet must end with exactly one [key=value] citation. One citation per bullet only — do not add a second [key=value] in the same bullet. Every RAW SIGNAL bullet must be cited; no uncited bullets. Location/coordinates/timezone/timestamps stay in BOUNDARY but cannot be cited. No astrology-derived keys (sun_sign, moon_sign, rising_sign). If unknown, use "unknown". Inventing keys is FORBIDDEN.
 ------------------------------------------------------------`;
 }
 

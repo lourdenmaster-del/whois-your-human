@@ -29,15 +29,17 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 **Production entry points:**
 - `/` → rewrite to `/origin` (middleware; URL stays `/`).
 - `/origin` — Canonical human intake. Renders **`OriginTerminalIntake`**: WHOIS-style terminal (idle → intake: name, date, time, place, email → waitlist / checkout path). Locked per `landing-lock.mdc`.
-- `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN as AI identity layer; primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`. Does not replace `/` or `/origin`.
+- `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN (agent-readable WHOIS record + agent calibration record via API); primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`.
 - `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
-- `/whois-your-human/api` — Static agent HTTP summary (register → checkout → verify → `GET /api/agent/whois`); points to repo docs for full detail.
+- `/whois-your-human/api` — Agent HTTP summary (same content as before); **browser access requires HttpOnly cookie `wyh_content_gate=1`** set by `GET /api/stripe/verify-session` when `paid: true`. Otherwise middleware redirects to `/whois-your-human/unlock`.
+- `/whois-your-human/case-studies` — Case study index; **same cookie gate** as `/whois-your-human/api`.
+- `/whois-your-human/case-studies/wyh-001`, `/whois-your-human/case-studies/wyh-001-b`, `/whois-your-human/case-studies/wyh-004` — Case pages; **same cookie gate**.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
 - `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human` and `/whois-your-human/unlock`** are public. **`/whois-your-human/api` and `/whois-your-human/case-studies` (+ nested case slugs)** require post-pay cookie `wyh_content_gate` (see above) or redirect to `/whois-your-human/unlock`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
@@ -59,7 +61,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human` and `/whois-your-human/*` are not redirected** (agent product landing + API reference page). /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human`** + **`/whois-your-human/unlock`**: `next()`. **`/whois-your-human/api`** + **`/whois-your-human/case-studies/*`**: require `wyh_content_gate=1` cookie else redirect `/whois-your-human/unlock`. /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -74,8 +76,14 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `app/whois-your-human/page.jsx` | Server | Agent product landing → **`WhoisYourHumanLanding`**. |
 | `app/whois-your-human/layout.jsx` | Layout | Metadata; dark shell for WHOIS product page. |
 | `app/whois-your-human/unlock/page.jsx` | Server | Unlock bridge → **`WhoisYourHumanUnlock`**; **Begin** → `/origin`. |
-| `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). |
-| `components/WhoisYourHumanLanding.jsx` | Server | Marketing/infrastructure UI; primary unlock CTAs → `/whois-your-human/unlock`. |
+| `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). Includes **AGENT INSTRUCTION** block after SYSTEM CONTRACT (`WhoisAgentInstructionBlock`). |
+| `app/whois-your-human/case-studies/page.jsx` | Server | Static case study index; links to `wyh-001`, `wyh-001-b`, `wyh-004`. |
+| `app/whois-your-human/case-studies/wyh-001/page.jsx` | Server | Static case **WYH-001** (`WhoisCaseStudyDocument`). |
+| `app/whois-your-human/case-studies/wyh-001-b/page.jsx` | Server | Static case **WYH-001-B** (`WhoisCaseStudyDocument`). |
+| `app/whois-your-human/case-studies/wyh-004/page.jsx` | Server | Static case **WYH-004** (`WhoisCaseStudyDocument`); calibration artifact presentation. |
+| `components/WhoisYourHumanLanding.jsx` | Server | Marketing/infrastructure UI; primary unlock CTAs → `/whois-your-human/unlock`; link → case studies index. Embeds **AGENT INSTRUCTION** (`WhoisAgentInstructionBlock`). |
+| `components/WhoisAgentInstructionBlock.jsx` | Server | Shared **AGENT INSTRUCTION** copy (how to apply calibration); used on WYH landing, API reference, case study index + `WhoisCaseStudyDocument`. |
+| `components/WhoisCaseStudyDocument.jsx` | Server | Shared shell + sections (Case ID, Question, Subject, Setup, Procedure, Observations, Result, Limits, Next question). Embeds **AGENT INSTRUCTION** above Case ID. |
 | `components/WhoisYourHumanUnlock.jsx` | Server | Pre-intake copy + **Begin** / **View API**. |
 
 **Beauty section** (nested under `app/beauty/` — all `/beauty` and `/beauty/*` redirect to `/origin` via middleware; see §0.5):
@@ -97,7 +105,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | Path | Type | Purpose |
 |------|------|--------|
 | `app/dossier/page.tsx` | Page | Static sample Identity Dossier (white-paper style). Registry record block, six sections (Identity Resolution, Archetype Profile, Light Expression, Environmental Interaction, Cosmic Analog, Identity Artifact). Uses Ignis exemplar archetype image + share card. CTA → /origin. Does not modify preview/report flow. |
-| `app/ligs-studio/page.tsx` | Page | Renders `LigsStudio` — internal UI to run full image vertical slice (generate background, compose marketing card); inputs persisted in localStorage |
+| `app/ligs-studio/page.tsx` | Page | Renders `LigsStudio` — internal UI: image vertical slice (generate background, compose marketing card); **Report Library** (list from `/api/report/previews`, View preview → `/beauty/view?reportId=`, Unlock WHOIS → Stripe checkout); Test Paid Report / Live Report; inputs persisted in localStorage |
 | `app/ligs-studio/login/page.tsx` | Client | When `LIGS_STUDIO_TOKEN` set: password-style token form POSTs to `/api/studio-auth`; on success redirects to `/ligs-studio` (cookie set). |
 | `app/voice/page.jsx` | Page | Renders `VoiceProfileBuilder` — build voice profiles (local state only) |
 
@@ -116,7 +124,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `ReportStep` | `app/beauty/view/ReportStep.jsx` | Single protocol segment. Renders step title, body lines, optional artifact. When base is identity share card: no archetype overlay. Calm, inevitable artifact display. |
 | `TerminalResolutionSequence` | `app/beauty/view/TerminalResolutionSequence.jsx` | Continuation of /origin: local solar-season + archetype resolution from `getOriginIntake`; timed line reveals; archetype snippet (descriptor, cosmic analogue, phrase bank); sample artifact thumbnail; `ContinuePrompt` ("Press ENTER or tap to continue"). No API calls. Same black/white terminal look as /origin. **Not used for exemplar** (PreviewRevealSequence used instead). |
 | `ArchetypeResolveCarousel` | `components/ArchetypeResolveCarousel.jsx` | Reusable archetype image carousel: cycles through archetype visuals (arc-static), then resolves onto `finalArchetype`. Uses `lib/archetype-static-images`. **Used by PreviewRevealSequence Phase 2** — NOT used by /origin. |
-| `OriginTerminalIntake` | `components/OriginTerminalIntake.jsx` | WHOIS instrument: idle → Enter → `whois --human` → intake (name, date, time, place, email) one field at a time; Enter advances; no CTA button. **Date resolves base archetype immediately:** on valid date (parse + confirm), solar segment and archetype are computed and stored in state (`resolvedArchetypeFromDate`); used in processing line, redirect (exemplar-{archetype}), and waitlist `preview_archetype`. Date: tolerant parsing + confirmation ("Interpreted as: … Press ENTER to confirm"); time allows UNKNOWN; email validated (real format). Processing → waitlist/submit/checkout → "Press ENTER or tap to continue" → redirect. WAITLIST_ONLY: exemplar-{archetype}. |
+| `OriginTerminalIntake` | `components/OriginTerminalIntake.jsx` | WHOIS instrument: idle → Enter → `whois --human` → intake (name, date, time, place, email) one field at a time; Enter advances; no CTA button. **Intake header (idle/intake):** “WHOIS YOUR HUMAN — intake initialization”. **Date resolves base archetype immediately:** on valid date (parse + confirm), solar segment and archetype are computed and stored in state (`resolvedArchetypeFromDate`); used in processing line, redirect (exemplar-{archetype}), and waitlist `preview_archetype`. Date: tolerant parsing + confirmation ("Interpreted as: … Press ENTER to confirm"); time allows UNKNOWN; email validated (real format). Processing → waitlist/submit/checkout → "Press ENTER or tap to continue" → redirect. WAITLIST_ONLY: exemplar-{archetype}. **`registryReveal` success strip:** WHOIS STATUS / AI ACCESS / IDENTITY lines; NEXT / NEXT ACTION; COPY block + `[ COPY ]` (clipboard); SAVE line; preview CTA “Open your WHOIS record preview”. |
 | `ArchetypeArtifactCard` | `components/ArchetypeArtifactCard.jsx` | Premium collectible layout: hero image, center archetype overlay, left vertical info panel. `showDevFields?: boolean` passed to ArtifactInfoPanel. Used on LigsStudio. |
 | `ArchetypeNameOverlay` | `components/ArchetypeNameOverlay.jsx` | Center band overlay with subtle scrim and blur for artifact hero. |
 | `ArtifactInfoPanel` | `components/ArtifactInfoPanel.jsx` | Left gallery-placard panel with archetype, variationKey, date/location, solar, etc. `showDevFields?: boolean` (default false) hides schemaVersion, engineVersion, and reportId row; reportId visible only when showDevFields=true. |
@@ -132,7 +140,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Module | Purpose |
 |--------|--------|
-| `lib/engine-client.js` | `buildEnginePayload`, `submitToEngine`, `submitToBeautyDryRun(formData)` → POST `/api/beauty/dry-run`; `submitToEve`, `submitToBeautySubmit` |
+| `lib/engine-client.js` | `buildEnginePayload`, `submitToEngine`, `submitToBeautyDryRun(formData)` → POST `/api/beauty/dry-run`; `submitToEve`, `submitToBeautySubmit`. **Paid live runs:** reads `sessionStorage` key `ligs_execution_key` (set from `/beauty/success` after verify-session); sends `executionKey` on submit/engine/EVE; clears key after successful non–dry-run beauty submit. |
 | `lib/unwrap-response.ts` | Unwrap API JSON; throw with `error` / `code` on non-OK |
 | `lib/analytics.js` | `track(event, reportId?)` → POST `/api/analytics/event` |
 | `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `saveOriginIntake`, `getOriginIntake`, `clearOriginIntake` — origin terminal intake (birth date/time/location) for /beauty/view local resolution. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
@@ -155,6 +163,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `lib/astronomy/computeSunMoonContext.ts` | `computeSunMoonContext(lat, lon, utcTimestamp, timezoneId)` — Sun/Moon horizontal coords, twilight phase, sunrise/sunset, day length, moon phase/illumination. Uses astronomy-engine only (no external APIs). beauty/submit attaches sun + moon to birthContext; engine buildBirthContextBlock injects concise Sun/Moon section. |
 | `lib/engine/constraintGate.ts` | `scanForbidden(text)` — scans full_report for forbidden terms (chakra, kabbalah, sacred geometry, etc.); `redactForbidden(text, keys)` — replaces matches with [removed]. Engine/generate runs one repair OpenAI pass when hits > 0; re-scan; if hits remain, redacts in dev. |
 | `lib/idempotency-store.ts` | Blob-backed idempotency at `ligs-runs/{route}/{idempotencyKey}.json`. `getIdempotentResult`, `setIdempotentResult`, `isValidIdempotencyKey`, `deriveIdempotencyKey` (deterministic sub-keys for marketing/share replays). Routes: engine-generate, engine, marketing-generate, image-generate. In-memory fallback when no Blob. |
+| `lib/engine-execution-grant.ts` | **Production payment gate:** `createEngineExecutionGrant` / `getEngineExecutionGrantViolation` / `consumeEngineExecutionGrant`; tokens at Blob `ligs-engine-grants/{token}.json` (in-memory fallback). `extractExecutionKey` from header `X-LIGS-Execution-Key` or JSON `executionKey`. `isEngineExecutionGateEnforced()` when `NODE_ENV=production`, not `LIGS_ENGINE_GATE=0|false`, not `NEXT_PUBLIC_FAKE_PAY`. TTL 24h; single-use on successful live pipeline consume. |
 | `lib/waitlist-store.ts` | Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. `insertWaitlistEntry(payload)` → `{ ok, alreadyRegistered? }`; uses `head()` before `put()` for duplicate check. Payload: email, created_at, source, preview_archetype?, solar_season?, optional name/birthDate/birthPlace/birthTime; optional `last_confirmation_sent_at` (ISO), `confirmation_send_count` (number) updated by `recordConfirmationSent(email)`. `getWaitlistEntryByEmail(email)` returns full entry including those fields. Used by `/api/waitlist` (insert + duplicate resend) and Studio resend. |
 | `lib/email-waitlist-confirmation.ts` | `sendWaitlistConfirmation(email, payload?)` → `Promise<{ sent, reason }>`. Resend preferred if key set, else SendGrid. Subject: "Your identity query has been logged". Uses `RESEND_API_KEY` / `SENDGRID_API_KEY`, `EMAIL_FROM`. Production checklist comment at top. Used by `/api/waitlist` (new signups and duplicate-path resend) and Studio resend. |
 
@@ -203,21 +212,22 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/engine/generate` | Report-only. Validates body. Optional `idempotencyKey` (UUID): when present, returns stored result from `ligs-runs/engine-generate/{key}.json` if exists (no OpenAI). **X-Force-Live** gated: header `X-Force-Live: 1` honored only when `ALLOW_FORCE_LIVE=true` (default false). If dry run: mock report → `saveReportAndConfirm`. Else: OpenAI → full report, snippet → Constraint Gate → image prompts, vector zero → saveReportAndConfirm. On success stores to idempotency when key present. Uses `OPENAI_API_KEY`. |
-| POST | `/api/engine` | E.V.E. pipeline. Optional `idempotencyKey` (UUID): when present, returns stored result from `ligs-runs/engine/{key}.json` if exists (no OpenAI). Validates body → internal fetch to `POST /api/engine/generate` (passes idempotencyKey) → fetch `GET /api/report/{reportId}` → OpenAI E.V.E. filter → `buildBeautyProfile` → `saveBeautyProfileV1`. If `allowExternalWrites` and not `dryRun`: (1) `POST /api/generate-image` × 3 (signatures); (2) `POST /api/image/generate` for marketing_background + marketing_logo_mark (triangulated) → save to Blob; (3) compose marketing card (bg + logo + overlay) → marketing_card.png; (4) compose Beauty share_card from Light Signature (imageUrls[1]) + square_identity_v1 overlay (subject name, archetype, LIR-ID, timestamp) → share_card.png (no DALL·E share_card call). Persists marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl. Idempotency: skips regenerate if URLs exist in Blob; derived keys for cache. Logs `assets_manifest` after DRY and LIVE. Uses `OPENAI_API_KEY`, `VERCEL_URL`. |
+| POST | `/api/engine/generate` | Report-only. Validates body. Optional `idempotencyKey` (UUID): when present, returns stored result from `ligs-runs/engine-generate/{key}.json` if exists (no OpenAI). **Production live:** requires valid unconsumed `executionKey` (header or body) when gate enforced (`lib/engine-execution-grant`); else **403**, no OpenAI. Internal calls from `/api/engine` use `X-LIGS-Defer-Grant-Consume: 1` so parent consumes once after full success. **X-Force-Live** gated: header `X-Force-Live: 1` honored only when `ALLOW_FORCE_LIVE=true` (default false). If dry run: mock report → `saveReportAndConfirm`. Else: OpenAI → full report, snippet → Constraint Gate → image prompts, vector zero → saveReportAndConfirm. On success stores to idempotency when key present. Uses `OPENAI_API_KEY`. |
+| POST | `/api/engine` | E.V.E. pipeline. Optional `idempotencyKey` (UUID): when present, returns stored result from `ligs-runs/engine/{key}.json` if exists (no OpenAI). **Production live:** same execution grant as generate (forwards `executionKey`; defers child consume). Validates body → internal fetch to `POST /api/engine/generate` (passes idempotencyKey) → fetch `GET /api/report/{reportId}` → OpenAI E.V.E. filter → `buildBeautyProfile` → `saveBeautyProfileV1`. If `allowExternalWrites` and not `dryRun`: (1) `POST /api/generate-image` × 3 (signatures); (2) `POST /api/image/generate` for marketing_background + marketing_logo_mark (triangulated) → save to Blob; (3) compose marketing card (bg + logo + overlay) → marketing_card.png; (4) compose Beauty share_card from Light Signature (imageUrls[1]) + square_identity_v1 overlay (subject name, archetype, LIR-ID, timestamp) → share_card.png (no DALL·E share_card call). Persists marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl. Idempotency: skips regenerate if URLs exist in Blob; derived keys for cache. **Consumes execution grant** on final 200 when gate enforced and live. Logs `assets_manifest` after DRY and LIVE. Uses `OPENAI_API_KEY`, `VERCEL_URL`. |
 
 ### 2.2 Beauty API
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/beauty/create` | Rate limit 5/60s. Validates engine body → POST to `/api/engine` → returns `reportId`. Uses `VERCEL_URL`. |
-| POST | `/api/beauty/dry-run` | Simulates Beauty flow. Body `birthData`, `dryRun`. Calls `POST /api/engine/generate` with `dryRun: true`; saves BeautyProfileV1 to Blob via `saveBeautyProfileV1` (when `BLOB_READ_WRITE_TOKEN` set) so previews and `/beauty/view` work locally for $0. Returns `{ reportId, beautyProfile, checkout }`. No Stripe call. |
+| POST | `/api/beauty/create` | Rate limit 5/60s. **Production live:** requires `executionKey` when gate enforced; forwards to `/api/engine`. Validates engine body → POST to `/api/engine` → returns `reportId`. Uses `VERCEL_URL`. |
+| POST | `/api/beauty/submit` | **Production live:** requires `executionKey` when gate enforced; forwards to `/api/engine`. Validates engine body → `deriveFromBirthData` + enrichments → internal `POST /api/engine` (full E.V.E. pipeline server-side). **Client JSON:** `{ status, requestId, data: { reportId, intakeStatus, note } }` only — no full engine/Beauty profile in the response. |
+| POST | `/api/beauty/dry-run` | Simulates Beauty flow. Body `birthData`, `dryRun`. Calls `POST /api/engine/generate` with `dryRun: true`; saves BeautyProfileV1 to Blob via `saveBeautyProfileV1` (when `BLOB_READ_WRITE_TOKEN` set). **Client JSON:** `{ reportId, intakeStatus, note, checkout }` — no `beautyProfile` body; clients load profile via `GET /api/beauty/[reportId]` when needed. No Stripe call. |
 | GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; enriches marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl from Blob; 404 if not found. |
 | POST | `/api/beauty/submit` | Single server entry for Beauty flow: `validateEngineBody` → `deriveFromBirthData` (+ sun/moon/onThisDay) → `POST /api/engine`. Returns engine JSON envelope. Kill-switch when `LIGS_API_OFF`. |
 | POST | `/api/agent/register` | **Alias:** forwards request body to `POST /api/beauty/submit` (internal fetch). Same contract as beauty/submit; agent entrypoint for register → pay → verify → whois. Kill-switch when `LIGS_API_OFF`. |
 | GET | `/api/keepers/[reportId]` | Returns keeper manifest JSON from `ligs-keepers/{reportId}.json`. Query `?dry=1` loads from `ligs-keepers-dry/` for landing validation without spend. 404 when not found. Used by `/beauty?keeperReportId=X` for featured keeper hero. |
 | GET | `/api/exemplars` | Query `?version=v1`. Returns list of exemplar manifests for all 12 archetypes that exist in Blob. Used by landing Examples section. |
-| POST | `/api/exemplars/generate` | Body: `{ archetype, mode: "dry"|"live", version: "v1" }`. Exemplar pack: marketing_background (LIVE; Ignis: glyph-conditioned), share_card (non-Ignis: DALL·E; Ignis: composed from same background for coherence), exemplar_card (compose, always). Saves to `ligs-exemplars/{archetype}/{version}/`. Manifest.urls: marketingBackground, shareCard, exemplarCard. Stable idempotency for marketing_background, share_card (non-Ignis only). |
+| POST | `/api/exemplars/generate` | Body: `{ archetype, mode: "dry"|"live", version: "v1" }`. **Live:** requires execution grant when gate enforced. Exemplar pack: marketing_background (LIVE; Ignis: glyph-conditioned), share_card (non-Ignis: DALL·E; Ignis: composed from same background for coherence), exemplar_card (compose, always). Saves to `ligs-exemplars/{archetype}/{version}/`. Manifest.urls: marketingBackground, shareCard, exemplarCard. Stable idempotency for marketing_background, share_card (non-Ignis only). |
 | POST | `/api/exemplars/save` | Body: `{ archetype, version, target?: "exemplar_card" \| "share_card" \| "marketing_background", exemplarCardB64? }` (or `marketingBackgroundB64` when target=marketing_background). Saves to Blob; loads existing manifest, merges URLs, writes back. LigsStudio: "Save as Exemplar Card", "Save as Share Card", "Save as Marketing Background". Uses `getPreferredExemplarVersion` (Ignis→v2). No extra generation. |
 
 ### 2.3 Report storage API
@@ -243,8 +253,17 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | POST | `/api/stripe/create-checkout-session` | Body `reportId` (report checkout) or `prePurchase: true` (pay-first). Session $39.99, success_url `/beauty/success?session_id={CHECKOUT_SESSION_ID}`. Uses `STRIPE_SECRET_KEY`, `VERCEL_URL`. |
-| GET | `/api/stripe/verify-session` | Query `session_id`. Stripe retrieve session; if paid and session has `metadata.reportId`, includes `entitlementToken` from Blob when entitlement active. Returns `paid`, `reportId?`, `prePurchase?`, `entitlementToken?`. Uses `STRIPE_SECRET_KEY`. |
-| POST | `/api/stripe/webhook` | Stripe signature verification with `STRIPE_WEBHOOK_SECRET`. On `checkout.session.completed`: read `reportId` → `loadBeautyProfileV1` → mint/store agent entitlement if needed → **200**. Does not call `/api/email/send-beauty-profile`. Uses `STRIPE_SECRET_KEY`. |
+| GET | `/api/stripe/verify-session` | Query `session_id`. Stripe retrieve session; returns `{ paid: true, reportId?, prePurchase?, entitlementToken?, executionKey? }` when `payment_status === "paid"`. **`executionKey`:** single-use engine/image execution grant (24h TTL), minted only on this paid path; client stores in `sessionStorage` for subsequent live API calls. **Sets HttpOnly cookie `wyh_content_gate=1`** on paid responses so browser can open gated WHOIS doc/case-study pages. Uses `STRIPE_SECRET_KEY`. |
+| POST | `/api/stripe/webhook` | Stripe signature verification with `STRIPE_WEBHOOK_SECRET`. On `checkout.session.completed`: read `reportId` + email from session → `loadBeautyProfileV1` → mint entitlement (if none) → when email present, internal POST `/api/email/send-beauty-profile` → 200. Email send failures are logged; webhook still returns 200. Uses `STRIPE_SECRET_KEY`, `VERCEL_URL`. |
+
+### 2.4a Agent (WHOIS)
+
+| Method | Route | Handler summary |
+|--------|--------|------------------|
+| GET | `/api/agent/whois` | Query `reportId`; Bearer `wyh_` token or `?token=`. Returns agent calibration record (schema `whois-your-human/v1`). Loads latest feedback via `getLatestFeedbackForReport`; populates `verification.observed_match_fields` / `observed_mismatch_fields` per feedback state; adds `verification.last_feedback` when feedback exists. |
+| POST | `/api/agent/feedback` | Body `reportId`, `state` (`confirmed` \| `partial` \| `debunked`), `metrics`, optional `notes`. Same Bearer token. Stores to Blob `ligs-agent-feedback/{reportId}/` or in-memory. |
+| POST | `/api/agent/drift-check` | Body `reportId`, `currentText`. Same Bearer token. Fetches WHOIS baseline internally; compares current text via OpenAI; returns `{ drift, severity, type, confidence, summary }`. Baseline comparison only; not diagnosis or recalibration. Uses `OPENAI_API_KEY`; blocked by `LIGS_API_OFF`. |
+| POST | `/api/agent/register` | Forwards to `POST /api/beauty/submit`; returns `reportId`. Same Bearer not required (pre-checkout). |
 
 ### 2.5 Email & analytics
 
@@ -257,15 +276,15 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/voice/generate` | Zod schema (strict, no allowExternalWrites). `ALLOW_EXTERNAL_WRITES=true` for real LLM; else dry-run. Prompt injection defenses (delimiter, system rule). Temp 0.2, max_tokens, word cap. Returns `{ requestId, text, validation, didRewrite, chosen, dryRun, modelUsed }` + validationBefore/After when rewrite. Logs requestId, profileId, channel, score, didRewrite. |
+| POST | `/api/voice/generate` | Zod schema (strict, no allowExternalWrites). `ALLOW_EXTERNAL_WRITES=true` for real LLM; else dry-run. **Production non–dry-run:** requires execution grant when gate enforced. Prompt injection defenses (delimiter, system rule). Temp 0.2, max_tokens, word cap. Returns `{ requestId, text, validation, didRewrite, chosen, dryRun, modelUsed }` + validationBefore/After when rewrite. Logs requestId, profileId, channel, score, didRewrite. |
 
 ### 2.7 Image generation
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/image/generate` | Body: `profile`, `purpose`, `image`, `variationKey?`, `archetype?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/image-generate/{key}.json` if exists (no provider call). Zod strict. buildImagePromptSpec → validateImagePromptSpec. LRU cache (max 200) + idempotency store. On success stores to idempotency when key present. ALLOW_EXTERNAL_WRITES server-only. Denylist pass. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit, purposeEchoed, glyphBranchUsed, buildSha }`; `X-Build-Sha` header from `VERCEL_GIT_COMMIT_SHA` or `"local"`. **archetype_background_from_glyph:** DALL·E 2 edits via `dalle2_edits`; loads `public/glyphs/ignis.svg`, rasterizes to 1024×1024 base + transparent mask; prompt from `buildGlyphConditionedBackgroundPrompt`. No fallback to DALL·E 3: on glyph load/rasterize or edits provider failure, returns 500 `GLYPH_CONDITIONED_FAILED` with clear reason. DRY returns `glyphDryPlan`. Cache hit for glyph purpose returns `providerUsed: "dalle2_edits"`. |
+| POST | `/api/image/generate` | Body: `profile`, `purpose`, `image`, `variationKey?`, `archetype?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/image-generate/{key}.json` if exists (no provider call). **Production live provider path:** requires header `X-LIGS-Execution-Key` (or grant check) when gate enforced. Zod strict. buildImagePromptSpec → validateImagePromptSpec. LRU cache (max 200) + idempotency store. On success stores to idempotency when key present. ALLOW_EXTERNAL_WRITES server-only. Denylist pass. Returns `{ requestId, images, spec, validation, dryRun, providerUsed, cacheHit, purposeEchoed, glyphBranchUsed, buildSha }`; `X-Build-Sha` header from `VERCEL_GIT_COMMIT_SHA` or `"local"`. **archetype_background_from_glyph:** DALL·E 2 edits via `dalle2_edits`; loads `public/glyphs/ignis.svg`, rasterizes to 1024×1024 base + transparent mask; prompt from `buildGlyphConditionedBackgroundPrompt`. No fallback to DALL·E 3: on glyph load/rasterize or edits provider failure, returns 500 `GLYPH_CONDITIONED_FAILED` with clear reason. DRY returns `glyphDryPlan`. Cache hit for glyph purpose returns `providerUsed: "dalle2_edits"`. |
 | POST | `/api/image/compose` | 1:1 Square Marketing Card compositor. Body: `profile`, `background` (url or b64), `purpose`, `templateId?`, `output?`, `variationKey?`, `overlaySpec?`. Rejects background <256x256 (400 BACKGROUND_TOO_SMALL); logs dimensions in dev. If `overlaySpec` missing: `buildOverlaySpecWithCopy` server-side. For `markType=archetype`: `composeExemplarCardToBuffer` (glyph + text); else `composeMarketingCardToBuffer`. Logo: GLOBAL_LOGO_PATH or "(L)". LigsStudio: prefers `imageResult.images[0].url` → `backgroundUrl`; client blocks placeholder b64. Returns `{ requestId, dryRun, buildOverlaySpec?, overlaySpec, overlayValidation, image? }`. |
-| POST | `/api/generate-image` | Body `prompt`, optional `reportId`, `slug`. If `reportId` + slug and existing Blob image URL → return it. Else DALL·E 3 → optional save to Blob (`saveImageToBlob`) → return URL. Uses `OPENAI_API_KEY`. |
+| POST | `/api/generate-image` | Body `prompt`, optional `reportId`, `slug`, `executionKey`. If `reportId` + slug and existing Blob image URL → return it. **Before live DALL·E:** execution grant when gate enforced. Else DALL·E 3 → optional save to Blob (`saveImageToBlob`) → return URL. Uses `OPENAI_API_KEY`. |
 
 ### 2.8 LIGS Studio & status
 
@@ -287,6 +306,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/dev/verify-report` | Dev-only. 403 in production. Query `?reportId=X`. Verifies Beauty Profile in Blob, image URLs, schemaVersion, prompts, archetype. When DRY_RUN=1, also requires marketingCardUrl (profile or ligs-images/{reportId}/marketing_card). Returns `{ ok, checks, imageUrls, marketingCardUrl?, summary }`. |
 | GET | `/api/dev/latest-paid-whois-report` | Dev-only. 403 in production. Optional query `?reportId=X`. When omitted, uses most recent reportId from `listBlobBeautyProfilesSorted(1)` (Blob). Loads BeautyProfileV1, runs `buildPaidWhoisReport`, returns `{ reportId, profileFields: { subjectName, birthDate, birthTime, birthLocation }, paidWhoisText }`. 404 when no beauty profiles. |
 | GET | `/api/dev/verify-marketing-card` | Dev-only. 403 in production. Query `?reportId=X`. Verifies marketing_card blob exists. Returns `{ ok, marketingCardUrl?, summary }`. |
+| POST | `/api/dev/mint-agent-token` | Dev-only. 403 in production. Body `{ reportId }`. Mints agent entitlement token when report + Beauty profile exist. Returns `{ token, reportId, reused? }`. Used for local E2E testing of WHOIS/feedback/drift-check without Stripe. |
 | GET | `/api/dev/glyph-debug` | Dev-only. Query `?name=ignis` or `?name=ignis_icon`. Audits glyph/icon SVG. LigsStudio "GLYPH SOURCE OF TRUTH AUDIT". |
 | GET | `/api/dev/glyph-rasterize` | Dev-only. Query `?name=ignis` or `?name=ignis_icon`. Rasterizes glyph/icon SVG to 512×512 PNG. |
 
@@ -294,7 +314,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 
 | Method | Route | Handler summary |
 |--------|--------|------------------|
-| POST | `/api/marketing/generate` | Body: `primary_archetype`, `variationKey?`, `contrastDelta?`, `idempotencyKey?` (UUID). Optional idempotency: when key present, returns stored result from `ligs-runs/marketing-generate/{key}.json` if exists. Uses **cached path**: calls `POST /api/image/generate` twice (purpose marketing_logo_mark, marketing_background) so LRU cache applies; no direct `generateImagesViaProvider`. Returns `{ descriptor, assets, requestId, dryRun }`. DRY_RUN returns descriptor + empty assets. |
+| POST | `/api/marketing/generate` | Body: `primary_archetype`, `variationKey?`, `contrastDelta?`, `idempotencyKey?` (UUID). **Production live:** requires execution grant when gate enforced; forwards key to `image/generate`. Optional idempotency: when key present, returns stored result from `ligs-runs/marketing-generate/{key}.json` if exists. Uses **cached path**: calls `POST /api/image/generate` twice (purpose marketing_logo_mark, marketing_background) so LRU cache applies; no direct `generateImagesViaProvider`. Returns `{ descriptor, assets, requestId, dryRun }`. DRY_RUN returns descriptor + empty assets. |
 | POST | `/api/marketing/visuals` | Body: `primary_archetype` (string), `variationKey?`, `contrastDelta?` (default 0.15). Wrapper: calls POST /api/image/generate twice (purpose marketing_logo_mark, marketing_background). Returns `{ logoMark?, marketingBackground?, warnings? }`. Normalizes via pickBackgroundSource. Partial success; warnings describe failures. |
 
 ---
@@ -304,6 +324,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Variable | Where used | Purpose |
 |----------|------------|--------|
 | `LIGS_API_OFF` | `lib/api-kill-switch.ts`, all sensitive POST routes, GET `/api/status` | `"1"` or `"true"` = production kill-switch; blocks image gen, Blob writes, Stripe checkout, marketing/exemplar/engine/beauty/voice/email. Returns 503 `{ disabled: true, reason: "maintenance" }`. Frontend uses GET `/api/status` to hide/disable CTAs. |
+| `LIGS_ENGINE_GATE` | `lib/engine-execution-grant.ts` (`isEngineExecutionGateEnforced`) | **`0` or `false`** = disable production execution-key requirement for OpenAI/engine/image live paths (operator escape hatch). **Unset** in production = gate **on** (requires `executionKey` from verify-session). Ignored when `NODE_ENV !== "production"` or `NEXT_PUBLIC_FAKE_PAY` is set. |
 | `NEXT_PUBLIC_DRY_RUN` | `lib/dry-run-config.ts`, LigsStudio | `"1"` or `"true"` = client never sends generate/verify requests; shows Dry Run Preview and banner |
 | `NEXT_PUBLIC_FAKE_PAY` | `lib/dry-run-config.ts`, BeautyLandingClient, PayUnlockButton, PreviewCardModal | `"1"` or `"true"` = CTA bypasses Stripe; sets unlock, redirects to /beauty/start (marketing testing). **Production: leave unset.** |
 | `NEXT_PUBLIC_TEST_MODE` | `lib/runtime-mode.ts`, `lib/dry-run-config.ts`, compose, generate-image, TestModeLogger | `"1"` or `"true"` = dry image gen, deterministic overlay; Blob writes ON unless `DISABLE_BLOB_WRITES=1`; logs "TEST MODE" in console. **Production: leave unset.** |
@@ -381,8 +402,8 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 Landing (engine)     → POST /api/engine/generate → saveReportAndConfirm → GET /api/report/[reportId]
 Landing (E.V.E.)     → POST /api/engine → POST /api/engine/generate → GET /api/report/[reportId] → OpenAI E.V.E. → saveBeautyProfileV1
 Beauty form          → POST /api/beauty/create → POST /api/engine (same chain)
-Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV1 → agent entitlement mint (no email from webhook)
-Agent WHOIS flow     → POST /api/agent/register (alias: beauty/submit) → POST /api/stripe/create-checkout-session { reportId } → GET /api/stripe/verify-session → GET /api/agent/whois + Bearer token
+Stripe success       → Webhook POST /api/stripe/webhook → loadBeautyProfileV1 → POST /api/email/send-beauty-profile
+Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executionKey → sessionStorage → live POSTs include executionKey → grant consumed on successful /api/engine (child engine/generate uses defer header)
 ```
 
 ### 6.2 External services
@@ -391,7 +412,7 @@ Agent WHOIS flow     → POST /api/agent/register (alias: beauty/submit) → POS
 |---------|-----|
 | **OpenAI** | GPT-4o (report, image prompts, vector zero, E.V.E. filter), DALL·E 3 (images) |
 | **Wikimedia/Wikipedia** | On-this-day API (api.wikimedia.org, fallback en.wikipedia.org REST) — factual world history context for report prompts; free, no API key; 24h cache |
-| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json`, exemplars `ligs-exemplars/{archetype}/{version}/{slug}.png` and `manifest.json`, waitlist `ligs-waitlist/entries/{key}.json`, idempotency cache `ligs-runs/{route}/{uuid}.json`, health check `health/{timestamp}.txt`. **Manual inventory/cleanup:** `npm run blob:inventory`; conservative purge only `health/` via `npm run blob:cleanup-health:dry` then `npm run blob:cleanup-health` (no auto cron). |
+| **Vercel Blob** | Reports `ligs-reports/{reportId}.json`, Beauty V1 `ligs-beauty/{reportId}.json`, images `ligs-images/{reportId}/{slug}.png|jpg`, keepers `ligs-keepers/{reportId}.json`, DRY keepers `ligs-keepers-dry/{reportId}.json`, exemplars `ligs-exemplars/{archetype}/{version}/{slug}.png` and `manifest.json`, waitlist `ligs-waitlist/entries/{key}.json`, idempotency cache `ligs-runs/{route}/{uuid}.json`, **paid execution grants** `ligs-engine-grants/{token}.json`, health check `health/{timestamp}.txt`. **Manual inventory/cleanup:** `npm run blob:inventory`; conservative purge only `health/` via `npm run blob:cleanup-health:dry` then `npm run blob:cleanup-health` (no auto cron). |
 | **Stripe** | Checkout Session, webhook `checkout.session.completed` |
 | **Resend or SendGrid** | Post-purchase email with view link and optional image |
 
@@ -422,6 +443,7 @@ Agent WHOIS flow     → POST /api/agent/register (alias: beauty/submit) → POS
 - [ ] **Beauty:** `/beauty` → create profile → checkout → success → email with link to `/beauty/view?reportId=…`.
 - [ ] **Reports:** `GET /api/report/debug` shows storage type and test pattern; `GET /api/report/{reportId}` returns report after engine run. **Monitoring:** Alert on log message `REPORT_NOT_FOUND` (or response `code: "REPORT_NOT_FOUND"`) to catch persistence gaps. See **docs/REPORT-PERSISTENCE-ALERTING.md** for verification steps and how to enable alerting.
 - [ ] **Dry run:** `DRY_RUN=1` skips OpenAI and returns mock report from `/api/engine`.
+- [ ] **Production execution gate:** Live beauty/engine/image/voice paths require a valid `executionKey` from verify-session unless `LIGS_ENGINE_GATE=0` or `NEXT_PUBLIC_FAKE_PAY`; dev (`NODE_ENV !== production`) is ungated.
 
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
@@ -429,51 +451,81 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 
 ---
 
-## Verification Log – 2026‑03‑18 (Stripe webhook: no email)
+## Verification Log – 2026‑03‑20 (Studio WHOIS testing surface)
 
-**`POST /api/stripe/webhook`:** Paid `checkout.session.completed` (non–pre-purchase) loads Beauty Profile, mints/persists agent entitlement when missing, returns 200. **Removed** internal call to `/api/email/send-beauty-profile` and all email-delivery logging from this route.
+**Studio Report Library:** LigsStudio now has a "Report Library" section (phase 02b) that fetches `/api/report/previews?maxPreviews=20`, lists reports with reportId, subjectName, emotionalSnippet. Each report has "View preview" (→ `/beauty/view?reportId=`) and "Unlock WHOIS Agent Access" (→ Stripe checkout). Same buttons added to the Test Paid Report / Live Report result panel. **Middleware:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` are allowed when `LIGS_STUDIO_TOKEN` is set and user has valid `ligs_studio` cookie (for WHOIS testing without public /beauty access). No new APIs; reuses existing checkout route and preview page.
 
----
+## Verification Log – 2026‑03‑20 (Agent drift-check)
 
-## Verification Log – 2026‑03‑16 (Agent entitlement layer for WHOIS YOUR HUMAN)
-
-**New API routes:** Added `GET /api/agent/whois` token gating and new `POST /api/agent/feedback`. `/api/agent/whois` now requires entitlement token via `Authorization: Bearer <token>` or `?token=` and returns 401 for missing token, 403 for invalid token or token/report mismatch; existing payload generation is unchanged.
-
-## Verification Log – 2026‑03‑18 (POST /api/agent/register)
-
-**POST `/api/agent/register`:** Thin proxy to `POST /api/beauty/submit` (same body, same persistence, same `reportId`). Documents agent flow register → Stripe checkout → verify-session → agent/whois. `npm run build` verified.
-
-**Agent API doc:** `docs/AGENT-WHOIS-API.md` — curl + flow for register, checkout, verify-session, whois (no duplicate of full schema).
+**Added:** `POST /api/agent/drift-check` — baseline comparison for agent use. Body `reportId`, `currentText`; same Bearer auth as WHOIS/feedback. Fetches WHOIS internally for baseline (agent_guidance, agent_summary, emotional_snippet); calls OpenAI for bounded comparison; returns `{ drift, severity, type, confidence, summary }`. Not diagnosis, recalibration, or state machine. Docs: `docs/AGENT-WHOIS-API.md`. **Test support:** `POST /api/dev/mint-agent-token` (dev-only) mints entitlement for reportId when report + profile exist; `scripts/verify-agent-flow.mjs` runs full agent flow (dry-run → mint → whois → feedback → whois → drift-check). Runbook: `docs/AGENT-FLOW-RUNBOOK.md`. Build passes.
 
 ---
 
-## Verification Log – 2026‑03‑16 (/whois-your-human/unlock)
+## Verification Log – 2026‑03‑20 (Runtime alignment: webhook email + feedback surfacing)
 
-**Added:** `/whois-your-human/unlock` (`WhoisYourHumanUnlock`) — bridge before `/origin`. Landing primary CTAs now target unlock. No API, payment, or `/origin` changes.
+**Webhook post-purchase email:** `app/api/stripe/webhook/route.ts` now calls `POST /api/email/send-beauty-profile` with `{ reportId, email }` after entitlement is ensured, when `session.customer_details.email` is present. Email failures are logged (`webhook_post_purchase_email_failed`, `webhook_post_purchase_email_error`) but do not block the 200 response; Stripe does not retry. **WHOIS feedback surfacing:** `lib/agent-entitlement-store.ts` — added `getLatestFeedbackForReport(reportId)` (Blob list + get, in-memory fallback). `app/api/agent/whois/route.ts` — loads latest feedback; populates `verification.observed_match_fields` / `observed_mismatch_fields` per state (`confirmed` → match, `debunked` → mismatch, `partial` → both empty); adds `verification.last_feedback: { state, createdAt }` when feedback exists. **Docs:** `docs/AGENT-WHOIS-API.md`, `docs/AGENT_USAGE.md` updated; feedback now documented as affecting WHOIS payload. Build and typecheck pass.
 
-## Verification Log – 2026‑03‑16 (/whois-your-human agent landing)
+---
 
-**Added:** `/whois-your-human` (WHOIS YOUR HUMAN product landing, `WhoisYourHumanLanding`) and `/whois-your-human/api` (static agent HTTP reference). Middleware unchanged. No API or payment changes.
+## Verification Log – 2026‑03‑16 (WYH-004 calibration artifact)
 
-## Verification Log – 2026‑03‑16 (docs/AGENT_RESPONSE_PATTERN.md)
+**Added:** Registry Artifact WYH-004 — Human Identity Resolution Record, Class: Calibration Record, Status: Test (Agent-Evaluated). **Docs:** `docs/WYH-004-CALIBRATION-ARTIFACT.md` (system artifact; verified/partial/unverified/contradicted claims; cohesion 0.42; operationally valid signals; Vector Zero takeaway). **Case study:** `app/whois-your-human/case-studies/wyh-004/page.jsx` (derived presentation layer). **Engine spec:** `lib/engine-spec.ts` — CALIBRATION CONSTRAINTS (WYH-004) block: deterministic identity claims restricted to invariant behaviorally supported signals; symbolic/physical analogues must not exceed empirical support; contradicted claims (e.g. fixed identity from birth-field geometry) non-canonical; unverified constructs (numeric axes, spectral wavelength model, environmental resonance) downgraded to non-canonical or experimental. No taxonomy or architecture drift.
 
-**Added:** `docs/AGENT_RESPONSE_PATTERN.md` — how agents convert WHOIS JSON into user-facing text (calibration not conclusion; A–D construction; signal priority; DO/DO NOT phrasing; three case patterns; failure blocks; minimal template). Pointers in `AI_HANDOFF.md`, `REPO_MAP.md`, snapshot § top. No API or schema changes.
+---
 
-## Verification Log – 2026‑03‑18 (docs/AGENT_USAGE.md)
+## Verification Log – 2026‑03‑19 (E.V.E. alignment with canonical identity)
 
-**Added:** `docs/AGENT_USAGE.md` — operational guide for AI agents consuming WHOIS YOUR HUMAN (`whois-your-human/v1`): when to call, interpretation, safety, conversation pattern; references `AGENT-WHOIS-API.md`. Snapshot § top links AGENT_USAGE + AGENT-WHOIS-API.
+**Change:** Canonical archetype (solarSeasonProfile.archetype when sunLonDeg present) is now computed before E.V.E. and injected into the E.V.E. prompt (archetypeVoiceBlock, phraseBankBlock). E.V.E. generates all identity-bearing content using the canonical archetype; extractArchetypeFromReport is used only when solar cannot be computed. **Files:** `app/api/engine/route.ts` — moved solar/canonicalArchetype block before E.V.E. call; removed duplicate. **Tests:** identity invariance + E.V.E. alignment tests assert dominantArchetype and fullReport Key Moves use Structoris when report says Radiantis but solar is 295°. Build verified.
 
-## Verification Log – 2026‑03‑18 (AI collaborator orientation docs)
+---
 
-**Added:** `AI_HANDOFF.md`, `CURRENT_WORK.md`, `REPO_MAP.md` — cold-start continuity; implemented vs risky zones; pointer from snapshot § top. **Corrected:** §0.5 and §1.1 `app/origin/page.jsx` now state **`OriginTerminalIntake`** (not BeautyLandingClient on `/origin`).
+## Verification Log – 2026‑03‑19 (WHOIS identity resolution consistency audit)
 
-**Entitlement persistence:** Added `lib/agent-entitlement-store.ts` using existing Blob JSON style with prefixes:
-- `ligs-agent-entitlements/by-token/{token}.json`
-- `ligs-agent-entitlements/by-report/{reportId}.json`
-- feedback: `ligs-agent-feedback/{reportId}/{timestamp}-{uuid}.json`
-Fallback in-memory maps are used when Blob is unavailable (local/dev).
+**Audit:** `docs/WHOIS-IDENTITY-RESOLUTION-AUDIT.md`. End-to-end trace of solarSeasonProfile, dominantArchetype, archetypeClassification across engine, profile, storedReport, and report composition. **Findings:** Dry-run path aligned (engine returns identity; profile stores; buildPaidWhoisReport reads). E.V.E. live path uses dual source (dominantArchetype from extractArchetypeFromReport, solarSeasonProfile from getSolarSeasonProfile); buildPaidWhoisReport prefers solarProfile.archetype so output correct. **Canonical rule:** solarSeasonProfile is authoritative; dominantArchetype should match when both set. **Optional hardening:** Engine route could set dominantArchetype = solarSeasonProfile.archetype when solar present. No code change required for current correctness.
 
-**Stripe reuse:** `POST /api/stripe/webhook` now mints and persists one active entitlement token for a paid `reportId` on `checkout.session.completed` (non-prePurchase), reusing existing Stripe metadata and paid-report verification flow. `GET /api/stripe/verify-session` now returns `entitlementToken` when paid and entitlement exists for the session reportId.
+---
+
+## Verification Log – 2026‑03‑16 (Studio dry-run profile completeness)
+
+**Audit:** `docs/STUDIO-DRY-RUN-PROFILE-COMPLETENESS-AUDIT.md`. buildDryRunBeautyProfileV1 did not set `dominantArchetype`, `solarSeasonProfile`, `originCoordinatesDisplay`; buildPaidWhoisReport fell back to date-derived logic. **Fix:** Engine/generate dry-run response now includes these fields; beauty/dry-run passes them to buildDryRunBeautyProfileV1; profile is canonical. Tests pass.
+
+---
+
+## Verification Log – 2026‑03‑16 (WHOIS pipeline audit — originCoordinatesDisplay fallback)
+
+**Audit:** `docs/LIGS-WHOIS-PIPELINE-AUDIT-2026-03-16.md`. Traced Studio form → beauty/dry-run → engine/generate → storage → buildPaidWhoisReport → render. **Root cause:** `buildPaidWhoisReport` set `originCoordinatesDisplay` only from `birthContext` or `profile.originCoordinatesDisplay`. Studio dry-run profiles do not set it; engine persists it on `StoredReport`. **Fix:** Added `storedReport.originCoordinatesDisplay` as third fallback in `lib/free-whois-report.ts`. Unit test added. Build passes.
+
+---
+
+## Verification Log – 2026‑03‑16 (WHOIS YOUR HUMAN — AGENT INSTRUCTION block)
+
+**Shared component** `WhoisAgentInstructionBlock`: neutral calibration-usage copy on `/whois-your-human`, `/whois-your-human/api` (after SYSTEM CONTRACT), case study index, and each case page via `WhoisCaseStudyDocument`. Typography matches existing mono + emerald section headers.
+
+---
+
+## Verification Log – 2026‑03‑16 (Hard payment gate — execution grant)
+
+**Execution grant:** `GET /api/stripe/verify-session` mints `executionKey` only when Stripe `payment_status === "paid"`; stored in Blob `ligs-engine-grants/{token}.json` (or in-memory fallback). **Single-use** consumption after successful live `POST /api/engine` (full pipeline). **`POST /api/engine/generate`** when called internally sends `X-LIGS-Defer-Grant-Consume: 1` so the grant is not double-consumed. **403** if key missing/invalid/expired when `isEngineExecutionGateEnforced()` (production, gate not disabled, not fake pay). **Dry-run** and **dev** remain ungated. **`npm run build`** verified.
+
+---
+
+## Verification Log – 2026‑03‑19 (WHOIS terminology lock — canonical registry + WHOIS record)
+
+**Public copy:** Single registry string **LIGS Human WHOIS Registry** in Origin, `free-whois-report`, PayUnlockButton, beauty metadata, email subject; **WHOIS record** / **agent calibration record** / **WHOIS YOUR HUMAN** per product lock; removed **(L)IGS**, **Human WHOIS Resolution Engine**, **Light Identity Report** from user-visible surfaces in scope; share-card overlay label **WHOIS RECORD**. Build verified.
+
+---
+
+## Verification Log – 2026‑03‑19 (WHOIS paid boundary — cookie gate + minimal submit/dry-run JSON)
+
+**Middleware:** `/whois-your-human/api` and `/whois-your-human/case-studies/*` require HttpOnly cookie `wyh_content_gate=1` (set by `GET /api/stripe/verify-session` when payment is `paid`); else redirect `/whois-your-human/unlock`. **`GET /api/agent/whois` unchanged** (Bearer + entitlement). **`POST /api/beauty/submit`** returns minimal `{ reportId, intakeStatus, note }` to clients; engine still runs server-side. **`POST /api/beauty/dry-run`** omits `beautyProfile` from JSON; PayUnlockButton / LigsStudio load preview via `GET /api/beauty/[reportId]` when needed. Build and dry-run route test verified.
+
+---
+
+## Verification Log – 2026‑03‑16 (WHOIS YOUR HUMAN → nextjs-boilerplate / ligs.io)
+
+**Ported from whois-your-human repo:** `/whois-your-human`, `/unlock`, `/api` pages; `WhoisYourHumanLanding`, `WhoisYourHumanUnlock`; `OriginTerminalIntake` post-intake messaging + copy control; middleware explicit pass-through for WYH routes. `REPO_MAP.md` added (trimmed to paths present in this repo). Build verified.
+
+**Live lock (ligs.io):** Merged to **`main`** (e.g. PR #4). Production deploy for **ligs.io** uses this repo’s **`main`**; public routes **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`** and Origin **`registryReveal`** activation copy (status block, NEXT lines, COPY / `[ COPY ]` → clipboard, SAVE) are the shipped product surface for WHOIS YOUR HUMAN + Origin handoff.
 
 ---
 

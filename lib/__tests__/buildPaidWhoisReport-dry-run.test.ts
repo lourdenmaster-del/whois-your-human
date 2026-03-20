@@ -5,8 +5,11 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { buildPaidWhoisReport, renderFreeWhoisReport, renderFreeWhoisReportText } from "../free-whois-report";
+import { buildPaidWhoisReport, buildFreeWhoisReport, renderFreeWhoisReport, renderFreeWhoisReportText } from "../free-whois-report";
 import { composeArchetypeOpening } from "../report-composition";
+import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
+import { getSolarSeasonIndexFromLongitude, getSolarSeasonByIndex, SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
+import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -113,8 +116,22 @@ describe("buildPaidWhoisReport with dry-run-style data", () => {
     expect(report.archetypeClassification).toBeDefined();
     expect(report.cosmicAnalogue).toBeDefined();
     expect(report.registryStatus).toBe("Registered");
-    expect(report.recordAuthority).toBe("LIGS Human Identity Registry");
+    expect(report.recordAuthority).toBe("LIGS Human WHOIS Registry");
     expect(report.created_at).toBeDefined();
+  });
+
+  it("paid WHOIS includes CIVILIZATIONAL FUNCTION and INTEGRATION NOTE sections", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    const text = renderFreeWhoisReportText(report);
+    expect(text).toContain("CIVILIZATIONAL FUNCTION");
+    expect(text).toContain("INTEGRATION NOTE");
+    expect(text).toContain("Structural Function");
+    expect(text).toContain("Use this record as a reference for understanding where your contribution flows naturally.");
+    if (process.env.PRINT_PAID_WHOIS === "1") {
+      console.log("\n--- PAID WHOIS (plain text) ---\n");
+      console.log(text);
+      console.log("\n--- END ---\n");
+    }
   });
 
   it("omits Light Signature from paid WHOIS top block (artifact is visual, not text)", async () => {
@@ -123,8 +140,7 @@ describe("buildPaidWhoisReport with dry-run-style data", () => {
       light_signature: { raw_signal: "Custom light signature text.", custodian: "", oracle: "" },
     });
     const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
-    expect(report.omitLightSignatureFromRecord).toBe(true);
-    expect(report.lightSignatureDisplay).toBeUndefined();
+    expect((report as { lightSignatureDisplay?: string }).lightSignatureDisplay).toBeUndefined();
   });
 
   it("sets originCoordinatesDisplay from profile when no birthContext passed", async () => {
@@ -134,6 +150,38 @@ describe("buildPaidWhoisReport with dry-run-style data", () => {
     });
     const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
     expect(report.originCoordinatesDisplay).toBe("New York, 40.7128°N, 74.0060°W");
+  });
+
+  it("falls back to storedReport.originCoordinatesDisplay when profile lacks it (Studio dry-run path)", async () => {
+    mockGetReport.mockResolvedValue({
+      ...createDryRunStoredReport(reportId),
+      originCoordinatesDisplay: "Boston, 42.3601°N, 71.0589°W",
+    });
+    mockLoadBeautyProfileV1.mockResolvedValue(createDryRunProfile(reportId, "Studio Test User"));
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.originCoordinatesDisplay).toBe("Boston, 42.3601°N, 71.0589°W");
+  });
+
+  it("uses profile.solarSeasonProfile and profile.dominantArchetype when present (complete dry-run profile)", async () => {
+    mockLoadBeautyProfileV1.mockResolvedValue({
+      ...createDryRunProfile(reportId, "Complete Profile"),
+      solarSeasonProfile: {
+        seasonIndex: 9,
+        archetype: "Structoris",
+        lonCenterDeg: 285,
+        solarDeclinationDeg: -20,
+        declinationAbs: 20,
+        seasonalPolarity: "waning" as const,
+        insolationProxy01: 0.5,
+        twilightClass: "day",
+        dayLengthNorm01: 0.6,
+      },
+      dominantArchetype: "Structoris",
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.archetypeClassification).toBe("Structoris");
+    expect(report.solarSignature).toBe("December Solstice");
+    expect(report.cosmicAnalogue).toContain("cosmic web");
   });
 
   it("uses profile birth fields when params omitted (dry-run profile with birth fields)", async () => {
@@ -158,6 +206,95 @@ describe("buildPaidWhoisReport with dry-run-style data", () => {
     const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
     expect(report.vectorZeroAddendumBody).toBeDefined();
     expect(report.vectorZeroAddendumBody).toContain("Baseline field.");
+  });
+
+  it("uses parsed identityArchitectureBody when sections 1 and 2 present", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.identityArchitectureBody).toBeDefined();
+    expect(report.identityArchitectureBody).not.toBe("[Identity Architecture section unavailable]");
+    expect(report.identityArchitectureBody).toContain("RAW SIGNAL");
+    expect(report.identityArchitectureBody).toContain("Forces at");
+  });
+
+  it("uses explicit placeholder for identityArchitectureBody when sections 1 and 2 unparseable", async () => {
+    mockGetReport.mockResolvedValue({
+      ...createDryRunStoredReport(reportId),
+      full_report: "No section headers here.\n\nJust free-form text that does not match N. TITLE pattern.",
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.identityArchitectureBody).toBe("[Identity Architecture section unavailable]");
+  });
+
+  it("uses explicit placeholder for interpretiveNotesBody when sections 12-14 unparseable", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.interpretiveNotesBody).toBe("[Interpretive Notes section unavailable]");
+  });
+
+  it("rendered report shows explicit placeholders when parse fails (no generic prose)", async () => {
+    mockGetReport.mockResolvedValue({
+      ...createDryRunStoredReport(reportId),
+      full_report: "Unstructured content without N. TITLE section headers.",
+      field_conditions_context: undefined,
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    const text = renderFreeWhoisReportText(report);
+    expect(text).toContain("[Identity Architecture section unavailable]");
+    expect(text).toContain("[Field Conditions section unavailable]");
+    expect(text).toContain("[Interpretive Notes section unavailable]");
+    expect(text).not.toContain("The registry identifies a stable identity structure arising within the total field");
+    expect(text).not.toContain("Classification emerges from field conditions and force structure");
+    expect(text).not.toContain("Expanded interpretive sections ship with the complete registration report");
+  });
+
+  it("civilizationalFunctionBody: valid content present uses real content", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.civilizationalFunctionBody).toBeDefined();
+    expect(report.civilizationalFunctionBody).not.toBe("[Civilizational Function section unavailable]");
+    expect(report.civilizationalFunctionBody).toContain("Structural Function");
+    expect(report.civilizationalFunctionBody).toContain("Contribution Environments");
+  });
+
+  it("civilizationalFunctionBody: render uses explicit placeholder when empty", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    (report as { civilizationalFunctionBody?: string }).civilizationalFunctionBody = "";
+    const text = renderFreeWhoisReportText(report);
+    expect(text).toContain("[Civilizational Function section unavailable]");
+  });
+
+  it("vectorZeroAddendumBody: valid content present uses real content", async () => {
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.vectorZeroAddendumBody).toBeDefined();
+    expect(report.vectorZeroAddendumBody).not.toBe("[Vector Zero addendum unavailable]");
+    expect(report.vectorZeroAddendumBody).toContain("Baseline field.");
+  });
+
+  it("vectorZeroAddendumBody: render uses explicit placeholder when missing (no generic prose)", async () => {
+    mockGetReport.mockResolvedValue({
+      ...createDryRunStoredReport(reportId),
+      vector_zero: {
+        coherence_score: 0.85,
+        primary_wavelength: "580–620 nm",
+        secondary_wavelength: "450–480 nm",
+        symmetry_profile: { lateral: 0.7, vertical: 0.75, depth: 0.7 },
+        beauty_baseline: { color_family: "warm-neutral", texture_bias: "smooth", shape_bias: "balanced", motion_bias: "steady" },
+        three_voice: { raw_signal: "", custodian: "", oracle: "" },
+      },
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.vectorZeroAddendumBody).toBeUndefined();
+    const text = renderFreeWhoisReportText(report);
+    expect(text).toContain("[Vector Zero addendum unavailable]");
+    expect(text).not.toContain("As an early registry participant, your WHOIS record has been expanded");
+  });
+
+  it("uses explicit placeholder for fieldConditionsBody when field_conditions_context and s2to5 both null", async () => {
+    mockGetReport.mockResolvedValue({
+      ...createDryRunStoredReport(reportId),
+      full_report: "1. INITIATION\nOnly section 1.\n\nNo sections 2-5.",
+      field_conditions_context: undefined,
+    });
+    const report = await buildPaidWhoisReport({ reportId, requestId: "test-request" });
+    expect(report.fieldConditionsBody).toBe("[Field Conditions section unavailable]");
   });
 
   it("hydrates Magnetic/Climate/Sensory and FIELD CONDITIONS from storedReport when persisted by engine/generate", async () => {
@@ -201,7 +338,7 @@ describe("buildPaidWhoisReport with dry-run-style data", () => {
     const sentence = lines[0] ?? "";
     expect(sentence).toContain("The Architect");
     expect(sentence).not.toMatch(/as the The\s/);
-    expect(sentence).toMatch(/operates as The Architect within the STRUCTORIS structural regime/);
+    expect(sentence).toMatch(/operates as The Architect within the STRUCTORIS\s+regime/);
   });
 
   it("renders paid WHOIS report as HTML and text (output for email/viewer)", async () => {
@@ -217,5 +354,19 @@ describe("buildPaidWhoisReport with dry-run-style data", () => {
     }
     writeFileSync(join(outDir, "paid-whois-report.html"), html, "utf8");
     writeFileSync(join(outDir, "paid-whois-report.txt"), text, "utf8");
+  });
+
+  it("solar segment index: same birth date yields same segment and archetype (canonical formula consistency)", () => {
+    const data = { email: "test@example.com", created_at: new Date().toISOString(), birthDate: "1990-01-15", birthPlace: "New York, NY", birthTime: "14:30" };
+    const freeReport = buildFreeWhoisReport(data);
+    const lon = approximateSunLongitudeFromDate("1990-01-15");
+    expect(lon).not.toBeNull();
+    const index = getSolarSeasonIndexFromLongitude(lon!);
+    const archetype = getPrimaryArchetypeFromSolarLongitude(lon!);
+    const entry = getSolarSeasonByIndex(index);
+    expect(freeReport.archetypeClassification).toBe(archetype);
+    expect(entry?.archetype).toBe(archetype);
+    expect(SOLAR_SEASONS[index]?.archetype).toBe(archetype);
+    expect(freeReport.solarSignature).not.toBe("—");
   });
 });

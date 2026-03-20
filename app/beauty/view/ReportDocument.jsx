@@ -6,16 +6,61 @@
  * Off-white paper, black/charcoal text, serif body, monospace labels, no step-by-step flow.
  */
 
+import { useState } from "react";
 import { generateLirId } from "@/src/ligs/marketing/identity-spec";
 import { getReportSections } from "@/lib/report-sections";
 import { ArtifactReveal } from "./ReportStep";
 import FlowNav from "@/components/FlowNav";
+import { setBeautyUnlocked } from "@/lib/landing-storage";
+import { FAKE_PAY } from "@/lib/dry-run-config";
 
 const PAPER_BG = "#fafaf8";
 const SECTION_LABEL_CLASS =
   "text-sm font-semibold uppercase tracking-wider text-black/80 font-mono";
 
 export default function ReportDocument({ profile }) {
+  const [redirecting, setRedirecting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState(null);
+
+  const handlePurchase = async () => {
+    const rid = profile?.reportId;
+    if (!rid) return;
+    if (FAKE_PAY) {
+      setBeautyUnlocked();
+      window.location.href = "/beauty/start";
+      return;
+    }
+    setCheckoutError(null);
+    setRedirecting(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportId: rid }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
+          setCheckoutError("This report cannot be unlocked. Use the full flow to generate a new one.");
+        } else {
+          setCheckoutError(json?.error ?? "Checkout unavailable. Try again later.");
+        }
+        setRedirecting(false);
+        return;
+      }
+      const url = json?.data?.url ?? json?.url;
+      if (url && typeof url === "string") {
+        window.location.href = url;
+        return;
+      }
+      setCheckoutError("No checkout URL returned.");
+    } catch {
+      setCheckoutError("Could not start checkout. Please try again.");
+    } finally {
+      setRedirecting(false);
+    }
+  };
+
   if (!profile) {
     return (
       <div
@@ -114,6 +159,29 @@ export default function ReportDocument({ profile }) {
             Additional identity modules are available in the full report: Career Field Catalogue, Relationship Compatibility Analysis, Team Dynamics Map.
           </p>
         </section>
+
+        {/* Purchase WHOIS Agent Access */}
+        {profile?.reportId && (
+          <section className="mb-10 pt-6 border-t border-black/10">
+            <button
+              type="button"
+              onClick={handlePurchase}
+              disabled={redirecting}
+              className="w-full sm:w-auto px-8 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ borderRadius: 0 }}
+            >
+              {redirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+            </button>
+            {checkoutError && (
+              <p className="mt-2 text-sm text-red-600" role="alert">
+                {checkoutError}
+              </p>
+            )}
+            <p className="mt-2 text-xs text-black/55">
+              One-time purchase · Agent-readable calibration token
+            </p>
+          </section>
+        )}
 
         <FlowNav variant="light" className="pt-8 border-t border-black/10" />
       </article>

@@ -13,6 +13,7 @@ import {
   setBeautyDraft,
   saveLastFormData,
   saveOriginIntake,
+  loadLastFormData,
   isBeautyUnlocked,
 } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
@@ -48,17 +49,20 @@ const INTAKE_PROMPTS = {
   email: "Contact email:",
 };
 
-/** Exact clipboard payload for “Use this with AI” (registryReveal). */
-const AI_WHOIS_USE_WITH_AI_BLOCK = `You can use my WHOIS profile to better understand how to work with me.
+/** Exact clipboard payload when a public extract exists (e.g. waitlist report payload). */
+const AI_WHOIS_USE_WITH_AI_BLOCK = `You can use my WHOIS profile to calibrate how you work with me (early-stage; not deterministic).
 
 Use it to:
-- adjust how you explain things
-- help me make decisions
-- avoid patterns I tend to fall into`;
+- adjust explanation style when it fits my record
+- frame decisions when it fits my record
+- note recurring patterns when they appear in the record`;
+
+/** Clipboard hint before checkout / paid unlock — no factual calibration claims. */
+const AI_WHOIS_PRE_UNLOCK_BLOCK = `I'm going through WHOIS YOUR HUMAN intake. My WHOIS record (agent calibration record) will be available after I complete checkout and unlock — please use neutral, general assistance until then.`;
 
 /** Sequential single-line status messages during processing (registry language). */
 const PROCESSING_MESSAGES = [
-  "Creating your machine-readable WHOIS identity record…",
+  "Creating your WHOIS record…",
   "Resolving solar segment…",
   "Mapping archetypal structure…",
 ];
@@ -288,6 +292,9 @@ export default function OriginTerminalIntake() {
   const [registryCount, setRegistryCount] = useState(null);
   const [aiWhoisCopied, setAiWhoisCopied] = useState(false);
   const aiCopyFeedbackRef = useRef(0);
+  const [lastReportId, setLastReportId] = useState(null);
+  const [purchaseRedirecting, setPurchaseRedirecting] = useState(false);
+  const [purchaseError, setPurchaseError] = useState(null);
 
   const dryRun = getDryRunFromUrl();
   const [unlocked, setUnlockedState] = useState(false);
@@ -376,6 +383,13 @@ export default function OriginTerminalIntake() {
     const t = setTimeout(() => setShowRegistryCounter(true), 400);
     return () => clearTimeout(t);
   }, [showCTA]);
+
+  /** Load reportId from storage when entering registryReveal (e.g. refresh). */
+  useEffect(() => {
+    if (phase !== "registryReveal") return;
+    const stored = loadLastFormData();
+    if (stored?.reportId && !lastReportId) setLastReportId(stored.reportId);
+  }, [phase, lastReportId]);
 
   const goToErrorAndComplete = useCallback((message) => {
     setCtaError(message);
@@ -564,6 +578,7 @@ export default function OriginTerminalIntake() {
           return;
         }
         saveLastFormData(reportId, payload);
+        setLastReportId(reportId);
         beginRegistryReveal();
         return;
       }
@@ -574,6 +589,7 @@ export default function OriginTerminalIntake() {
         const reportId = result?.reportId;
         if (reportId) {
           saveLastFormData(reportId, payload);
+          setLastReportId(reportId);
           beginRegistryReveal();
         }
         return;
@@ -613,6 +629,40 @@ export default function OriginTerminalIntake() {
 
   const executeSubmitRef = useRef(null);
   executeSubmitRef.current = handleRunWhoisClick;
+
+  const handlePurchaseClick = useCallback(async () => {
+    if (purchaseRedirecting) return;
+    if (FAKE_PAY) {
+      setBeautyUnlocked();
+      window.location.href = "/beauty/start";
+      return;
+    }
+    setPurchaseError(null);
+    setPurchaseRedirecting(true);
+    try {
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lastReportId ? { reportId: lastReportId } : { prePurchase: true }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPurchaseError(json?.error ?? "Checkout unavailable.");
+        setPurchaseRedirecting(false);
+        return;
+      }
+      const url = json?.data?.url ?? json?.url;
+      if (url && typeof url === "string") {
+        window.location.href = url;
+        return;
+      }
+      setPurchaseError("No checkout URL returned.");
+    } catch {
+      setPurchaseError("Could not start checkout.");
+    } finally {
+      setPurchaseRedirecting(false);
+    }
+  }, [lastReportId, purchaseRedirecting]);
 
   useEffect(() => {
     if (phase !== "processing") return;
@@ -734,6 +784,10 @@ export default function OriginTerminalIntake() {
   /** Preview section copy: teaser from contract; fallbacks when fields are "—". Only read when registryReveal + showCTA. */
   const previewTeaser = getArchetypePreviewConfig(archetypeForCompletion).teaser;
 
+  /** No server WHOIS extract in-browser (intake-only path); avoid implying paid/agent payload is present. */
+  const unpaidIntakeNoExtract = !whoisReport && !WAITLIST_ONLY;
+  const aiClipboardBlock = unpaidIntakeNoExtract ? AI_WHOIS_PRE_UNLOCK_BLOCK : AI_WHOIS_USE_WITH_AI_BLOCK;
+
   /** In-page reveal below terminal; router.push removed — CTA links to WHOIS Registration Report. */
   if (phase === "registryReveal") {
     const mono = "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace";
@@ -769,21 +823,35 @@ export default function OriginTerminalIntake() {
                 className="font-mono text-[11px] uppercase tracking-[0.12em] space-y-0.5 pl-0 sm:pl-1"
                 style={{ color: bright }}
               >
-                <p>WHOIS STATUS: ACTIVE</p>
-                <p>AI ACCESS: ENABLED</p>
-                <p>IDENTITY RECORD: GENERATED</p>
+                {unpaidIntakeNoExtract ? (
+                  <>
+                    <p>WHOIS STATUS: INTAKE RECORDED</p>
+                    <p>AI ACCESS: LOCKED UNTIL CHECKOUT</p>
+                    <p>IDENTITY RECORD: SERVER (PENDING UNLOCK)</p>
+                  </>
+                ) : (
+                  <>
+                    <p>WHOIS STATUS: ON FILE</p>
+                    <p>AI ACCESS: CALIBRATION AVAILABLE (UNVERIFIED)</p>
+                    <p>IDENTITY RECORD: GENERATED</p>
+                  </>
+                )}
               </div>
               <p
                 className="font-mono text-[11px] uppercase tracking-[0.1em] pt-2"
                 style={{ color: muted }}
               >
-                NEXT: Use your WHOIS with AI tools
+                {unpaidIntakeNoExtract
+                  ? "NEXT: Complete checkout to unlock agent record and analytical extract"
+                  : "NEXT: You may use your WHOIS with compatible AI tools"}
               </p>
               <p
                 className="font-mono text-[11px] uppercase tracking-[0.1em] pt-1"
                 style={{ color: muted }}
               >
-                NEXT ACTION: Open your WHOIS record preview
+                {unpaidIntakeNoExtract
+                  ? "NEXT ACTION: Finish payment, then open API / case studies from unlock flow"
+                  : "NEXT ACTION: Open your WHOIS record preview"}
               </p>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-3">
                 <p
@@ -798,7 +866,7 @@ export default function OriginTerminalIntake() {
                   style={{ color: muted }}
                   onClick={() => {
                     if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
-                    void navigator.clipboard.writeText(AI_WHOIS_USE_WITH_AI_BLOCK).then(() => {
+                    void navigator.clipboard.writeText(aiClipboardBlock).then(() => {
                       window.clearTimeout(aiCopyFeedbackRef.current);
                       setAiWhoisCopied(true);
                       aiCopyFeedbackRef.current = window.setTimeout(() => {
@@ -822,7 +890,7 @@ export default function OriginTerminalIntake() {
                 className="mt-2 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-left font-mono text-[11px] leading-relaxed select-text sm:text-xs"
                 style={{ color: bright }}
               >
-                {AI_WHOIS_USE_WITH_AI_BLOCK}
+                {aiClipboardBlock}
               </pre>
               <p
                 className="font-mono text-[11px] uppercase tracking-[0.1em] pt-3"
@@ -848,7 +916,7 @@ export default function OriginTerminalIntake() {
                 Query: {formData.name || "—"}
               </p>
               <p className="text-[13px]" style={{ color: bright }}>
-                Registry: LIGS Human Identity Registry
+                Registry: LIGS Human WHOIS Registry
               </p>
               <p className="text-[13px]" style={{ color: bright }}>
                 Registry Record
@@ -871,9 +939,9 @@ export default function OriginTerminalIntake() {
               <p className="text-[13px]" style={{ color: bright }}>
                 Archetype Classification: {archetypeForCompletion}
               </p>
-              <p className="text-[13px] pt-1">Registry Status: Registered</p>
+              <p className="text-[13px] pt-1">Registry Status: On file</p>
               <p className="text-[13px]">Created Date: {new Date().toISOString().slice(0, 10)}</p>
-              <p className="text-[13px]">Record Authority: LIGS Human Identity Registry</p>
+              <p className="text-[13px]">Record Authority: LIGS Human WHOIS Registry</p>
               <p className="text-[12px]">Registry Node</p>
             </section>
           )}
@@ -890,9 +958,9 @@ export default function OriginTerminalIntake() {
                 Identity Registration Confirmation
               </p>
               <p className="text-[13px] leading-relaxed">
-                This identity has been successfully registered within the LIGS Human Identity Registry.
+                This intake is on file with the LIGS Human WHOIS Registry.
               </p>
-              <p className="text-[13px]">Record integrity verified.</p>
+              <p className="text-[13px]">Self-reported fields are not independently verified.</p>
             </section>
           )}
 
@@ -1004,19 +1072,32 @@ export default function OriginTerminalIntake() {
                 style={{ color: muted }}
                 aria-disabled="true"
               >
-                Official WHOIS Human Registration Report — Not Yet Released
+                Full WHOIS Human Registration Report — Not Yet Released
               </span>
               <div className="flex flex-col gap-3 pt-4 items-start sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
-                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
-                  ← Return to Origin
-                </a>
+                <button
+                  type="button"
+                  onClick={handlePurchaseClick}
+                  disabled={purchaseRedirecting}
+                  className="inline-block px-4 py-2.5 text-[12px] font-mono font-semibold bg-[#7A4FFF] text-white rounded border-0 hover:bg-[#8b5fff] disabled:opacity-50 disabled:cursor-not-allowed w-fit"
+                >
+                  {purchaseRedirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+                </button>
                 <a
                   href="#whois-preview"
                   className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
                 >
                   Open your WHOIS record preview
                 </a>
+                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
+                  ← Return to Origin
+                </a>
               </div>
+              {purchaseError && (
+                <p className="text-[11px] text-red-400 mt-2" role="alert">
+                  {purchaseError}
+                </p>
+              )}
             </section>
           )}
         </div>
@@ -1031,7 +1112,7 @@ export default function OriginTerminalIntake() {
           >
             Registry Nodes Recorded: {registryCount ?? "—"}
             <br />
-            LIGS Human Identity Registry
+            LIGS Human WHOIS Registry
             {waitlistConfirmation && (
               <>
                 <br />
@@ -1059,7 +1140,9 @@ export default function OriginTerminalIntake() {
             </p>
             <p className="text-[11px] uppercase tracking-[0.1em] opacity-80">Preview Extract</p>
             <p className="text-[13px] leading-relaxed">
-              Analytical report attached to the registry record above. Extract only—full interpretive depth withheld until authorized release.
+              {unpaidIntakeNoExtract
+                ? "No server-backed analytical extract is shown before checkout. Copy below describes product shape only; full agent calibration record is available after unlock."
+                  : "Analytical extract attached to the registry record above. Use it as calibration input, not certainty; full interpretive depth remains withheld until planned release."}
             </p>
             {/* WHOIS-style analytical report; section order coherent with free WHOIS: Genesis before Cosmic Twin before Archetype Expression. */}
             <div className="space-y-2 pt-4">
@@ -1067,7 +1150,7 @@ export default function OriginTerminalIntake() {
                 IDENTITY ARCHITECTURE
               </p>
               <p className="text-[13px] leading-relaxed">
-                The registry identifies a stable identity structure arising within the total field of forces present at birth.
+                The registry describes a working model of identity structure inferred from the total field of forces present at birth.
               </p>
               <p className="text-[13px] leading-relaxed">
                 Pattern resolution is observational—derived from environmental and cosmic field structure, not from a single-variable read.
@@ -1118,7 +1201,7 @@ export default function OriginTerminalIntake() {
                   ? archetypeExpressionLines.line1
                   : previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
                     ? previewTeaser.civilizationFunction
-                    : "Archetype expression expands in the authorized report; extract omitted here."}
+                    : "Archetype expression expands in the full report release; extract omitted here."}
               </p>
               {archetypeExpressionLines?.line2 ? (
                 <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
@@ -1136,10 +1219,10 @@ export default function OriginTerminalIntake() {
                 INTERPRETIVE NOTES
               </p>
               <p className="text-[13px] leading-relaxed">
-                Expanded interpretive sections—integration notes, coherence risk, stabilization—ship with the complete registration report.
+                Expanded interpretive sections—integration notes, coherence risk, stabilization—are planned for the complete registration report.
               </p>
               <p className="text-[13px] leading-relaxed">
-                This extract closes the analytical preview; remainder is withheld pending authorization.
+                This extract closes the analytical preview; remainder is withheld pending planned release.
               </p>
             </div>
             <div className="pt-6 border-t border-[#2a2a2e] space-y-2">
@@ -1230,12 +1313,20 @@ export default function OriginTerminalIntake() {
             }}
           >
             {(phase === "idle" || phase === "intake") && (
-              <p
-                className="mb-3 w-full font-mono text-[10px] uppercase tracking-[0.14em] sm:text-[11px] sm:tracking-[0.15em]"
-                style={{ color: "rgba(154,154,160,0.85)" }}
-              >
-                WHOIS YOUR HUMAN — AI identity layer initialization
-              </p>
+              <>
+                <p
+                  className="mb-3 w-full font-mono text-[10px] uppercase tracking-[0.14em] sm:text-[11px] sm:tracking-[0.15em]"
+                  style={{ color: "rgba(154,154,160,0.85)" }}
+                >
+                  WHOIS YOUR HUMAN — intake initialization
+                </p>
+                <p
+                  className="mb-3 w-full font-mono text-[10px] leading-relaxed tracking-[0.06em] sm:text-[11px]"
+                  style={{ color: "rgba(154,154,160,0.72)" }}
+                >
+                  This creates your WHOIS record. Unlock is required for AI access.
+                </p>
+              </>
             )}
             {showStatusOnly && (
               <div

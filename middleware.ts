@@ -5,6 +5,9 @@ import {
   verifyStudioAccess,
   COOKIE_NAME,
 } from "@/lib/studio-auth";
+import {
+  WYH_CONTENT_GATE_COOKIE,
+} from "@/lib/wyh-content-gate";
 
 const CANONICAL_HOST = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, "") ?? "ligs.io";
 
@@ -14,7 +17,7 @@ const CANONICAL_HOST = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//,
  *
  * 1) www → apex (308)
  * 2) / → rewrite to /origin (URL stays /)
- * 2a) /whois-your-human, /unlock, /api (exact) → pass through (public agent landing)
+ * 2a) /whois-your-human, /unlock → public; /whois-your-human/api + case-studies → cookie gate (post-pay verify-session)
  * 3) /beauty, /beauty/* → /origin (308)
  * 4) /dossier, /voice → /origin (308)
  * 5) /ligs-studio, /ligs-studio/* → /origin (308) unless LIGS_STUDIO_TOKEN set and valid cookie (then allow)
@@ -38,11 +41,23 @@ export function middleware(request: NextRequest) {
     pathname === "/whois-your-human" ||
     pathname === "/whois-your-human/" ||
     pathname === "/whois-your-human/unlock" ||
-    pathname === "/whois-your-human/unlock/" ||
-    pathname === "/whois-your-human/api" ||
-    pathname === "/whois-your-human/api/"
+    pathname === "/whois-your-human/unlock/"
   ) {
     return NextResponse.next();
+  }
+
+  const wyhGated =
+    pathname === "/whois-your-human/api" ||
+    pathname === "/whois-your-human/api/" ||
+    pathname === "/whois-your-human/case-studies" ||
+    pathname === "/whois-your-human/case-studies/" ||
+    pathname.startsWith("/whois-your-human/case-studies/");
+  if (wyhGated) {
+    const gateOk = request.cookies.get(WYH_CONTENT_GATE_COOKIE)?.value === "1";
+    if (gateOk) {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/whois-your-human/unlock", request.url), 302);
   }
 
   // 2b) /origin/ligs-studio or /origin/ligs-studio/* → /ligs-studio (fix wrong path; no such route under /origin)
@@ -51,7 +66,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(rest + request.nextUrl.search, request.url), 302);
   }
 
-  // 3) /beauty and all /beauty/* → /origin (public-surface lockdown)
+  // 3) /beauty: allow view, success, cancel when studio-authenticated (for WHOIS testing)
+  const beautyStudioPaths = ["/beauty/view", "/beauty/success", "/beauty/cancel"];
+  const isBeautyStudioPath = beautyStudioPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (isBeautyStudioPath && isStudioProtected()) {
+    const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
+    if (verifyStudioAccess(cookieValue)) {
+      return NextResponse.next();
+    }
+  }
+  // 3b) /beauty and all /beauty/* → /origin (public-surface lockdown)
   if (pathname === "/beauty" || pathname.startsWith("/beauty/")) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
   }

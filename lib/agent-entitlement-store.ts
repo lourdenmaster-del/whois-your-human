@@ -1,4 +1,4 @@
-import { get, put } from "@vercel/blob";
+import { get, list, put } from "@vercel/blob";
 import { randomBytes } from "crypto";
 import { allowBlobWrites } from "@/lib/runtime-mode";
 
@@ -119,5 +119,34 @@ export async function saveAgentFeedback(
   const existing = memoryFeedback.get(record.reportId) ?? [];
   existing.push(record);
   memoryFeedback.set(record.reportId, existing);
+}
+
+export async function getLatestFeedbackForReport(
+  reportId: string
+): Promise<AgentFeedbackRecord | null> {
+  if (isBlobEnabled()) {
+    try {
+      const prefix = `${FEEDBACK_PREFIX}${reportId}/`;
+      const { blobs } = await list({ prefix, limit: 50 });
+      if (blobs.length === 0) return null;
+      const sorted = [...blobs].sort((a, b) => {
+        const aAt = (a as { uploadedAt?: Date }).uploadedAt?.getTime() ?? 0;
+        const bAt = (b as { uploadedAt?: Date }).uploadedAt?.getTime() ?? 0;
+        return bAt - aAt;
+      });
+      const latest = sorted[0];
+      if (!latest?.pathname) return null;
+      const result = await get(latest.pathname, { access: "public" });
+      if (!result || result.statusCode !== 200 || !result.stream) return null;
+      const text = await new Response(result.stream).text();
+      return JSON.parse(text) as AgentFeedbackRecord;
+    } catch {
+      return null;
+    }
+  }
+  const arr = memoryFeedback.get(reportId) ?? [];
+  if (arr.length === 0) return null;
+  const sorted = [...arr].sort((a, b) => b.createdAt - a.createdAt);
+  return sorted[0] ?? null;
 }
 

@@ -192,9 +192,9 @@ Vector Zero axes:
 ------------------------------------------------------------`;
 }
 
-/** Keys for RAW SIGNAL citations. location/coordinates/timezone/timestamps stay in BOUNDARY but cannot be cited. No astrology-derived keys. */
+/** Keys for RAW SIGNAL citations. location/coordinates/timezone/timestamps stay in BOUNDARY but cannot be cited. No astrology-derived keys. birth_date allowed for INITIATION-boundary citation. */
 const ALLOWED_CITATION_KEYS_GROUPED = {
-  ENVIRONMENT: ["solar_altitude", "solar_azimuth", "twilight", "sunrise_local", "sunset_local", "day_length_minutes", "moon_phase", "moon_illumination_pct", "moon_altitude", "moon_azimuth"],
+  ENVIRONMENT: ["solar_altitude", "solar_azimuth", "twilight", "sunrise_local", "sunset_local", "day_length_minutes", "moon_phase", "moon_illumination_pct", "moon_altitude", "moon_azimuth", "birth_date"],
   SOLAR_STRUCTURE: ["sun_lon_deg", "solar_season", "solar_declination", "solar_polarity", "anchor_type"],
   FIELD_RESOLUTION: ["regime", "cosmic_analogue", "vector_zero_coherence", "vector_zero_axes_lateral", "vector_zero_axes_vertical", "vector_zero_axes_depth", "primary_wavelength", "secondary_wavelength"],
 };
@@ -223,7 +223,7 @@ SOLAR STRUCTURE
 FIELD RESOLUTION
   ${field}
 
-Each RAW SIGNAL bullet must end with exactly one [key=value] citation. If unknown, use "unknown". Inventing keys is FORBIDDEN.
+Each RAW SIGNAL bullet must end with exactly one [key=value] citation. One citation per bullet only — no second [key=value] in the same bullet; no uncited bullets. If unknown, use "unknown". Inventing keys is FORBIDDEN.
 ------------------------------------------------------------`;
 }
 
@@ -233,17 +233,30 @@ export function injectDeterministicBlocksIntoReport(
   opts: {
     birthContext: unknown;
     vectorZero: VectorZero | undefined;
+    resolvedArchetype?: string | null;
   }
 ): string {
   const { birthContext, vectorZero } = opts;
   const boundaryBlock = buildBoundaryConditionsBlock(birthContext);
   const solarProfile = getSolarProfileFromContext(birthContext ?? {});
-  const archetypeForCosmic = solarProfile?.archetype ?? "Stabiliora";
-  const cosmicAnalogue = getCosmicAnalogue(archetypeForCosmic as LigsArchetype);
+  const canonicalArchetype =
+    solarProfile?.archetype ??
+    (typeof opts.resolvedArchetype === "string" && opts.resolvedArchetype.trim()
+      ? opts.resolvedArchetype.trim()
+      : null);
+  const archetypeForCosmic = canonicalArchetype ?? "unknown";
+  const cosmicAnalogue =
+    canonicalArchetype != null
+      ? getCosmicAnalogue(canonicalArchetype as LigsArchetype)
+      : {
+          phenomenon: "unknown",
+          description: "unknown",
+          lightBehaviorKeywords: ["unknown"],
+        };
   const fieldBlock =
     solarProfile != null ? buildFieldSolutionBlock(solarProfile, cosmicAnalogue) : "";
   // Canonical regime: upstream solarProfile only. RESOLUTION KEYS Regime is source of truth for validation.
-  const archetypeForSummary = solarProfile?.archetype ?? "Stabiliora";
+  const archetypeForSummary = archetypeForCosmic;
   const summaryBlock =
     vectorZero != null
       ? buildLightIdentitySummaryBlock(archetypeForSummary, solarProfile ?? null, cosmicAnalogue, vectorZero)
@@ -285,24 +298,15 @@ export function injectDeterministicBlocksIntoReport(
     }
   }
 
-  // 4. Add section anchoring line at start of sections 2–14
+  // 4. Add section anchoring line only at start of sections 2, 6, 14 (limit repetition)
   const anchorArchetype = archetypeForSummary;
   const anchorScore = vectorZero?.coherence_score != null ? vectorZero.coherence_score.toFixed(2) : "unknown";
   const anchorLine = `Field reference: (L) resolved as ${anchorArchetype} with Vector Zero coherence ${anchorScore}.\n\n`;
-  for (let n = 2; n <= 14; n++) {
+  const sectionsWithAnchor: number[] = [2, 6, 14];
+  for (const n of sectionsWithAnchor) {
     const title =
       n === 2 ? "Spectral\\s+Origin" :
-      n === 3 ? "Temporal\\s+Encoding" :
-      n === 4 ? "Gravitational\\s+Patterning" :
-      n === 5 ? "Directional\\s+Field" :
       n === 6 ? "Archetype\\s+Revelation" :
-      n === 7 ? "Archetype\\s+Micro-Profiles" :
-      n === 8 ? "Behavioral\\s+Expression" :
-      n === 9 ? "Relational\\s+Field" :
-      n === 10 ? "Environmental\\s+Resonance" :
-      n === 11 ? "Cosmology\\s+Overlay" :
-      n === 12 ? "Identity\\s+Field\\s+Equation" :
-      n === 13 ? "Legacy\\s+Trajectory" :
       "Integration";
     const re = new RegExp(`(\\n\\s*${n}\\.\\s*${title}\\s*\\n)(?=[\\s\\S])`, "i");
     result = result.replace(re, `$1${anchorLine}`);

@@ -212,7 +212,7 @@ export default function PreviewRevealSequence({ profile, reportId = "", onComple
                   <div className="absolute inset-0 preview-final-artifact-reveal">
                     <img
                       src={finalArtifactBase}
-                      alt="Light Identity Artifact"
+                      alt="WHOIS record artifact"
                       className={`w-full h-full block min-h-[160px] ${finalArtifactImage ? "object-contain" : "object-cover"}`}
                     />
                     {overlayImage && !isLocked && (

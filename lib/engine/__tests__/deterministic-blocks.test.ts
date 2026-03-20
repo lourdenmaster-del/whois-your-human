@@ -172,11 +172,23 @@ describe("deterministic-blocks", () => {
       birthContext: {},
       vectorZero: FIXTURE_VECTOR_ZERO,
     });
-    const anchor = "Field reference: (L) resolved as Stabiliora with Vector Zero coherence 0.85.";
+    const anchor = "Field reference: (L) resolved as unknown with Vector Zero coherence 0.85.";
     expect(result).toContain(anchor);
     // Should appear in multiple sections (at least 2 and 3)
     const count = (result.match(new RegExp(anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) ?? []).length;
     expect(count).toBeGreaterThanOrEqual(2);
+  });
+
+  it("injectDeterministicBlocksIntoReport uses resolvedArchetype when solar profile is missing", () => {
+    const result = injectDeterministicBlocksIntoReport(FIXTURE_REPORT, {
+      birthContext: {},
+      vectorZero: FIXTURE_VECTOR_ZERO,
+      resolvedArchetype: "Fluxionis",
+    });
+    expect(result).toContain("Regime:          Fluxionis");
+    expect(result).toContain(
+      "Field reference: (L) resolved as Fluxionis with Vector Zero coherence 0.85."
+    );
   });
 
   it("DRY_RUN sample: full injected report structure", () => {
@@ -275,8 +287,8 @@ Integration synthesis.`;
     expect(result).toContain("(L) ALLOWED CITATION KEYS");
     expect(result).toContain("solar_altitude");
     expect(result).toContain("vector_zero_coherence");
-    expect(result).toContain("Regime:          Stabiliora");
-    expect(result).toMatch(/Archetype:\s+Stabiliora/);
+    expect(result).toContain("Regime:          unknown");
+    expect(result).toMatch(/Archetype:\s+unknown/);
     expect(result).toContain("Solar season:     unknown");
     expect(result).toContain("primary:   580–620 nm");
     expect(result).toContain("secondary: 450–480 nm");
@@ -289,7 +301,7 @@ Integration synthesis.`;
     expect(result).not.toContain("(L) FIELD SOLUTION");
 
     // Anchoring
-    expect(result).toContain("Field reference: (L) resolved as Stabiliora with Vector Zero coherence 0.85.");
+    expect(result).toContain("Field reference: (L) resolved as unknown with Vector Zero coherence 0.85.");
 
     // Emit sample when PRINT_DRY_RUN_SAMPLE=1 (for docs)
     if (process.env.PRINT_DRY_RUN_SAMPLE === "1") {

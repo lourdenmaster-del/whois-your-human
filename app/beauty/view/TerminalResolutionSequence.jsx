@@ -15,7 +15,7 @@ import Link from "next/link";
 import { getOriginIntake } from "@/lib/landing-storage";
 import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
 import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
-import { SOLAR_SEASONS } from "@/src/ligs/astronomy/solarSeason";
+import { SOLAR_SEASONS, getSolarSeasonIndexFromLongitude } from "@/src/ligs/astronomy/solarSeason";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { getCosmicAnalogue } from "@/src/ligs/cosmology/cosmicAnalogues";
 import { getArchetypePhraseBank } from "@/src/ligs/voice/archetypePhraseBank";
@@ -25,7 +25,7 @@ import ContinuePrompt from "./ContinuePrompt";
 const FALLBACK_ARCHETYPE = "Ignispectrum";
 
 const RESOLUTION_LINES = [
-  "(L)IGS SYSTEM CONTINUING SESSION",
+  "LIGS SYSTEM CONTINUING SESSION",
   "",
   "Retrieving local environment metadata...",
   "Completed.",
@@ -42,7 +42,7 @@ const RESOLUTION_LINES = [
 
 /** Staggered delays (ms) before each resolution line. Action→[think]→Completed→[breathe]→next. */
 const RESOLUTION_DELAYS_MS = [
-  0,     // (L)IGS SYSTEM CONTINUING SESSION — immediate
+  0,     // LIGS SYSTEM CONTINUING SESSION — immediate
   300,   // "" — quick
   400,   // Retrieving local environment metadata...
   1000,  // Completed. — thinking pause (lightweight step)
@@ -124,7 +124,7 @@ export default function TerminalResolutionSequence({ onComplete }) {
       sunLonDeg = approximateSunLongitudeFromDate(intake.birthDate);
       if (sunLonDeg != null) {
         archetype = getPrimaryArchetypeFromSolarLongitude(sunLonDeg);
-        const seasonIndex = Math.min(Math.floor(sunLonDeg / 30), 11);
+        const seasonIndex = getSolarSeasonIndexFromLongitude(sunLonDeg);
         const entry = SOLAR_SEASONS[seasonIndex];
         seasonLabel = entry ? `${entry.archetype} (${entry.anchorType})` : archetype;
       }
@@ -234,7 +234,7 @@ export default function TerminalResolutionSequence({ onComplete }) {
             <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
             <div className="w-2.5 h-2.5 rounded-full bg-[#4a4a4e]" />
             <span className="ml-2 text-[10px] uppercase tracking-widest font-mono" style={{ color: "#a8a8b0" }}>
-              (L)IGS Human WHOIS Resolution Engine
+              LIGS
             </span>
           </div>
 
@@ -332,7 +332,7 @@ export default function TerminalResolutionSequence({ onComplete }) {
             className="text-[10px] uppercase tracking-widest font-mono"
             style={{ fontFamily: "inherit", color: "#8a8a90" }}
           >
-            (L)IGS — Human WHOIS Resolution Engine
+            LIGS
           </p>
         </div>
       </div>

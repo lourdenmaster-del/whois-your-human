@@ -5,6 +5,7 @@
 
 import type { LigsArchetype } from "../voice/schema";
 import { LIGS_ARCHETYPES } from "@/src/ligs/archetypes/contract";
+import { getSolarSeasonIndexFromLongitude } from "@/src/ligs/astronomy/solarSeason";
 import { getArchetypeVoiceAnchorShape, getArchetypeVisualMapShape } from "@/src/ligs/archetypes/adapters";
 import { getArchetypePhraseBank } from "../voice/archetypePhraseBank";
 
@@ -72,8 +73,7 @@ export interface TriangulateOptions {
 
 /** Primary archetype from solar longitude. 12 equal 30° segments, 0° = vernal equinox. */
 export function getPrimaryArchetypeFromSolarLongitude(sunLonDeg: number): LigsArchetype {
-  const normalized = ((sunLonDeg % 360) + 360) % 360;
-  const index = Math.min(Math.floor(normalized / 30), 11);
+  const index = getSolarSeasonIndexFromLongitude(sunLonDeg);
   return LIGS_ARCHETYPES[index];
 }
 

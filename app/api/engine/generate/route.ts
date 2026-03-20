@@ -40,6 +40,12 @@ import {
   isValidIdempotencyKey,
 } from "@/lib/idempotency-store";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
+import {
+  ENGINE_EXECUTION_DEFER_CONSUME_HEADER,
+  extractExecutionKey,
+  getEngineExecutionGrantViolation,
+  consumeEngineExecutionGrant,
+} from "@/lib/engine-execution-grant";
 import { resolveFieldConditionsForBirth } from "@/lib/field-conditions";
 
 if (process.env.DRY_RUN === "1") {
@@ -288,6 +294,17 @@ export async function POST(request: Request) {
         return successResponse(200, { ...cached, idempotencyHit: true }, requestId);
       }
     }
+
+    const executionKey = extractExecutionKey(request, body as Record<string, unknown>);
+    const deferGrantConsume =
+      request.headers.get(ENGINE_EXECUTION_DEFER_CONSUME_HEADER) === "1";
+    if (!dryRun) {
+      const gv = await getEngineExecutionGrantViolation(executionKey, { dryRun: false });
+      if (gv) {
+        return errorResponse(403, gv, requestId);
+      }
+    }
+
     // Studio "Test Paid Report (safe / no image cost)" path: POST /api/beauty/dry-run → this route with dryRun=true.
     // We skip OpenAI and image generation (no cost) but run full report enrichment: field_conditions_context, originCoordinatesDisplay,
     // and resolveFieldConditionsForBirth (GFZ Kp, Open-Meteo) so Magnetic/Climate/Sensory are real in paid WHOIS.
@@ -369,6 +386,7 @@ export async function POST(request: Request) {
       const fullReportWithBlocks = injectDeterministicBlocksIntoReport(fullReport, {
         birthContext: dryRunBirthContext,
         vectorZero,
+        resolvedArchetype: archetype,
       });
       // Engine must never return success until saveReportAndConfirm verifies the write.
       const originDisplay =
@@ -468,13 +486,22 @@ export async function POST(request: Request) {
         );
       }
       log("info", "saveReportAndConfirm ok", { requestId, reportId });
-      const dryPayload = {
+      const dryPayload: Record<string, unknown> = {
         reportId,
         full_report: fullReportWithBlocks,
         emotional_snippet: emotionalSnippet,
         image_prompts: imagePrompts,
         vector_zero: vectorZero,
       };
+      const solarProfileForPayload = getSolarProfileFromContext(dryRunBirthContext);
+      if (solarProfileForPayload != null) {
+        dryPayload.dominantArchetype = solarProfileForPayload.archetype;
+        const fullSolar = (dryRunBirthContext as Record<string, unknown>).solarSeasonProfile as Record<string, unknown> | undefined;
+        if (fullSolar && typeof fullSolar.seasonIndex === "number") {
+          dryPayload.solarSeasonProfile = fullSolar;
+        }
+      }
+      if (originDisplay != null) dryPayload.originCoordinatesDisplay = originDisplay;
       if (isValidIdempotencyKey(idempotencyKey)) {
         await setIdempotentResult(
           "engine-generate",
@@ -744,6 +771,7 @@ Email: ${email}
     fullReport = injectDeterministicBlocksIntoReport(fullReport, {
       birthContext: birthContext ?? {},
       vectorZero: vectorZero ?? undefined,
+      resolvedArchetype: archetype,
     });
 
     // Report quality validators: run only when deterministic anchors exist
@@ -924,6 +952,9 @@ Email: ${email}
       }
       // Dev fallback: return generated content so we can inspect RAW_ENGINE_GENERATE_RESPONSE when Blob is down.
       const unsavedId = `UNSAVED:${reportId}`;
+      if (!deferGrantConsume) {
+        await consumeEngineExecutionGrant(executionKey);
+      }
       return successResponse(
         200,
         {
@@ -962,6 +993,9 @@ Email: ${email}
         },
         { requestId }
       );
+    }
+    if (!deferGrantConsume) {
+      await consumeEngineExecutionGrant(executionKey);
     }
     return successResponse(200, livePayload, requestId);
   } catch (err) {

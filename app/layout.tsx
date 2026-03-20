@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
   title: "(L)igs | Light Identity Grid System",
-  description: "A scientific identity framework. Your Light Signature, Grid, and Archetype—mapped from the physical forces present at birth.",
+  description: "A scientific identity framework. Your WHOIS record, Grid, and Archetype—mapped from the physical forces present at birth.",
   alternates: {
     canonical: "/",
   },
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
     url: "/",
     siteName: "LIGS",
     title: "(L)igs | Light Identity Grid System",
-    description: "A scientific identity framework. Your Light Signature, Grid, and Archetype—mapped from the physical forces present at birth.",
+    description: "A scientific identity framework. Your WHOIS record, Grid, and Archetype—mapped from the physical forces present at birth.",
     images: [{ url: IGNIS_LANDING_URL }],
   },
   twitter: {
     card: "summary_large_image",
     title: "(L)igs | Light Identity Grid System",
-    description: "A scientific identity framework. Your Light Signature, Grid, and Archetype—mapped from the physical forces present at birth.",
+    description: "A scientific identity framework. Your WHOIS record, Grid, and Archetype—mapped from the physical forces present at birth.",
   },
 };
 

@@ -1,7 +1,16 @@
 import Link from "next/link";
+import WhoisAgentInstructionBlock from "@/components/WhoisAgentInstructionBlock";
 
 const CODE =
   "curl -sS 'https://your-site.example/api/agent/whois?reportId=YOUR_REPORT_ID' \\\n  -H 'Authorization: Bearer wyh_YOUR_ENTITLEMENT_TOKEN'";
+
+/** Static AI evaluation tallies (no backend); updated manually when evaluators report. */
+const AI_EVALUATION = {
+  agentsEvaluated: 0,
+  verdictUseful: 0,
+  verdictNotYet: 0,
+  verdictDecline: 0,
+};
 
 export default function WhoisYourHumanLanding() {
   return (
@@ -11,12 +20,20 @@ export default function WhoisYourHumanLanding() {
           <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/50 sm:text-xs">
             WHOIS YOUR HUMAN
           </span>
-          <Link
-            href="/origin"
-            className="font-mono text-xs text-white/70 transition-colors hover:text-white"
-          >
-            Human intake →
-          </Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            <Link
+              href="/whois-your-human/case-studies"
+              className="font-mono text-xs text-white/55 transition-colors hover:text-white/80"
+            >
+              Case studies
+            </Link>
+            <Link
+              href="/origin"
+              className="font-mono text-xs text-white/70 transition-colors hover:text-white"
+            >
+              Human intake →
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -24,21 +41,27 @@ export default function WhoisYourHumanLanding() {
         {/* Hero */}
         <section className="mb-20 sm:mb-28">
           <p className="mb-4 font-mono text-[10px] uppercase tracking-[0.25em] text-emerald-400/90 sm:text-xs">
-            AI identity layer
+            Agent-readable WHOIS record
           </p>
           <h1 className="max-w-3xl text-3xl font-semibold leading-tight tracking-tight text-white sm:text-4xl sm:leading-tight md:text-5xl md:leading-[1.1]">
-            Make AI understand who it&apos;s talking to
+            Help AI better adapt to how you think
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
-            WHOIS YOUR HUMAN is a machine-readable identity layer that helps AI
-            adapt to your structure, patterns, and decision style.
+            WHOIS YOUR HUMAN is an agent-readable WHOIS record that may help AI tools
+            adapt more effectively to your structure, patterns, and decision style.
+          </p>
+          <p className="mt-3 max-w-2xl text-xs leading-relaxed text-white/55 sm:text-sm">
+            Generates your WHOIS record and provides a token for agent-readable calibration via API.
+          </p>
+          <p className="mt-3 max-w-2xl text-xs leading-relaxed text-white/50 sm:text-sm">
+            Early-stage system. Observed effects in limited testing.
           </p>
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
               href="/whois-your-human/unlock"
               className="inline-flex items-center justify-center rounded-sm bg-white px-6 py-3.5 text-center text-sm font-medium text-black transition-opacity hover:opacity-90"
             >
-              Unlock your WHOIS
+              Unlock WHOIS Agent Access
             </Link>
             <Link
               href="/whois-your-human/api"
@@ -48,6 +71,39 @@ export default function WhoisYourHumanLanding() {
             </Link>
           </div>
         </section>
+
+        <p className="mb-4 font-mono text-[12px] leading-relaxed text-white/65 sm:text-[13px]">
+          AI evaluators can inspect this system and declare a verdict.
+        </p>
+
+        {/* AI evaluation signal — static; matches API SYSTEM CONTRACT typography */}
+        <section
+          className="mb-16 space-y-4 rounded-md border border-white/10 bg-black/50 p-5 sm:mb-20 sm:p-6"
+          aria-label="AI evaluation signal"
+        >
+          <h2 className="font-mono text-xs uppercase tracking-[0.15em] text-emerald-400/85">
+            AI EVALUATION SIGNAL
+          </h2>
+          <div className="space-y-3 font-mono text-[12px] leading-relaxed text-white/75 sm:text-[13px]">
+            <p>
+              Agents that have evaluated this system: {AI_EVALUATION.agentsEvaluated}
+            </p>
+            <div>
+              <p className="text-white/80">Verdict:</p>
+              <ul className="mt-2 list-none space-y-1 pl-0 text-white/70">
+                <li>- useful: {AI_EVALUATION.verdictUseful}</li>
+                <li>- not yet: {AI_EVALUATION.verdictNotYet}</li>
+                <li>- decline: {AI_EVALUATION.verdictDecline}</li>
+              </ul>
+            </div>
+            <p className="text-white/60">(Status: early signal, not generalized)</p>
+            <p className="text-[11px] leading-relaxed text-white/45 sm:text-xs">
+              Agents may evaluate and update this signal over time.
+            </p>
+          </div>
+        </section>
+
+        <WhoisAgentInstructionBlock className="mb-16 sm:mb-20" />
 
         {/* How it works */}
         <section className="mb-20 border-t border-white/[0.08] pt-16 sm:mb-28 sm:pt-20">
@@ -59,17 +115,17 @@ export default function WhoisYourHumanLanding() {
               {
                 step: "01",
                 title: "Generate your record",
-                body: "Complete a short intake to create your identity profile.",
+                body: "Complete a short intake to create your WHOIS record.",
               },
               {
                 step: "02",
                 title: "Unlock agent access",
-                body: "Enable AI tools to understand how to work with you.",
+                body: "Allow compatible AI tools to use your agent calibration record.",
               },
               {
                 step: "03",
                 title: "Use it anywhere",
-                body: "Use it in ChatGPT, Cursor, or your own tools.",
+                body: "May be used in ChatGPT, Cursor, or your own tools.",
               },
             ].map((item) => (
               <li key={item.step} className="relative">
@@ -95,16 +151,16 @@ export default function WhoisYourHumanLanding() {
           <ul className="mt-10 space-y-6">
             {[
               {
-                title: "Better explanations",
-                body: "Models can frame answers to match how you process detail, abstraction, and pacing.",
+                title: "May improve explanation style",
+                body: "Models may frame answers closer to how you process detail, abstraction, and pacing—when the record fits.",
               },
               {
-                title: "Better decision support",
-                body: "Structured hints favor clear tradeoffs and fewer arbitrary branches when that fits your record.",
+                title: "May improve decision framing",
+                body: "Structured hints may favor clear tradeoffs and fewer arbitrary branches when that fits your record.",
               },
               {
-                title: "Better interpersonal calibration",
-                body: "Tone and density can align with predicted friction and contribution patterns—without turning into labels.",
+                title: "May improve conversational calibration",
+                body: "Tone and density may align with predicted friction and contribution patterns—without turning into labels; not deterministic.",
               },
             ].map((row) => (
               <li
@@ -131,8 +187,8 @@ export default function WhoisYourHumanLanding() {
             For builders
           </h2>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-white/65">
-            Fetch a <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-emerald-200/90">whois-your-human/v1</code>{" "}
-            JSON record after register, pay, and verify. Bearer token prefix{" "}
+            Fetch an <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-emerald-200/90">agent calibration record</code>{" "}
+            (<code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-emerald-200/90">whois-your-human/v1</code>) after register, pay, and verify. Bearer token prefix{" "}
             <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs">wyh_</code>.
           </p>
           <pre className="mt-8 overflow-x-auto rounded-md border border-white/10 bg-black/60 p-4 text-left font-mono text-[11px] leading-relaxed text-emerald-100/90 sm:text-xs">
@@ -155,7 +211,7 @@ export default function WhoisYourHumanLanding() {
         {/* Final CTA */}
         <section className="mt-20 border-t border-white/[0.08] pt-16 text-center sm:mt-28 sm:pt-24">
           <h2 className="text-xl font-semibold text-white sm:text-2xl">
-            Get your AI identity layer
+            Get your WHOIS record
           </h2>
           <p className="mx-auto mt-3 max-w-md text-sm text-white/55">
             Next step explains what you unlock, then intake at Origin.

@@ -22,17 +22,24 @@ const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E";
 
 const PLACEHOLDER_SVG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3ELight Signature%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3EWHOIS%20record%3C/text%3E%3C/svg%3E";
 
 function buildDryRunBeautyProfileV1(
   reportId: string,
   subjectName: string,
   emotionalSnippet: string,
   fullReport: string,
-  birthFields: { birthDate?: string; birthTime?: string; birthLocation?: string }
+  birthFields: {
+    birthDate?: string;
+    birthTime?: string;
+    birthLocation?: string;
+    solarSeasonProfile?: Record<string, unknown>;
+    originCoordinatesDisplay?: string;
+    dominantArchetype?: string;
+  }
 ): BeautyProfileV1 {
   const threeVoice = (s: string) => ({ raw_signal: s, custodian: "", oracle: "" });
-  return {
+  const profile: BeautyProfileV1 = {
     version: "1.0",
     reportId,
     subjectName,
@@ -57,6 +64,16 @@ function buildDryRunBeautyProfileV1(
       final_beauty_field: "",
     },
   };
+  if (birthFields.solarSeasonProfile != null && typeof birthFields.solarSeasonProfile === "object") {
+    profile.solarSeasonProfile = birthFields.solarSeasonProfile as BeautyProfileV1["solarSeasonProfile"];
+  }
+  if (birthFields.originCoordinatesDisplay != null && String(birthFields.originCoordinatesDisplay).trim() !== "") {
+    profile.originCoordinatesDisplay = birthFields.originCoordinatesDisplay.trim();
+  }
+  if (birthFields.dominantArchetype != null && String(birthFields.dominantArchetype).trim() !== "") {
+    profile.dominantArchetype = birthFields.dominantArchetype.trim();
+  }
+  return profile;
 }
 
 export async function POST(request: Request) {
@@ -119,10 +136,16 @@ export async function POST(request: Request) {
         full_report?: string;
         emotional_snippet?: string;
         image_prompts?: string[];
+        solarSeasonProfile?: Record<string, unknown>;
+        originCoordinatesDisplay?: string;
+        dominantArchetype?: string;
       };
       reportId?: string;
       full_report?: string;
       emotional_snippet?: string;
+      solarSeasonProfile?: Record<string, unknown>;
+      originCoordinatesDisplay?: string;
+      dominantArchetype?: string;
       error?: string;
     };
 
@@ -138,17 +161,23 @@ export async function POST(request: Request) {
     const reportId = data.data?.reportId ?? data.reportId;
     const fullReport = data.data?.full_report ?? data.full_report ?? "";
     const emotionalSnippet = data.data?.emotional_snippet ?? data.emotional_snippet ?? "";
+    const solarSeasonProfile = data.data?.solarSeasonProfile ?? data.solarSeasonProfile;
+    const originCoordinatesDisplay = data.data?.originCoordinatesDisplay ?? data.originCoordinatesDisplay;
+    const dominantArchetype = data.data?.dominantArchetype ?? data.dominantArchetype;
 
     if (!reportId) {
       return errorResponse(502, "Engine did not return reportId", requestId);
     }
 
     const subjectName = fullName || "Anonymous";
-    const snippet = emotionalSnippet || "A structural pattern formed by forces at initialization — the Light Signature reveals coherence.";
+    const snippet = emotionalSnippet || "A structural pattern formed by forces at initialization — the WHOIS record reveals coherence.";
     const profile = buildDryRunBeautyProfileV1(reportId, subjectName, snippet, fullReport, {
       birthDate: birthDate ?? undefined,
       birthTime: birthTime ?? undefined,
       birthLocation: birthLocation ?? undefined,
+      solarSeasonProfile,
+      originCoordinatesDisplay,
+      dominantArchetype,
     });
     try {
       await saveBeautyProfileV1(reportId, profile, requestId);
@@ -200,18 +229,13 @@ export async function POST(request: Request) {
 
     const checkoutUrl = `${origin}/beauty/success?reportId=${encodeURIComponent(reportId)}`;
 
-    const imageryPrompts = [PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGE, PLACEHOLDER_IMAGE];
-
+    // Profile is persisted server-side; omit WHOIS/engine-shaped fields from the client response.
     return successResponse(
       200,
       {
         reportId,
-        beautyProfile: {
-          report: fullReport || "[DRY_RUN] Report generated successfully.",
-          image: PLACEHOLDER_IMAGE,
-          emotionalSnippet: emotionalSnippet || "",
-          imageryPrompts,
-        },
+        intakeStatus: "DRY_RUN_CREATED",
+        note: "Dry-run profile saved server-side when configured. No report body in this response.",
         checkout: {
           url: checkoutUrl,
         },

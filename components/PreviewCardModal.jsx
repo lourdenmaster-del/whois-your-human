@@ -6,9 +6,9 @@ import { FAKE_PAY } from "@/lib/dry-run-config";
 import { useApiStatus } from "@/hooks/useApiStatus";
 
 const PLACEHOLDER_IMAGE =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3ELight Signature%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em' font-family='system-ui'%3EWHOIS%20record%3C/text%3E%3C/svg%3E";
 
-const CAROUSEL_LABELS = ["Vector Zero", "Light Signature", "Final Beauty"];
+const CAROUSEL_LABELS = ["Vector Zero", "WHOIS record", "Final Beauty"];
 
 function Carousel({ imageUrls, labels = CAROUSEL_LABELS, variant = "dark" }) {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -202,7 +202,7 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
             disabled={apiDisabled || redirecting}
             className="flex-1 px-6 py-3 bg-[#7A4FFF] text-white text-sm font-semibold hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
           >
-            {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock agent WHOIS access"}
+            {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
           </button>
           <button
             type="button"

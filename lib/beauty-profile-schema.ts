@@ -58,6 +58,12 @@ export interface BeautyProfileV1 extends BeautyProfile {
     twilightClass: string;
     dayLengthNorm01: number | null;
   };
+  /** Origin identity inputs for paid WHOIS (persisted when engine receives them). */
+  birthDate?: string;
+  birthTime?: string;
+  birthLocation?: string;
+  /** Origin coordinates display string when birthContext had lat/lon (e.g. "Place, 40.7128°N, 74.0060°W"). */
+  originCoordinatesDisplay?: string;
   timings: {
     totalMs: number;
     engineMs: number;

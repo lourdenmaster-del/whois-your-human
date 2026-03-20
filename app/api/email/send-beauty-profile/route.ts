@@ -2,11 +2,8 @@ import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
 import { buildPaidWhoisReport } from "@/lib/free-whois-report";
-import { renderFreeWhoisReport, renderFreeWhoisReportText } from "@/lib/free-whois-report";
-import { getRegistryArtifactImageUrl } from "@/lib/email-waitlist-confirmation";
+import { getRegistryArtifactImageUrl, sendPaidWhoisEmail } from "@/lib/email-waitlist-confirmation";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
-
-const DEFAULT_FROM = "LIGS Registry <onboarding@resend.dev>";
 
 export async function POST(request: Request) {
   const kill = killSwitchResponse();
@@ -49,72 +46,16 @@ export async function POST(request: Request) {
 
   report.artifactImageUrl = getRegistryArtifactImageUrl(report.archetypeClassification, email);
 
-  const origin =
-    process.env.VERCEL_URL != null
-      ? `https://${process.env.VERCEL_URL}`
-      : new URL(request.url).origin;
-  const siteUrl = origin.replace(/\/$/, "");
-  const subject = "Your Light Identity Report";
-  const html = renderFreeWhoisReport(report, { siteUrl });
-  const text = renderFreeWhoisReportText(report, { siteUrl });
+  const result = await sendPaidWhoisEmail(email, report);
 
-  const resendKey = process.env.RESEND_API_KEY?.trim();
-  const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
-  const from = process.env.EMAIL_FROM?.trim() || DEFAULT_FROM;
+  if (result.sent) {
+    log("info", "beauty_profile_email_sent", { requestId, reportId });
+    return successResponse(200, { delivered: true }, requestId);
+  }
 
-  if (!resendKey && !sendgridKey) {
+  if (result.reason === "provider_key_missing") {
     return errorResponse(500, "EMAIL_NOT_CONFIGURED", requestId);
   }
 
-  log("info", "stage", { requestId, stage: "email_send_start" });
-
-  if (resendKey) {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${resendKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: from.includes("<") ? from : `LIGS Registry <${from}>`,
-        to: [email],
-        subject,
-        html,
-        text,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      log("error", "Resend send failed", { requestId, status: res.status, error: err });
-      return errorResponse(500, "EMAIL_SEND_FAILED", requestId);
-    }
-  } else if (sendgridKey) {
-    const fromEmail = from.includes("<") ? from.replace(/^[^<]*<([^>]+)>$/, "$1").trim() : from;
-    const fromName = from.includes("<") ? from.replace(/\s*<[^>]+>$/, "").trim() : "LIGS Registry";
-    const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${sendgridKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        personalizations: [{ to: [{ email }], subject }],
-        from: { email: fromEmail, name: fromName },
-        content: [
-          { type: "text/html", value: html },
-          { type: "text/plain", value: text },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      log("error", "SendGrid send failed", { requestId, status: res.status, error: err });
-      return errorResponse(500, "EMAIL_SEND_FAILED", requestId);
-    }
-  }
-
-  log("info", "stage", { requestId, stage: "email_send_end" });
-  log("info", "beauty_profile_email_sent", { requestId, reportId });
-
-  return successResponse(200, { delivered: true }, requestId);
+  return errorResponse(500, "EMAIL_SEND_FAILED", requestId);
 }

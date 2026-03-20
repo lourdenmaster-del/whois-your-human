@@ -33,7 +33,7 @@ const IMAGE_SLUGS = [
 ] as const;
 
 const PLACEHOLDER_SVG =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3ELight Signature%3C/text%3E%3C/svg%3E";
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300'%3E%3Crect fill='%230A0F1C' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' fill='%237A4FFF' font-size='14' text-anchor='middle' dy='.3em'%3EWHOIS%20record%3C/text%3E%3C/svg%3E";
 
 async function enrichProfileImages(
   profile: Record<string, unknown>,
@@ -113,7 +113,7 @@ export async function GET(
         const urls = (m.urls as Record<string, string>) ?? {};
         exemplarSlots = [
           { label: "Vector Zero", url: urls.marketingBackground ?? urls.marketing_background },
-          { label: "Light Signature", url: urls.exemplarCard ?? urls.exemplar_card },
+          { label: "WHOIS record", url: urls.exemplarCard ?? urls.exemplar_card },
           { label: "Final Beauty Field", url: urls.shareCard ?? urls.share_card },
         ];
       } else {
@@ -122,7 +122,7 @@ export async function GET(
           m = {};
           exemplarSlots = [
             { label: "Vector Zero", url: IGNIS_V1_ARTIFACTS.vectorZero },
-            { label: "Light Signature", url: IGNIS_V1_ARTIFACTS.lightSignature },
+            { label: "WHOIS record", url: IGNIS_V1_ARTIFACTS.lightSignature },
             { label: "Final Beauty Field", url: IGNIS_V1_ARTIFACTS.finalBeautyField },
           ];
         } else {
@@ -135,7 +135,7 @@ export async function GET(
             m = { urls: publicUrls };
             exemplarSlots = [
               { label: "Vector Zero", url: publicUrls.marketingBackground },
-              { label: "Light Signature", url: publicUrls.exemplarCard },
+              { label: "WHOIS record", url: publicUrls.exemplarCard },
               { label: "Final Beauty Field", url: publicUrls.shareCard },
             ];
           } else {
@@ -172,7 +172,7 @@ export async function GET(
       );
       const imageUrls = filteredSlots.map((s) => s.url);
       const exemplarArtifactLabels = filteredSlots.map((s) => s.label);
-      const exemplarCard = filteredSlots.find((s) => s.label === "Light Signature")?.url;
+      const exemplarCard = filteredSlots.find((s) => s.label === "WHOIS record")?.url;
       const marketingBg = filteredSlots.find((s) => s.label === "Vector Zero")?.url;
       const shareCard = filteredSlots.find((s) => s.label === "Final Beauty Field")?.url;
       const oc = (m.overlayCopy as Record<string, unknown>) ?? {};

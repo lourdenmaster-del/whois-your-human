@@ -20,6 +20,7 @@ scripts/artifacts/
 
 # production
 /build
+/dist
 
 # misc
 .DS_Store
@@ -35,6 +36,8 @@ dev*.log
 
 # local / transient
 STATELOCK
+tmp-whois-render/
+.wyh-boilerplate-port/
 
 # IDE
 .cursor/

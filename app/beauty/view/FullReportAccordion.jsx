@@ -61,7 +61,7 @@ function parseCondensedReport(text) {
 }
 
 const SECTION_DISPLAY_NAMES = {
-  "Light Signature": "Light Signature",
+  "Light Signature": "WHOIS record",
   Archetype: "Archetype",
   Deviations: "Field Deviations",
   "Corrective Vector": "Corrective Vector",

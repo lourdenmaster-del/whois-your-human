@@ -287,17 +287,17 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
             <p className={`${textClass} hero-subhead max-w-xl mx-auto mb-6`}>
               Your biology, behavior, and inner architecture are not random.
               They emerge from physical forces present at birth that imprint a
-              unique Light Signature — a pattern that stays with you for life.
+              unique WHOIS record — a pattern that stays with you for life.
             </p>
             <p className={`${textClass} max-w-xl mx-auto mb-6 hero-subhead`}>
-              LIGS reveals that pattern. The Light Identity Report interprets it.
+              LIGS reveals that pattern, and the WHOIS record structures it for agent-readable calibration via API.
             </p>
             <button
               type="button"
               onClick={handleHeroCta}
               className="inline-flex items-center text-[#c9b8ff] text-base font-medium transition-all duration-300 hover:opacity-90 cursor-pointer bg-transparent border-none p-0 font-inherit"
             >
-              Begin your Light Identity Report →
+              Begin your WHOIS record →
             </button>
             <p className={`${textClass} mt-3 text-sm opacity-90 max-w-xl mx-auto`}>
               Discover the pattern written into your birth moment.
@@ -336,7 +336,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
             </div>
             <div className="flex-1 space-y-4">
               <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
-                Your Light Signature in three ways
+                Your WHOIS record in three ways
               </h2>
               <ul className={`${textClass} space-y-3`}>
                 <li className="flex gap-3">
@@ -357,15 +357,15 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
         </div>
       </section>
 
-      {/* Get your Light Signature — form + CTA (or waitlist-only when NEXT_PUBLIC_WAITLIST_ONLY=1) */}
+      {/* Get your WHOIS record — form + CTA (or waitlist-only when NEXT_PUBLIC_WAITLIST_ONLY=1) */}
       <section id="form" className={`${sectionClass} border-[var(--beauty-line,#e8e4e8)]/30`}>
         <div className="max-w-2xl mx-auto space-y-8 text-center">
           <h2 className={headingClass} style={{ letterSpacing: "0.02em" }}>
-            {WAITLIST_ONLY ? "Join Early Access" : "Get your Light Signature"}
+            {WAITLIST_ONLY ? "Join Early Access" : "Get your WHOIS record"}
           </h2>
           {WAITLIST_ONLY && (
             <p className={`${textClass} text-center`}>
-              Be among the first to discover your Light Identity.
+              Be among the first to discover your WHOIS record.
             </p>
           )}
 
@@ -407,8 +407,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
           {!WAITLIST_ONLY && (
             <>
               <ul className={`${textClass} text-left max-w-md mx-auto space-y-3 list-disc list-inside`}>
-                <li>Shareable Light Signature card (downloadable)</li>
-                <li>3 signature images (Vector Zero / Light Signature / Final Field)</li>
+                <li>Shareable WHOIS record card (downloadable)</li>
+                <li>3 signature images (Vector Zero / WHOIS record / Final Field)</li>
                 <li>Full narrative report (Raw Signal / Custodian / Oracle)</li>
               </ul>
               {!unlocked && (
@@ -496,10 +496,10 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
         <section className={sectionClass}>
           <div className="max-w-2xl mx-auto text-center space-y-4">
             <p className={headingClass} style={{ letterSpacing: "0.02em" }}>
-              Unlock your Light Identity
+              Unlock your WHOIS Agent Access
             </p>
             <p className={textClass}>
-              $39.99 pre-purchase unlock: generate your full Light Signature (card, images, narrative). One-time. Agent WHOIS for a report you already have is purchased separately from that report&apos;s view — API access for that report only, not another bundle.
+              $39.99 one-time unlock. Generates your WHOIS record and provides a token for agent-readable calibration via API.
             </p>
             <a
               href="#form"
@@ -522,7 +522,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
               className={`text-xs ${mutedClass} uppercase tracking-widest font-medium hover:opacity-80 transition-colors`}
               style={{ letterSpacing: "0.2em" }}
             >
-              LIGS — Light Identity System
+              LIGS — WHOIS Agent Access System
             </a>
             <p className={`text-xs ${mutedClass} font-light`}>
               A scientific identity framework ·{" "}

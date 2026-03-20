@@ -42,12 +42,12 @@ export async function generateMetadata({ searchParams }) {
       : null;
 
     if (!reportId) {
-      return { title: "Light Identity Report" };
+      return { title: "WHOIS record" };
     }
 
     origin = await getOrigin();
     if (!origin) {
-      return { title: "Light Identity Report" };
+      return { title: "WHOIS record" };
     }
 
     const res = await fetch(`${origin}/api/beauty/${encodeURIComponent(reportId)}`, {
@@ -58,15 +58,15 @@ export async function generateMetadata({ searchParams }) {
       profile = json.data;
     }
   } catch {
-    return { title: "Light Identity Report" };
+    return { title: "WHOIS record" };
   }
 
   if (!profile) {
-    return { title: "Light Identity Report" };
+    return { title: "WHOIS record" };
   }
 
-  const title = profile.subjectName ?? "Light Identity Report";
-  const description = profile.emotionalSnippet ?? "Your Light Identity Report";
+  const title = profile.subjectName ?? "WHOIS record";
+  const description = profile.emotionalSnippet ?? "Your WHOIS record";
   const firstImage = profile.imageUrls?.[0];
   const absoluteImage = firstImage?.startsWith("http")
     ? firstImage
