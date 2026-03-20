@@ -5,7 +5,12 @@
 
 import { NextResponse } from "next/server";
 
-function baseUrl(): string {
+function baseUrl(request: Request): string {
+  try {
+    const url = new URL(request.url);
+    if (url.hostname === "ligs.io" || url.hostname === "www.ligs.io")
+      return "https://ligs.io";
+  } catch {}
   const u = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (u) return u.startsWith("http") ? u : `https://${u}`;
   const v = process.env.VERCEL_URL;
@@ -13,8 +18,8 @@ function baseUrl(): string {
   return "https://ligs.io";
 }
 
-export async function GET() {
-  const base = baseUrl();
+export async function GET(request: Request) {
+  const base = baseUrl(request);
 
   const body = {
     schema: "whois-your-human/inspect/v1",
