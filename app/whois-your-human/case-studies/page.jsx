@@ -23,6 +23,11 @@ const CASES = [
     href: "/whois-your-human/case-studies/wyh-004",
     blurb: "Calibration artifact: WHOIS record vs observed behavior; partial alignment, contradicted claims.",
   },
+  {
+    id: "WYH-005",
+    href: "/whois-your-human/case-studies/wyh-005",
+    blurb: "Agent interaction evaluation: live session calibration; human-AI alignment patterns.",
+  },
 ];
 
 export default function WhoisCaseStudiesIndexPage() {

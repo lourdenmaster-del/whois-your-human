@@ -1,0 +1,182 @@
+{
+  "schema": "whois-your-human/v1",
+  "record_type": "agent_calibration_record",
+  "registry": {
+    "authority": "LIGS Human WHOIS Registry",
+    "artifact_id": "WYH-005",
+    "class": "Calibration Record",
+    "type": "Agent Interaction Evaluation",
+    "status": "verified_live_session",
+    "created_at": "2026-03-20"
+  },
+  "subject": {
+    "entity_type": "human_operator",
+    "session_context": "live implementation and testing session",
+    "system_context": "LIGS WHOIS Agent Access"
+  },
+  "interaction_scope": {
+    "domains": [
+      "local environment setup",
+      "Stripe webhook testing",
+      "API verification",
+      "UI debugging",
+      "email delivery troubleshooting",
+      "system architecture alignment"
+    ],
+    "session_character": "high-friction initial alignment, high-efficiency later alignment"
+  },
+  "observed_human_pattern": {
+    "communication_style": {
+      "directness": "high",
+      "tolerance_for_abstraction": "low",
+      "preferred_instruction_mode": "actionable_steps",
+      "friction_signal_style": "blunt_intensification",
+      "iteration_speed": "fast"
+    },
+    "cognitive_pattern": {
+      "outcome_over_process": true,
+      "low_tolerance_for_repetition": true,
+      "detects_system_inconsistency_quickly": true,
+      "builder_mode": true
+    },
+    "decision_model": {
+      "moves_when_path_is_clear": true,
+      "interrupts_when_friction_exceeds_threshold": true,
+      "prefers_single_path_execution": true
+    }
+  },
+  "observed_ai_pattern": {
+    "initial_behavior": {
+      "over_explanation": true,
+      "multi_step_guidance_without_environment_awareness": true,
+      "terminal_state_misread": true,
+      "delayed_style_adaptation": true
+    },
+    "adapted_behavior": {
+      "command_based_guidance": true,
+      "reduced_verbosity": true,
+      "tone_matched_to_user": true,
+      "action_priority_over_explanation": true,
+      "optional_branch_reduction": true
+    }
+  },
+  "friction_analysis": {
+    "primary_friction_sources": [
+      {
+        "type": "instruction_mismatch",
+        "description": "AI provided explanations where directives were needed"
+      },
+      {
+        "type": "environment_blindness",
+        "description": "AI did not immediately account for running dev server / terminal context"
+      },
+      {
+        "type": "system_inconsistency",
+        "description": "UI changes were applied to the wrong render path; /origin vs /beauty mismatch"
+      },
+      {
+        "type": "testing_friction",
+        "description": "Repeated sign-in/intake loops and lack of centralized testing surface until /ligs-studio was used"
+      }
+    ],
+    "friction_effect": "execution_slowdown_and_user_irritation"
+  },
+  "alignment_indicators": {
+    "improves_when": [
+      "instructions are singular",
+      "instructions are explicit",
+      "instructions are terminal-ready",
+      "cognitive load is reduced",
+      "AI matches execution pace",
+      "system exposes clear action paths"
+    ],
+    "alignment_result": "faster_execution_reduced_confusion_successful_task_completion"
+  },
+  "system_outcome": {
+    "verified_successes": [
+      "stripe_checkout_webhook_entitlement",
+      "success_page_and_token_delivery",
+      "verify_session_token_recovery",
+      "agent_api_whois_feedback_drift_check",
+      "studio_based_testing_workflow",
+      "email_delivery_after_environment_correction"
+    ],
+    "conclusion": "end_to_end_whois_agent_access_system_operational"
+  },
+  "calibration_assessment": {
+    "did_ai_use_whois_system_explicitly": false,
+    "did_ai_implicitly_match_user_pattern": true,
+    "did_matching_help": true,
+    "should_ai_have_used_user_specific_calibration_earlier": true,
+    "reason": "earlier explicit calibration would likely have reduced friction, avoided over-explanation, and shortened execution time"
+  },
+  "counterfactual": {
+    "if_style_engine_applied_at_start": {
+      "expected_improvements": [
+        "immediate_command_mode_interaction",
+        "minimal_explanatory_overhead",
+        "no_terminal_misuse_confusion",
+        "reduced_total_steps",
+        "faster_convergence_to_working_state"
+      ],
+      "estimated_efficiency_gain": "30_to_40_percent"
+    }
+  },
+  "evaluation": {
+    "task_completion": 10,
+    "adaptation": 8,
+    "initial_alignment": 5,
+    "final_alignment": 9,
+    "overall": 7
+  },
+  "core_insight": {
+    "statement": "AI performance is not limited only by intelligence; it is strongly limited by alignment with the human operator.",
+    "implication": "machine_readable_human_interaction_profiles_and_adaptive_response_shaping_are_practically_useful"
+  },
+  "agent_guidance": {
+    "best_use_of_this_human": [
+      "give one clear next action at a time",
+      "prefer instructions over explanations",
+      "avoid repeated setup loops",
+      "state the exact terminal/browser action needed",
+      "collapse ambiguity quickly",
+      "respect urgency and builder momentum"
+    ],
+    "avoid_with_this_human": [
+      "long conceptual prefacing",
+      "multi-branch optionality when one path is enough",
+      "re-asking for already-known context",
+      "unnecessary troubleshooting detours",
+      "overly soft or hedged operational guidance"
+    ],
+    "support_style": "direct_high_signal_low_friction_execution_support",
+    "failure_mode": "friction rises when the AI explains instead of directs or ignores current tool/runtime context",
+    "help_strategy": "match pace, reduce abstraction, provide exact next steps, and keep the path singular until the immediate goal is complete"
+  },
+  "verification": {
+    "status": "verified",
+    "predicted_match_fields": [
+      "support_style",
+      "help_strategy",
+      "failure_mode",
+      "best_use_of_this_human"
+    ],
+    "observed_match_fields": [
+      "support_style",
+      "help_strategy",
+      "failure_mode",
+      "best_use_of_this_human"
+    ],
+    "observed_mismatch_fields": [],
+    "last_feedback": {
+      "state": "confirmed",
+      "createdAt": 1774017600
+    }
+  },
+  "artifact_integrity": {
+    "source": "live_session_observation",
+    "modification": "structural_formatting_only",
+    "safe_for_docs": true,
+    "safe_for_agent_calibration": true
+  }
+}
