@@ -14,6 +14,16 @@ Use `NEXT_PUBLIC_SITE_URL` or `VERCEL_URL` when available; default is `https://l
 
 ---
 
+## Discovery Endpoint (Public)
+
+### GET /api/agent/inspect
+
+Machine-readable AI discovery. No auth. Returns project identity, public resource URLs, stance endpoint info, protected whois info, and recommended inspection order.
+
+**Response (200):** JSON with `schema`, `project`, `public_resources`, `stance`, `protected`, `recommended_inspection_order`.
+
+---
+
 ## Authentication
 
 The WHOIS endpoint requires a **Bearer token** (`wyh_` prefix) issued after payment. The token is an entitlement token that authorizes access to a specific `reportId`.

@@ -263,6 +263,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/agent/whois` | Query `reportId`; Bearer `wyh_` token or `?token=`. Returns agent calibration record (schema `whois-your-human/v1`). Loads latest feedback via `getLatestFeedbackForReport`; populates `verification.observed_match_fields` / `observed_mismatch_fields` per feedback state; adds `verification.last_feedback` when feedback exists. |
 | POST | `/api/agent/feedback` | Body `reportId`, `state` (`confirmed` \| `partial` \| `debunked`), `metrics`, optional `notes`. Same Bearer token. Stores to Blob `ligs-agent-feedback/{reportId}/` or in-memory. |
 | POST | `/api/agent/drift-check` | Body `reportId`, `currentText`. Same Bearer token. Fetches WHOIS baseline internally; compares current text via OpenAI; returns `{ drift, severity, type, confidence, summary }`. Baseline comparison only; not diagnosis or recalibration. Uses `OPENAI_API_KEY`; blocked by `LIGS_API_OFF`. |
+| GET | `/api/agent/inspect` | Public. No auth. Machine-readable discovery: project, public_resources, stance, protected whois, recommended_inspection_order. Schema `whois-your-human/inspect/v1`. |
 | GET | `/api/agent/stance` | Public. No auth. Returns `{ endorse, decline, abstain, schema }`. Aggregated agent stance counts (Blob-backed). |
 | POST | `/api/agent/stance` | Public. No auth. Body `{ stance: "endorse"|"decline"|"abstain", rationale?: string }`. Rate-limited (5/min); 1 stance per IP per 24h. Returns `{ ok, counts }` or 429 COOLDOWN/RATE_LIMIT_EXCEEDED. |
 | POST | `/api/agent/register` | Forwards to `POST /api/beauty/submit`; returns `reportId`. Same Bearer not required (pre-checkout). |
@@ -450,6 +451,12 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑20 (GET /api/agent/inspect — AI discovery)
+
+**Added:** `GET /api/agent/inspect` — public machine-readable discovery. Returns project name, protocol, description, public_resources (landing, unlock, api_reference, case_studies), stance endpoints, protected whois info, recommended_inspection_order. Schema `whois-your-human/inspect/v1`. No auth.
 
 ---
 

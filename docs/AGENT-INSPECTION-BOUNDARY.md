@@ -166,7 +166,7 @@ If we exposed too much, risks would include:
 | **Public inspection** | `/whois-your-human`, `/unlock`, `/api`, `/case-studies/*` | None | All public |
 | **Protected** | `GET /api/agent/whois`, `POST /api/agent/feedback`, engine, beauty, Blob | Bearer / internal | Unchanged |
 | **Stance** | `POST /api/agent/stance`, `GET /api/agent/stance` | None | Implemented |
-| **Discovery index** | `GET /api/agent/inspect` | None | Optional; recommended |
+| **Discovery index** | `GET /api/agent/inspect` | None | Implemented |
 
 ---
 
