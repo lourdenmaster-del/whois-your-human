@@ -75,7 +75,7 @@ async function isCooldownExpired(ipHash: string): Promise<boolean> {
   }
 }
 
-/** Record a stance. Returns counts on success, or reason for rejection. */
+/** Record a stance. Returns counts on success, or reason for rejection. Never throws. */
 export async function recordStance(
   ip: string,
   stance: Stance,
@@ -83,6 +83,7 @@ export async function recordStance(
 ): Promise<
   | { ok: true; counts: StanceCounts }
   | { ok: false; reason: "COOLDOWN"; retryAfterSec?: number }
+  | { ok: false; reason: "BLOB_ERROR"; message: string }
 > {
   const ipHash = ipToHash(ip);
   const expired = await isCooldownExpired(ipHash);
@@ -126,7 +127,8 @@ export async function recordStance(
     );
   } catch (err) {
     console.error("[agent-stance] recordStance failed:", err);
-    throw err;
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, reason: "BLOB_ERROR", message: msg.slice(0, 200) };
   }
 
   return { ok: true, counts };

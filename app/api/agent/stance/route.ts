@@ -86,6 +86,12 @@ export async function POST(request: Request) {
     const result = await recordStance(ip, stance, rationale);
 
     if (!result.ok) {
+      if (result.reason === "BLOB_ERROR") {
+        return NextResponse.json(
+          { error: "INTERNAL_ERROR", message: result.message },
+          { status: 500 }
+        );
+      }
       const headers: HeadersInit = {};
       if (result.retryAfterSec != null) {
         headers["Retry-After"] = String(result.retryAfterSec);
@@ -107,9 +113,6 @@ export async function POST(request: Request) {
   } catch (err) {
     console.error("[agent/stance] POST failed:", err);
     const msg = err instanceof Error ? String(err.message).slice(0, 200) : "Stance recording failed";
-    return new NextResponse(
-      JSON.stringify({ error: "INTERNAL_ERROR", message: msg }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
+    return NextResponse.json({ error: "INTERNAL_ERROR", message: msg }, { status: 500 });
   }
 }
