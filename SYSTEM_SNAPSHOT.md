@@ -33,6 +33,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
 - `/whois-your-human/api` — Agent HTTP summary (same content as before); **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`).
 - `/whois-your-human/prior-format` — Free Vector Zero prior format (portable, no-call); **public**.
+- `/whois-your-human/integration` — Fetch-capable agent integration guide; **public**.
 - `/whois-your-human/case-studies` — Case study index; **public**.
 - `/whois-your-human/case-studies/wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001` — Case pages; **public**.
 - `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
@@ -40,7 +41,7 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/prior-format`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/prior-format`**, **`/whois-your-human/integration`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
@@ -79,6 +80,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `app/whois-your-human/unlock/page.jsx` | Server | Unlock bridge → **`WhoisYourHumanUnlock`**; **Begin** → `/origin`. |
 | `app/whois-your-human/api/page.jsx` | Server | Static HTTP reference for agent WHOIS flow (links back to landing + `/origin`). Includes **AGENT INSTRUCTION** block after SYSTEM CONTRACT (`WhoisAgentInstructionBlock`). |
 | `app/whois-your-human/prior-format/page.jsx` | Server | Portable prior format: Vector Zero free prior fields, example, agent instructions, boundary (free vs protected). No-call surface for agents that cannot reach backend. |
+| `app/whois-your-human/integration/page.jsx` | Server | Fetch-capable agent integration guide: endpoint sequence, examples, boundary. Doc: `docs/AGENT-FETCH-INTEGRATION.md`. |
 | `app/whois-your-human/case-studies/page.jsx` | Server | Static case study index; links to `wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001`. |
 | `app/whois-your-human/case-studies/wyh-001/page.jsx` | Server | Static case **WYH-001** (`WhoisCaseStudyDocument`). |
 | `app/whois-your-human/case-studies/wyh-001-b/page.jsx` | Server | Static case **WYH-001-B** (`WhoisCaseStudyDocument`). |
@@ -457,6 +459,12 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑20 (Fetch-capable agent integration doc)
+
+**Added:** `docs/AGENT-FETCH-INTEGRATION.md` — integration guide for fetch-capable runtimes: overview, runtime requirement, endpoint sequence (inspect → prior-format → case studies → stance → whois), examples, usage guidance, boundary. **Added:** `/whois-your-human/integration` — public page; inspect `public_resources.integration` updated. Cross-refs in AGENT-WHOIS-API, AGENT-TOOLS.
 
 ---
 

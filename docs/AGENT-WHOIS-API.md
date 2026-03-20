@@ -1,7 +1,7 @@
 # WHOIS YOUR HUMAN — Agent API Reference
 
 **Audience:** Developers integrating AI systems with the WHOIS calibration API.  
-**Related:** `docs/AGENT_USAGE.md` (when to call, interpretation), `docs/AGENT_RESPONSE_PATTERN.md` (user-facing reply shaping), `docs/AGENT-FLOW-RUNBOOK.md` (live test runbook).
+**Related:** `docs/AGENT-FETCH-INTEGRATION.md` (fetch-capable runtime integration), `docs/AGENT_USAGE.md` (when to call, interpretation), `docs/AGENT_RESPONSE_PATTERN.md` (user-facing reply shaping), `docs/AGENT-FLOW-RUNBOOK.md` (live test runbook).
 
 ---
 
@@ -56,6 +56,22 @@ Returns the agent calibration record for a paid report.
 GET /api/agent/whois?reportId=abc-123-def-456
 Authorization: Bearer wyh_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
+
+---
+
+## Prior Endpoint (Vector Zero Layer Only)
+
+### GET /api/agent/prior
+
+Returns the Vector Zero prior layer only — `derived_structure`, `agent_guidance`, `agent_summary`. Same auth as whois. Use when you need the prior for agent behavior without full human/measured_context/verification data.
+
+**Request:**
+- `reportId` (required) — Query parameter
+- `Authorization: Bearer <token>` or `?token=<token>`
+
+**Response (200):** JSON with `schema: "whois-your-human/prior/v1"`, `reportId`, `derived_structure`, `agent_guidance`, `agent_summary`.
+
+**See:** `docs/AGENT-TOOLS.md` for when to call prior vs whois and how agents should use the prior.
 
 ---
 

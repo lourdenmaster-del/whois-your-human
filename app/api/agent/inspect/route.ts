@@ -33,6 +33,7 @@ export async function GET(request: Request) {
       landing: `${base}/whois-your-human`,
       unlock: `${base}/whois-your-human/unlock`,
       api_reference: `${base}/whois-your-human/api`,
+      integration: `${base}/whois-your-human/integration`,
       prior_format: `${base}/whois-your-human/prior-format`,
       prior_format_json: `${base}/api/agent/prior-format`,
       case_studies: `${base}/whois-your-human/case-studies`,
