@@ -37,6 +37,16 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const hasBlobToken =
+    typeof process.env.BLOB_READ_WRITE_TOKEN === "string" &&
+    process.env.BLOB_READ_WRITE_TOKEN.length > 0;
+  if (!hasBlobToken) {
+    return NextResponse.json(
+      { error: "STANCE_NOT_CONFIGURED", message: "Blob storage not configured" },
+      { status: 503 }
+    );
+  }
+
   try {
     await rateLimit(request, "agent_stance", 5, 60_000);
   } catch {
@@ -71,26 +81,35 @@ export async function POST(request: Request) {
     );
   }
 
-  const ip = getIpFromRequest(request);
-  const result = await recordStance(ip, stance, rationale);
+  try {
+    const ip = getIpFromRequest(request);
+    const result = await recordStance(ip, stance, rationale);
 
-  if (!result.ok) {
-    const headers: HeadersInit = {};
-    if (result.retryAfterSec != null) {
-      headers["Retry-After"] = String(result.retryAfterSec);
+    if (!result.ok) {
+      const headers: HeadersInit = {};
+      if (result.retryAfterSec != null) {
+        headers["Retry-After"] = String(result.retryAfterSec);
+      }
+      return NextResponse.json(
+        {
+          error: result.reason,
+          message: "One stance per IP per 24 hours",
+        },
+        { status: 429, headers }
+      );
     }
+
+    return NextResponse.json({
+      ok: true,
+      counts: result.counts,
+      schema: "whois-your-human/stance/v1",
+    });
+  } catch (err) {
+    console.error("[agent/stance] POST failed:", err);
+    const message = err instanceof Error ? err.message : "Stance recording failed";
     return NextResponse.json(
-      {
-        error: result.reason,
-        message: "One stance per IP per 24 hours",
-      },
-      { status: 429, headers }
+      { error: "INTERNAL_ERROR", message },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({
-    ok: true,
-    counts: result.counts,
-    schema: "whois-your-human/stance/v1",
-  });
 }
