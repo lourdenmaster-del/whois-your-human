@@ -152,6 +152,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
         data?: { url?: string };
         url?: string;
         error?: string;
+        message?: string;
         code?: string;
       };
       if (!res.ok) {
