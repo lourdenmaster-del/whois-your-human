@@ -161,7 +161,7 @@ export async function POST(request: Request) {
       reportId,
       subjectName: payload.subjectName,
       dominantArchetype: payload.dominantArchetype,
-      viewUrl: `/beauty/view?reportId=${encodeURIComponent(reportId)}`,
+      viewUrl: `/whois/view?reportId=${encodeURIComponent(reportId)}`,
       meta: { idempotencyHit, imageCount, cylindersReport },
     });
 

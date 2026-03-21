@@ -634,7 +634,7 @@ export default function OriginTerminalIntake() {
     if (purchaseRedirecting) return;
     if (FAKE_PAY) {
       setBeautyUnlocked();
-      window.location.href = "/beauty/start";
+      window.location.href = "/whois/start";
       return;
     }
     setPurchaseError(null);

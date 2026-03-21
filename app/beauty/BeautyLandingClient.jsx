@@ -152,7 +152,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
           return;
         }
         saveLastFormData(reportId, data);
-        router.push(`/beauty/view?reportId=${encodeURIComponent(reportId)}`);
+        router.push(`/whois/view?reportId=${encodeURIComponent(reportId)}`);
       } catch (err) {
         const msg = err?.message ?? "Something went wrong";
         setCtaCheckoutError(`Generation failed: ${msg}`);
@@ -413,7 +413,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
               </ul>
               {!unlocked && (
                 <p className="text-2xl font-semibold beauty-heading">
-                  $39.99
+                  $0.10
                 </p>
               )}
               {unlocked && (
@@ -456,7 +456,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
                           : formValid && (unlocked || TEST_MODE)
                             ? "Generate my report"
                             : formValid
-                              ? "Buy now ($39.99)"
+                              ? "Buy now ($0.10)"
                               : "Continue"}
                   </button>
                   <a
@@ -499,7 +499,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
               Unlock your WHOIS Agent Access
             </p>
             <p className={textClass}>
-              $39.99 one-time unlock. Generates your WHOIS record and provides a token for agent-readable calibration via API.
+              $0.10 one-time unlock. Generates your WHOIS record and provides a token for agent-readable calibration via API.
             </p>
             <a
               href="#form"

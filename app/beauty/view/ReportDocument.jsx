@@ -27,7 +27,7 @@ export default function ReportDocument({ profile }) {
     if (!rid) return;
     if (FAKE_PAY) {
       setBeautyUnlocked();
-      window.location.href = "/beauty/start";
+      window.location.href = "/whois/start";
       return;
     }
     setCheckoutError(null);

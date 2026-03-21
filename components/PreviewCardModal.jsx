@@ -111,7 +111,7 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
     if (FAKE_PAY) {
       console.log("FAKE PAY MODE – no charge made");
       setBeautyUnlocked();
-      window.location.href = "/beauty/start";
+      window.location.href = "/whois/start";
       return;
     }
     setCheckoutError(null);

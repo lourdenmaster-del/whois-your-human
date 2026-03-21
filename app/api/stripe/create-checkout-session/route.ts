@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
   const stripe = new Stripe(secretKey);
 
-  const successUrl = `${origin}/beauty/success?session_id={CHECKOUT_SESSION_ID}`;
+  const successUrl = `${origin}/whois/success?session_id={CHECKOUT_SESSION_ID}`;
   const metadata: Record<string, string> = prePurchase
     ? { prePurchase: "1" }
     : { reportId };
@@ -81,13 +81,13 @@ export async function POST(request: Request) {
         price_data: {
           currency: "usd",
           product_data: productData,
-          unit_amount: 3999, // $39.99 in cents
+          unit_amount: 10, // $0.10 — temporary smoke test; revert to 3999 for production
         },
         quantity: 1,
       },
     ],
     success_url: successUrl,
-    cancel_url: `${origin}/beauty/cancel`,
+    cancel_url: `${origin}/whois/cancel`,
     metadata,
   });
 

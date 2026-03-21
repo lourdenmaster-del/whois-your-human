@@ -743,7 +743,7 @@ export default function LigsStudio() {
     if (!reportId) return;
     if (FAKE_PAY) {
       setBeautyUnlocked();
-      window.location.href = "/beauty/start";
+      window.location.href = "/whois/start";
       return;
     }
     setUnlockReportId(reportId);
@@ -2172,7 +2172,7 @@ export default function LigsStudio() {
                   <span className="text-xs text-[#8a8a90] truncate max-w-[200px]" title={r.emotionalSnippet}>{r.emotionalSnippet?.slice(0, 60)}…</span>
                   <div className="flex gap-2 ml-auto">
                     <a
-                      href={`/beauty/view?reportId=${encodeURIComponent(r.reportId)}`}
+                      href={`/whois/view?reportId=${encodeURIComponent(r.reportId)}`}
                       className="px-3 py-1.5 text-xs rounded-lg bg-teal-600 text-white hover:bg-teal-700"
                     >
                       View preview
@@ -2340,7 +2340,7 @@ export default function LigsStudio() {
                 {reportOnlyResult.reportId && (
                   <>
                     <a
-                      href={`/beauty/view?reportId=${encodeURIComponent(reportOnlyResult.reportId)}`}
+                      href={`/whois/view?reportId=${encodeURIComponent(reportOnlyResult.reportId)}`}
                       className="px-3 py-1.5 text-sm rounded-lg bg-teal-600 text-white hover:bg-teal-700"
                     >
                       View preview
@@ -2891,7 +2891,7 @@ export default function LigsStudio() {
                   <>
                     <div className="flex flex-wrap gap-2 items-center">
                       <a
-                        href={`/beauty/view?reportId=${encodeURIComponent(lastReportId)}`}
+                        href={`/whois/view?reportId=${encodeURIComponent(lastReportId)}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="px-2 py-1 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-100"

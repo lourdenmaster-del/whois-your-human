@@ -33,6 +33,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(new URL("/origin", request.url));
   }
 
+  if (pathname === "/for-agents" || pathname === "/for-agents/") {
+    return NextResponse.next();
+  }
+
   if (
     pathname === "/whois-your-human" ||
     pathname === "/whois-your-human/" ||
@@ -51,22 +55,32 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // 2c) /whois, /whois/* — canonical purchase-flow routes (allow)
+  if (pathname === "/whois" || pathname.startsWith("/whois/")) {
+    return NextResponse.next();
+  }
+
+  // 2d) Legacy /beauty/* purchase-flow paths → canonical /whois/* (308)
+  const legacyRedirects: [string, string][] = [
+    ["/beauty/start", "/whois/start"],
+    ["/beauty/success", "/whois/success"],
+    ["/beauty/cancel", "/whois/cancel"],
+    ["/beauty/view", "/whois/view"],
+  ];
+  for (const [from, to] of legacyRedirects) {
+    if (pathname === from || pathname.startsWith(from + "/")) {
+      const target = new URL(to + request.nextUrl.search, request.url);
+      return NextResponse.redirect(target, 308);
+    }
+  }
+
   // 2b) /origin/ligs-studio or /origin/ligs-studio/* → /ligs-studio (fix wrong path; no such route under /origin)
   if (pathname === "/origin/ligs-studio" || pathname.startsWith("/origin/ligs-studio/")) {
     const rest = pathname.slice("/origin".length); // /ligs-studio or /ligs-studio/login etc.
     return NextResponse.redirect(new URL(rest + request.nextUrl.search, request.url), 302);
   }
 
-  // 3) /beauty: allow view, success, cancel when studio-authenticated (for WHOIS testing)
-  const beautyStudioPaths = ["/beauty/view", "/beauty/success", "/beauty/cancel"];
-  const isBeautyStudioPath = beautyStudioPaths.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (isBeautyStudioPath && isStudioProtected()) {
-    const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
-    if (verifyStudioAccess(cookieValue)) {
-      return NextResponse.next();
-    }
-  }
-  // 3b) /beauty and all /beauty/* → /origin (public-surface lockdown)
+  // 3) /beauty and remaining /beauty/* → /origin (legacy purchase paths redirect to /whois/* above)
   if (pathname === "/beauty" || pathname.startsWith("/beauty/")) {
     return NextResponse.redirect(new URL("/origin", request.url), 308);
   }
@@ -95,6 +109,8 @@ export const config = {
   // Allowlist: run middleware only on page routes. /api/* is never touched.
   matcher: [
     "/",
+    "/for-agents",
+    "/for-agents/",
     "/origin",
     "/origin/:path*",
     "/whois-your-human",
@@ -105,5 +121,7 @@ export const config = {
     "/voice",
     "/ligs-studio",
     "/ligs-studio/:path*",
+    "/whois",
+    "/whois/:path*",
   ],
 };

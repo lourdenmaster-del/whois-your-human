@@ -227,7 +227,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const checkoutUrl = `${origin}/beauty/success?reportId=${encodeURIComponent(reportId)}`;
+    const checkoutUrl = `${origin}/whois/success?reportId=${encodeURIComponent(reportId)}`;
 
     // Profile is persisted server-side; omit WHOIS/engine-shaped fields from the client response.
     return successResponse(

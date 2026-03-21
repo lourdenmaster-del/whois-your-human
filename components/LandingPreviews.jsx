@@ -134,7 +134,7 @@ function ExemplarSlot({ archetype, imageUrl, lightboxImages, descriptor, cardBor
       {!staticGrid && (
         <div className="px-5 pb-5">
           <Link
-            href={`/beauty/view?reportId=exemplar-${encodeURIComponent(archetype)}`}
+            href={`/whois/view?reportId=exemplar-${encodeURIComponent(archetype)}`}
             className="block w-full py-2 text-center text-xs font-semibold uppercase tracking-wider border border-[#7A4FFF]/50 text-[#7A4FFF] hover:bg-[#7A4FFF]/10 transition-colors"
           >
             View / Open Artifact

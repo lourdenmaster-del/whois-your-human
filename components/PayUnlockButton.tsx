@@ -136,7 +136,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
     if (FAKE_PAY) {
       console.log("FAKE PAY MODE – no charge made");
       setBeautyUnlocked();
-      window.location.href = "/beauty/start";
+      window.location.href = "/whois/start";
       return;
     }
     setCheckoutError(null);

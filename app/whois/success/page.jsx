@@ -7,11 +7,11 @@ import FlowNav from "@/components/FlowNav";
 import { track } from "@/lib/analytics";
 import { setBeautyUnlocked } from "@/lib/landing-storage";
 
-function BeautySuccessContent() {
+function WhoisSuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
 
-  const [status, setStatus] = useState("loading"); // loading | paid | error
+  const [status, setStatus] = useState("loading");
   const [reportId, setReportId] = useState(null);
   const [prePurchase, setPrePurchase] = useState(false);
   const [entitlementToken, setEntitlementToken] = useState(null);
@@ -42,7 +42,7 @@ function BeautySuccessContent() {
   }, []);
 
   useEffect(() => {
-    track("beauty_success_page");
+    track("whois_success_page");
     if (!sessionId) {
       queueMicrotask(() => setStatus("error"));
       return;
@@ -448,7 +448,7 @@ Authorization: Bearer ${entitlementToken}`}
   );
 }
 
-export default function BeautySuccessPage() {
+export default function WhoisSuccessPage() {
   return (
     <Suspense
       fallback={
@@ -459,7 +459,7 @@ export default function BeautySuccessPage() {
         </div>
       }
     >
-      <BeautySuccessContent />
+      <WhoisSuccessContent />
     </Suspense>
   );
 }
