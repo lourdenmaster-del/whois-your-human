@@ -31,7 +31,8 @@ const EXAMPLE_PRIOR = {
 };
 
 export async function GET() {
-  const body = {
+  try {
+    const body = {
     schema: "whois-your-human/prior-format/v1",
     what: "Compressed interaction prior derived from the Vector Zero layer. A structured starting hypothesis for how to interact with a human—not a total human model.",
     hypothesis_statement:
@@ -62,5 +63,12 @@ export async function GET() {
     },
   };
 
-  return NextResponse.json(body);
+    return NextResponse.json(body);
+  } catch (err) {
+    console.error("[agent/prior-format] GET failed:", err);
+    return NextResponse.json(
+      { error: "INTERNAL_ERROR", schema: "whois-your-human/prior-format/v1" },
+      { status: 500 }
+    );
+  }
 }

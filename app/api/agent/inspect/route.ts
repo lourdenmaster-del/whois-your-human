@@ -19,9 +19,10 @@ function baseUrl(request: Request): string {
 }
 
 export async function GET(request: Request) {
-  const base = baseUrl(request);
+  try {
+    const base = baseUrl(request);
 
-  const body = {
+    const body = {
     schema: "whois-your-human/inspect/v1",
     project: {
       name: "LIGS",
@@ -86,5 +87,12 @@ export async function GET(request: Request) {
     ],
   };
 
-  return NextResponse.json(body);
+    return NextResponse.json(body);
+  } catch (err) {
+    console.error("[agent/inspect] GET failed:", err);
+    return NextResponse.json(
+      { error: "INTERNAL_ERROR", schema: "whois-your-human/inspect/v1" },
+      { status: 500 }
+    );
+  }
 }

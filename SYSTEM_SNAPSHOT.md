@@ -8,6 +8,19 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
+## LOCKDOWN — Protocol freeze (2026‑03‑21)
+
+**Date of freeze:** 2026‑03‑21. **Scope:** Core agent protocol for real-world exposure. No redesign, no new features, no schema drift. **Allowed:** Runtime error fixes, deployment fixes, broken links, typos. **Forbidden:** New endpoints, schema changes, prior format field changes, stance logic changes, refactors that affect behavior.
+
+**Locked components:**
+- **Core API:** `GET /api/agent/inspect`, `GET /api/agent/prior-format`, `GET /api/agent/stance`, `POST /api/agent/stance`, `GET /api/agent/whois`
+- **Prior format fields:** label, axes, coherence, strategy, rules, failure_modes, confidence
+- **Stance:** values endorse/decline/abstain; rate limit + 24h cooldown
+- **Public surfaces:** `/whois-your-human`, `/api`, `/prior-format`, `/integration`, `/case-studies/*`
+- **Inspect payload:** public_resources, stance, protected, recommended_inspection_order
+
+---
+
 ## 0. Imagery source of truth
 
 **Rule:** Final imagery is determined by **engine output + style pipeline**, not ad-hoc UI defaults.
@@ -459,6 +472,12 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑21 (Protocol lockdown)
+
+**Lockdown:** Added LOCKDOWN section documenting protocol freeze for agent exposure phase. Scope: inspect, prior-format, stance, whois; prior schema; public surfaces; inspect payload. **Stability:** Wrapped `GET /api/agent/inspect` and `GET /api/agent/prior-format` in try/catch so they return stable JSON and never throw.
 
 ---
 
