@@ -127,7 +127,7 @@ export default function PreviewCardModal({ card, onClose, maxImages = 3, onProce
         if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
           setCheckoutError("This report doesn't have a Beauty Profile yet. Generate one via /beauty.");
         } else {
-          setCheckoutError(json?.error ?? "Checkout unavailable. Try again later.");
+          setCheckoutError(json?.message ?? json?.error ?? "Checkout unavailable. Try again later.");
         }
         setRedirecting(false);
         return;

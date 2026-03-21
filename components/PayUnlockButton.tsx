@@ -160,7 +160,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
             "This report doesn't have the underlying profile used to generate the WHOIS record yet. Use the full flow at /beauty to generate one, then return here to unlock."
           );
         } else {
-          setCheckoutError(json?.error ?? "Checkout unavailable. Try again later.");
+          setCheckoutError(json?.message ?? json?.error ?? "Checkout unavailable. Try again later.");
         }
         setRedirecting(false);
         return;

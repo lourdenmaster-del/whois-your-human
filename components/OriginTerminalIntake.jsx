@@ -647,7 +647,7 @@ export default function OriginTerminalIntake() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setPurchaseError(json?.error ?? "Checkout unavailable.");
+        setPurchaseError(json?.message ?? json?.error ?? "Checkout unavailable.");
         setPurchaseRedirecting(false);
         return;
       }

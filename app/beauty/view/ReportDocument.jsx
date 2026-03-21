@@ -43,7 +43,7 @@ export default function ReportDocument({ profile }) {
         if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
           setCheckoutError("This report cannot be unlocked. Use the full flow to generate a new one.");
         } else {
-          setCheckoutError(json?.error ?? "Checkout unavailable. Try again later.");
+          setCheckoutError(json?.message ?? json?.error ?? "Checkout unavailable. Try again later.");
         }
         setRedirecting(false);
         return;

@@ -197,11 +197,13 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
       });
       const json = await res.json();
       if (!res.ok) {
-        const errMsg = json?.error ?? "Checkout unavailable. Try again later.";
+        const errMsg = json?.message ?? json?.error ?? "Checkout unavailable. Try again later.";
         const displayMsg =
           errMsg === "STRIPE_NOT_CONFIGURED"
             ? "Stripe not configured. Add STRIPE_SECRET_KEY to enable checkout."
-            : errMsg;
+            : errMsg === "LIGS_API_OFF"
+              ? "API maintenance mode. Remove LIGS_API_OFF from Vercel env (or set to 0) to enable checkout."
+              : errMsg;
         setCtaCheckoutError(displayMsg);
         return;
       }
