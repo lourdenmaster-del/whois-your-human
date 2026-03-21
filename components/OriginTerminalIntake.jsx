@@ -595,6 +595,26 @@ export default function OriginTerminalIntake() {
         return;
       }
 
+      const existingReportId = loadLastFormData()?.reportId;
+      if (existingReportId) {
+        const res = await fetch("/api/stripe/create-checkout-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reportId: existingReportId }),
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          goToErrorAndComplete(json?.message ?? json?.error ?? "Checkout unavailable.");
+          return;
+        }
+        const url = json?.data?.url ?? json?.url;
+        if (url && typeof url === "string") {
+          window.location.href = url;
+        } else {
+          goToErrorAndComplete("No checkout URL returned.");
+        }
+        return;
+      }
       setBeautyDraft(payload);
       let draftId = null;
       try {
@@ -640,10 +660,11 @@ export default function OriginTerminalIntake() {
     setPurchaseError(null);
     setPurchaseRedirecting(true);
     try {
+      const existingReportId = lastReportId || loadLastFormData()?.reportId;
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(lastReportId ? { reportId: lastReportId } : { prePurchase: true }),
+        body: JSON.stringify(existingReportId ? { reportId: existingReportId } : { prePurchase: true }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
