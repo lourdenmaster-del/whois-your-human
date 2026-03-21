@@ -85,7 +85,7 @@ export async function POST(request: Request) {
             price_data: {
               currency: "usd",
               product_data: productData,
-              unit_amount: 10, // $0.10 — temporary smoke test; revert to 3999 for production
+              unit_amount: 99, // $0.99 — temporary live test; revert to 3999 for production
             },
             quantity: 1,
           },
