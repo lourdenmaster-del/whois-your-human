@@ -115,6 +115,7 @@ export async function recordStance(
       access: "public",
       addRandomSuffix: false,
       contentType: "application/json",
+      allowOverwrite: true,
     });
     await put(
       `${BLOB_PREFIX}cooldown/${ipHash}.json`,
@@ -123,6 +124,7 @@ export async function recordStance(
         access: "public",
         addRandomSuffix: false,
         contentType: "application/json",
+        allowOverwrite: true,
       }
     );
   } catch (err) {
