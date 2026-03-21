@@ -3,7 +3,6 @@
  * Requires birthDate, birthLocation, birthTime. Always computes full sun/moon at exact moment.
  */
 
-import { geocodePlace } from "@/lib/astrology/deriveFromBirthData";
 import { deriveFromBirthData } from "@/lib/astrology/deriveFromBirthData";
 import { computeSunMoonContext } from "@/lib/astronomy/computeSunMoonContext";
 import { getSolarSeasonProfile, getSolarSeasonByIndex } from "@/src/ligs/astronomy/solarSeason";
@@ -13,6 +12,10 @@ export type BirthContextForReport = Record<string, unknown> & {
   lon?: number;
   placeName?: string;
   timezoneId?: string;
+  /** address | city | region | country */
+  resolutionPrecision?: string;
+  /** civic | centroid | point */
+  anchorType?: string;
   localTimestamp?: string;
   utcTimestamp?: string;
   sun?: Record<string, unknown>;

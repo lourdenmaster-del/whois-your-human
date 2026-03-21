@@ -1,5 +1,6 @@
 /**
  * Derive birth context from birthdate, birthtime, and birthplace.
+ * - Location: resolveBirthLocation (deterministic, civic anchor when city-level)
  * - Timezone: IANA from lat/lon (tz-lookup), local→UTC via luxon
  * - Astronomy: sun_sign, moon_sign, rising_sign via astronomy-engine
  * Only used server-side.
@@ -7,6 +8,7 @@
 
 import tzlookup from "tz-lookup";
 import { DateTime } from "luxon";
+import { resolveBirthLocation } from "@/lib/birth-location-resolver";
 
 const ZODIAC_SIGNS = [
   "Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo",
@@ -35,7 +37,11 @@ export interface DeriveFromBirthDataResult {
   timezoneId: string;
   localTimestamp: string;
   utcTimestamp: string;
-  placeName?: string;
+  placeName: string;
+  /** Resolution confidence: address | city | region | country */
+  resolutionPrecision?: string;
+  /** Anchor used: civic | centroid | point */
+  anchorType?: string;
 }
 
 type GeoCacheEntry = { lat: number; lon: number; displayName?: string };
@@ -88,17 +94,8 @@ export async function deriveFromBirthData(
     throw new Error("Birth context computation failed: missing birthdate, birthtime, or birthplace");
   }
 
-  const coords = await geocodePlace(birthplace);
-  if (!coords) return null;
-  const { lat, lon, displayName } = coords;
-
-  // Timezone from lat/lon (tz-lookup, offline)
-  let timezoneId = "UTC";
-  try {
-    timezoneId = tzlookup(lat, lon);
-  } catch {
-    // fallback to UTC if lookup fails (e.g. coords in ocean)
-  }
+  const resolved = await resolveBirthLocation(birthplace);
+  const { lat, lon, placeName, timezoneId, resolutionPrecision, anchorType } = resolved;
 
   // Parse local birth datetime and convert to UTC
   const dStr = birthdate.trim().slice(0, 10);
@@ -150,6 +147,8 @@ export async function deriveFromBirthData(
     timezoneId,
     localTimestamp,
     utcTimestamp,
-    ...(displayName && { placeName: displayName }),
+    placeName,
+    resolutionPrecision,
+    anchorType,
   };
 }
