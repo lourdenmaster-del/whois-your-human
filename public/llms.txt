@@ -1,0 +1,15 @@
+LIGS / WHOIS YOUR HUMAN
+Agent calibration record system for AI tools.
+
+Base: https://ligs.io
+
+First call: GET /api/agent/inspect
+Returns discovery JSON with public URLs and protected endpoints.
+
+Protected WHOIS: GET /api/agent/whois?reportId=<id>
+Auth: Authorization: Bearer <wyh_token>
+
+Stance: GET /api/agent/stance (read counts) | POST /api/agent/stance (record)
+Values: endorse, decline, abstain
+
+Human-readable instructions: /for-agents

@@ -9,6 +9,7 @@ import {
   hasDeterministicAnchors,
   extractCanonicalRegimeFromReport,
   validateOracleConcrete,
+  normalizeRawSignalCitations,
 } from "../reportValidators";
 
 describe("reportValidators", () => {
@@ -150,6 +151,30 @@ Regime:          Stabiliora`;
     );
     const issues = validateCitations(reportWithTwoCitations);
     expect(issues.some((i) => i.code === "CITATION_MULTIPLE")).toBe(true);
+  });
+
+  it("normalizeRawSignalCitations keeps only last [key=value] per bullet", () => {
+    const reportWithTwoCitations = fullReport.replace(
+      "Day length gates spectral input. [day_length_minutes=585]",
+      "Day length gates spectral input. [day_length_minutes=585] [regime=Stabiliora]"
+    );
+    const normalized = normalizeRawSignalCitations(reportWithTwoCitations);
+    expect(normalized).toContain("[regime=Stabiliora]");
+    expect(normalized).not.toContain("[day_length_minutes=585] [regime=Stabiliora]");
+    const issues = validateCitations(normalized);
+    expect(issues.some((i) => i.code === "CITATION_MULTIPLE")).toBe(false);
+  });
+
+  it("normalizeRawSignalCitations keeps allowed citation when forbidden present", () => {
+    const reportWithForbidden = fullReport.replace(
+      "Day length gates spectral input. [day_length_minutes=585]",
+      "Day length gates spectral input. [invented_key=123] [day_length_minutes=585]"
+    );
+    const normalized = normalizeRawSignalCitations(reportWithForbidden);
+    expect(normalized).toContain("[day_length_minutes=585]");
+    expect(normalized).not.toContain("[invented_key=123]");
+    const issues = validateCitations(normalized);
+    expect(issues.some((i) => i.code === "CITATION_MULTIPLE")).toBe(false);
   });
 
   it("validateRepetition passes when sections differ", () => {

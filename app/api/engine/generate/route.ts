@@ -33,6 +33,7 @@ import {
   buildReportRepairPrompt,
   hasDeterministicAnchors,
   extractCanonicalRegimeFromReport,
+  normalizeRawSignalCitations,
 } from "@/lib/engine/reportValidators";
 import {
   getIdempotentResult,
@@ -48,7 +49,7 @@ import {
 } from "@/lib/engine-execution-grant";
 import { resolveFieldConditionsForBirth } from "@/lib/field-conditions";
 
-if (process.env.DRY_RUN === "1") {
+if (process.env.DRY_RUN === "1" && process.env.NODE_ENV !== "production") {
   console.log("DRY_RUN ENABLED — skipping OpenAI calls, returning fixture mock");
 }
 
@@ -213,11 +214,6 @@ export async function POST(request: Request) {
       const kill = killSwitchResponse();
       if (kill) return kill;
     }
-    console.log("AUDIT_HIT_ENGINE_GENERATE");
-    console.log("AUDIT_ENV", {
-      DEBUG_PROMPT_AUDIT: process.env.DEBUG_PROMPT_AUDIT,
-      DEBUG_PERSISTENCE: process.env.DEBUG_PERSISTENCE,
-    });
     const validation = validateEngineBody(body);
     if (!validation.ok) {
       log("warn", "validation failed", { requestId, error: validation.error.message });
@@ -268,6 +264,38 @@ export async function POST(request: Request) {
         } else {
           return errorResponse(500, "Birth context computation failed. Please verify birth date, time, and location.", requestId);
         }
+      }
+    }
+
+    // Canonical birth location for validation (matches BOUNDARY CONDITIONS: placeName from resolver/context)
+    const bcForCanonical = birthContext as Record<string, unknown> | undefined;
+    const canonicalBirthLocation =
+      typeof bcForCanonical?.placeName === "string" ? bcForCanonical.placeName
+      : typeof bcForCanonical?.birthLocation === "string" ? bcForCanonical.birthLocation
+      : birthLocation;
+
+    // Paid flow: explicit guard — must have engine-ready birthContext; blank output is a bug.
+    if (!dryRun) {
+      const c = birthContext as Record<string, unknown> | undefined;
+      const hasCoords = typeof c?.lat === "number" && typeof c?.lon === "number";
+      const hasUtc = typeof c?.utcTimestamp === "string" && (c.utcTimestamp as string).trim().length > 0;
+      const hasSun = c?.sun != null && typeof c.sun === "object" && Object.keys(c.sun as object).length > 0;
+      const hasSolarProfile =
+        (c?.solarSeasonProfile != null && typeof c.solarSeasonProfile === "object") ||
+        (typeof c?.sunLonDeg === "number");
+      if (!hasCoords || !hasUtc || !hasSun || !hasSolarProfile) {
+        log("error", "paid_flow_missing_birth_context", {
+          requestId,
+          hasCoords,
+          hasUtc,
+          hasSun,
+          hasSolarProfile,
+        });
+        return errorResponse(
+          500,
+          "Birth context incomplete. Report generation requires resolved date, time, location, and coordinates.",
+          requestId
+        );
       }
     }
 
@@ -402,7 +430,6 @@ export async function POST(request: Request) {
           fieldConditionsDisplays = await resolveFieldConditionsForBirth(dryRunBirthContext as Record<string, unknown>, {
             skipExternalLookups: false,
           });
-          console.log("fieldConditionsDisplays:", fieldConditionsDisplays);
         } catch (err) {
           console.error("resolveFieldConditionsForBirth threw", err);
           fieldConditionsDisplays = {
@@ -431,34 +458,6 @@ export async function POST(request: Request) {
         if (fieldConditionsDisplays.sensoryFieldConditionsDisplay != null)
           dryRunPayload.sensoryFieldConditionsDisplay = fieldConditionsDisplays.sensoryFieldConditionsDisplay;
       }
-      const birthContextSummary =
-        dryRunBirthContext != null
-          ? {
-              placeName: (dryRunBirthContext as Record<string, unknown>).placeName,
-              lat: (dryRunBirthContext as Record<string, unknown>).lat,
-              lon: (dryRunBirthContext as Record<string, unknown>).lon,
-              timezoneId: (dryRunBirthContext as Record<string, unknown>).timezoneId,
-              utcTimestamp:
-                typeof (dryRunBirthContext as Record<string, unknown>).utcTimestamp === "string"
-                  ? ((dryRunBirthContext as Record<string, unknown>).utcTimestamp as string).slice(0, 19)
-                  : (dryRunBirthContext as Record<string, unknown>).utcTimestamp,
-              hasSun: !!(dryRunBirthContext as Record<string, unknown>).sun,
-              hasMoon: !!(dryRunBirthContext as Record<string, unknown>).moon,
-            }
-          : null;
-      console.log("DRY_RUN_AUDIT_BEFORE_SAVE", {
-        reportId,
-        birthContextSummary,
-        fieldConditionsDisplays,
-        savedPayloadFields: {
-          originCoordinatesDisplay: dryRunPayload.originCoordinatesDisplay,
-          hasFieldConditionsContext: !!dryRunPayload.field_conditions_context,
-          field_conditions_context: dryRunPayload.field_conditions_context,
-          magneticFieldIndexDisplay: dryRunPayload.magneticFieldIndexDisplay,
-          climateSignatureDisplay: dryRunPayload.climateSignatureDisplay,
-          sensoryFieldConditionsDisplay: dryRunPayload.sensoryFieldConditionsDisplay,
-        },
-      });
       const writeResult = await saveReportAndConfirm(reportId, dryRunPayload, log, { requestId });
       if (!writeResult.ok) {
         log("error", "Dry-run report storage failed", { requestId, reportId, error: writeResult.error });
@@ -581,8 +580,9 @@ Email: ${email}
     const emotionalSnippet = reportData.emotional_snippet ?? "";
 
     // HARD INVARIANT: Subject name must appear in INITIATION. Inject deterministically if missing.
-    if (fullName && birthDate && birthLocation && !subjectNamePresentInInitiation(fullReport, { fullName, birthDate, birthLocation })) {
-      const injectResult = injectInitiationAnchor(fullReport, { fullName, birthDate, birthLocation });
+    const subjectInputForAnchor = { fullName, birthDate, birthLocation: canonicalBirthLocation };
+    if (fullName && birthDate && canonicalBirthLocation && !subjectNamePresentInInitiation(fullReport, subjectInputForAnchor)) {
+      const injectResult = injectInitiationAnchor(fullReport, subjectInputForAnchor);
       if (injectResult.ok) {
         fullReport = injectResult.report;
         log("info", "Subject name anchored in INITIATION (early injection)", {
@@ -774,15 +774,19 @@ Email: ${email}
       resolvedArchetype: archetype,
     });
 
+    // Strict citation normalization: at most one [key=value] per bullet; prefer allowed keys when multiple
+    fullReport = normalizeRawSignalCitations(fullReport);
+
     // Report quality validators: run only when deterministic anchors exist
     const runValidation = hasDeterministicAnchors(fullReport);
     const canonicalRegime =
       extractCanonicalRegimeFromReport(fullReport) ??
       getSolarProfileFromContext(birthContext ?? {})?.archetype ??
       archetype;
+    const subjectInput = { fullName, birthDate, birthLocation: canonicalBirthLocation };
     const qualityIssues = runValidation
       ? validateReport(fullReport, {
-          subjectInput: { fullName, birthDate, birthLocation },
+          subjectInput,
           canonicalRegime,
         })
       : [];
@@ -797,7 +801,7 @@ Email: ${email}
         const { system: repairSystem, user: repairUser } = buildReportRepairPrompt(
           fullReport,
           qualityIssues,
-          { subjectInput: { fullName, birthDate, birthLocation }, canonicalRegime }
+          { subjectInput, canonicalRegime }
         );
         const repairResponse = await openai.chat.completions.create({
           model: "gpt-4o",
@@ -812,19 +816,15 @@ Email: ${email}
         if (repairText) {
           const repaired = JSON.parse(repairText) as { full_report?: string };
           if (repaired.full_report?.length) {
-            fullReport = repaired.full_report;
+            fullReport = normalizeRawSignalCitations(repaired.full_report);
             const afterIssues = validateReport(fullReport, {
-              subjectInput: { fullName, birthDate, birthLocation },
+              subjectInput,
               canonicalRegime,
             });
             if (afterIssues.length > 0) {
               const hasNameMissing = afterIssues.some((i) => i.code === "SUBJECT_NAME_MISSING");
-              if (hasNameMissing && fullName && birthDate && birthLocation) {
-                const injectResult = injectInitiationAnchor(fullReport, {
-                  fullName,
-                  birthDate,
-                  birthLocation,
-                });
+              if (hasNameMissing && fullName && birthDate && canonicalBirthLocation) {
+                const injectResult = injectInitiationAnchor(fullReport, subjectInput);
                 if (!injectResult.ok) {
                   log("error", "Subject name injection failed after repair pass", {
                     requestId,
@@ -838,9 +838,9 @@ Email: ${email}
                     requestId
                   );
                 }
-                fullReport = injectResult.report;
+                fullReport = normalizeRawSignalCitations(injectResult.report);
                 const retryIssues = validateReport(fullReport, {
-                  subjectInput: { fullName, birthDate, birthLocation },
+                  subjectInput,
                   canonicalRegime,
                 });
                 if (retryIssues.some((i) => i.code === "SUBJECT_NAME_MISSING")) {
@@ -904,7 +904,6 @@ Email: ${email}
         fieldConditionsDisplays = await resolveFieldConditionsForBirth(birthContext, {
           skipExternalLookups: false,
         });
-        console.log("fieldConditionsDisplays:", fieldConditionsDisplays);
       } catch (err) {
         console.error("resolveFieldConditionsForBirth threw", err);
         fieldConditionsDisplays = {

@@ -50,11 +50,23 @@ export async function POST(request: Request) {
     }
 
     // Always run deriveFromBirthData so birth context is available server-side.
-    let birthContext: EnrichedBirthContext | null = await deriveFromBirthData({
-      birthdate: birthDate,
-      birthtime: birthTime ?? "",
-      birthplace: birthLocation,
-    });
+    // Paid flow must not proceed without resolved birthContext — blank output is a bug.
+    let birthContext: EnrichedBirthContext | null = null;
+    try {
+      birthContext = await deriveFromBirthData({
+        birthdate: birthDate,
+        birthtime: birthTime ?? "",
+        birthplace: birthLocation,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      log("error", "deriveFromBirthData_failed", { requestId, message: msg });
+      return errorResponse(500, "Birth data resolution failed. Please verify date, time, and location.", requestId);
+    }
+    if (!birthContext) {
+      log("error", "deriveFromBirthData_returned_null", { requestId });
+      return errorResponse(500, "Birth data resolution failed. Please verify date, time, and location.", requestId);
+    }
 
     // Sun/Moon context (computed locally, no external APIs).
     if (birthContext != null) {

@@ -27,7 +27,7 @@ export default function ReportDocument({ profile }) {
     if (!rid) return;
     if (FAKE_PAY) {
       setBeautyUnlocked();
-      window.location.href = "/whois/start";
+      window.location.href = `/whois/view?reportId=${encodeURIComponent(rid)}`;
       return;
     }
     setCheckoutError(null);
@@ -41,9 +41,9 @@ export default function ReportDocument({ profile }) {
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
-          setCheckoutError("This report cannot be unlocked. Use the full flow to generate a new one.");
+          setCheckoutError("This registry record cannot be minted. Use the full flow to create a new one.");
         } else {
-          setCheckoutError(json?.message ?? json?.error ?? "Checkout unavailable. Try again later.");
+          setCheckoutError(json?.message ?? json?.error ?? "Mint unavailable. Try again later.");
         }
         setRedirecting(false);
         return;
@@ -53,9 +53,9 @@ export default function ReportDocument({ profile }) {
         window.location.href = url;
         return;
       }
-      setCheckoutError("No checkout URL returned.");
+      setCheckoutError("No mint URL returned.");
     } catch {
-      setCheckoutError("Could not start checkout. Please try again.");
+      setCheckoutError("Could not start mint. Please try again.");
     } finally {
       setRedirecting(false);
     }
@@ -160,28 +160,52 @@ export default function ReportDocument({ profile }) {
           </p>
         </section>
 
-        {/* Purchase WHOIS Agent Access */}
-        {profile?.reportId && (
-          <section className="mb-10 pt-6 border-t border-black/10">
-            <button
-              type="button"
-              onClick={handlePurchase}
-              disabled={redirecting}
-              className="w-full sm:w-auto px-8 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ borderRadius: 0 }}
-            >
-              {redirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
-            </button>
-            {checkoutError && (
-              <p className="mt-2 text-sm text-red-600" role="alert">
-                {checkoutError}
-              </p>
-            )}
-            <p className="mt-2 text-xs text-black/55">
-              One-time purchase · Agent-readable calibration token
-            </p>
-          </section>
-        )}
+        {/* Mint registry record — show only when registry.state === REGISTERED; use canonical state */}
+        {profile?.reportId && (() => {
+          const state = profile?.registry?.state?.toUpperCase?.();
+          const showMintCTA = state === undefined ? true : state === "REGISTERED";
+          const isMinted = state === "MINTED" || state === "RESOLVED" || state === "INDEXED";
+
+          if (showMintCTA) {
+            return (
+              <section className="mb-10 pt-6 border-t border-black/10">
+                <button
+                  type="button"
+                  onClick={handlePurchase}
+                  disabled={redirecting}
+                  className="w-full sm:w-auto px-8 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ borderRadius: 0 }}
+                >
+                  {redirecting ? "Redirecting…" : "Mint registry record"}
+                </button>
+                {checkoutError && (
+                  <p className="mt-2 text-sm text-red-600" role="alert">
+                    {checkoutError}
+                  </p>
+                )}
+                <p className="mt-2 text-xs text-black/55">
+                  One-time purchase · Agent-readable calibration token
+                </p>
+              </section>
+            );
+          }
+          if (isMinted) {
+            return (
+              <section className="mb-10 pt-6 border-t border-black/10">
+                <p
+                  className="text-sm font-medium text-black/75"
+                  style={{ fontFamily: "var(--font-beauty-serif), Georgia, serif" }}
+                >
+                  Registry record minted · Agent token active
+                </p>
+                <p className="mt-1 text-xs text-black/55">
+                  Use your token at the WHOIS API for agent-readable calibration.
+                </p>
+              </section>
+            );
+          }
+          return null;
+        })()}
 
         <FlowNav variant="light" className="pt-8 border-t border-black/10" />
       </article>

@@ -21,8 +21,8 @@ import type { VectorZero } from "@/lib/vector-zero";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
-import { saveBeautyProfileV1 } from "@/lib/beauty-profile-store";
-import { SCHEMA_VERSION, getEngineVersion } from "@/lib/beauty-profile-schema";
+import { loadBeautyProfileV1, saveBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { SCHEMA_VERSION, getEngineVersion, buildRegistryForResolved } from "@/lib/beauty-profile-schema";
 import { validateEngineBody } from "@/lib/validate-engine-body";
 import { allowExternalWrites, isTestMode } from "@/lib/runtime-mode";
 import {
@@ -62,19 +62,15 @@ const IMAGE_SLUGS = [
 const FALLBACK_PROMPT =
   "Abstract light field, structural grid, deep navy #050814 with violet #7A4FFF accents, scientific-mythic portal, no figures, no faces.";
 
-console.log("ENGINE ROUTE LOADED");
-
 export async function POST(req: Request) {
   const kill = killSwitchResponse();
   if (kill) return kill;
-  console.log("ENTERED_ENGINE_ROUTE");
   const requestId = crypto.randomUUID();
   const start = Date.now();
   const mark = () => Date.now() - start;
   log("info", "request", { requestId, method: "POST", path: "/api/engine" });
   try {
     const body = await req.json();
-    console.log("REQUEST_BODY:", body);
     const validation = validateEngineBody(body);
     if (!validation.ok) {
       log("warn", "validation failed", { requestId, error: validation.error.message });
@@ -161,7 +157,6 @@ export async function POST(req: Request) {
     log("info", "stage", { requestId, stage: "engine_request_end", durationMs: mark() });
 
     const rawEngineResponseText = await engineRes.text();
-    console.log("RAW_ENGINE_GENERATE_RESPONSE before JSON.parse:", rawEngineResponseText);
 
     let engineData: EngineResponse;
     try {
@@ -299,8 +294,6 @@ export async function POST(req: Request) {
       }
       const openai = new OpenAI({ apiKey });
       try {
-        console.log("VALIDATION_PASSED");
-        console.log("BEFORE_MODEL_CALL");
         const eveFilterResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -316,8 +309,6 @@ export async function POST(req: Request) {
         response_format: { type: "json_object" },
         temperature: 0.5,
       });
-        console.log("AFTER_MODEL_CALL");
-        console.log("MODEL_CALL_RESPONSE:", eveFilterResponse);
         filterText = eveFilterResponse.choices[0]?.message?.content ?? "";
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -335,7 +326,6 @@ export async function POST(req: Request) {
 
     let filterOutput: Record<string, unknown>;
     try {
-      console.log("RAW_MODEL_OUTPUT (filterText) before JSON.parse:", filterText);
       const raw = JSON.parse(filterText) as unknown;
       if (raw == null || typeof raw !== "object" || Array.isArray(raw)) {
         throw new Error("E.V.E. response is not a JSON object");
@@ -376,6 +366,14 @@ export async function POST(req: Request) {
       originCoordinatesDisplay = `${placeName}, ${latStr}, ${lonStr}`;
     }
 
+    let existingRegistry = null;
+    try {
+      const existing = await loadBeautyProfileV1(reportId, requestId);
+      existingRegistry = existing.registry ?? null;
+    } catch {
+      /* No existing profile; use fresh registry. */
+    }
+
     const payload: BeautyProfileV1 = {
       version: "1.0",
       schemaVersion: SCHEMA_VERSION,
@@ -399,6 +397,7 @@ export async function POST(req: Request) {
       birthTime: birthTime ?? undefined,
       birthLocation,
       ...(originCoordinatesDisplay != null && { originCoordinatesDisplay }),
+      registry: buildRegistryForResolved(reportId, existingRegistry, "engine"),
     };
     await saveBeautyProfileV1(reportId, payload, requestId);
 

@@ -193,13 +193,13 @@ export function validateSingleRegime(
   return issues;
 }
 
-/** Extract RAW SIGNAL bullets and their [key=value] citations. Enforces exactly one citation per bullet. */
+/** Extract RAW SIGNAL bullets and their [key=value] citations. Uses same split as normalizer. */
 function extractRawSignalCitations(report: string): Array<{ bullet: string; citation: string; key?: string; value?: string }> {
   const results: Array<{ bullet: string; citation: string; key?: string; value?: string }> = [];
   const rawSection = report.split(/(?:^|\n)\s*RAW SIGNAL\s*/i);
   for (let i = 1; i < rawSection.length; i++) {
     const content = rawSection[i]!.split(/(?:^|\n)\s*(?:CUSTODIAN|ORACLE)\s*/i)[0] ?? "";
-    const bullets = content.split(/\n\s*[-•*]\s*/).filter((b) => b.trim().length > 0);
+    const bullets = content.split(/(?:^|\n)\s*[-•*]\s*/).slice(1).filter((b) => b.trim().length > 0);
     for (const b of bullets) {
       const bulletTrim = b.trim();
       const bracketMatch = bulletTrim.match(/\[([^\]]+)\]\s*$/);
@@ -295,6 +295,122 @@ export function validateCitations(
   }
 
   return issues;
+}
+
+const CITATION_KEY_VALUE_REGEX = /\[[a-z0-9_]+=[^\]]*\]/g;
+
+function extractKeyFromCitation(match: string): string {
+  const inner = match.slice(1, -1);
+  const eq = inner.indexOf("=");
+  return (eq >= 0 ? inner.slice(0, eq) : inner).toLowerCase();
+}
+
+/**
+ * Normalize RAW SIGNAL bullets:
+ * - Keep at most one [key=value] per bullet (prefer last allowed when multiple).
+ * - When 2+ citations: remove all but the one to keep (last allowed, or last if none allowed).
+ * - When 1 forbidden + 1+ allowed: remove forbidden, keep last allowed.
+ * Does not modify non-RAW-SIGNAL sections.
+ */
+export function normalizeRawSignalCitations(
+  report: string,
+  allowedKeys: readonly string[] = ALLOWED_CITATION_KEYS
+): string {
+  const allowedSet = new Set(allowedKeys.map((k) => k.toLowerCase()));
+  const sections = report.split(/(?:^|\n)\s*RAW SIGNAL\s*/i);
+  if (sections.length < 2) return report;
+
+  let result = sections[0] ?? "";
+  for (let i = 1; i < sections.length; i++) {
+    result += "\nRAW SIGNAL";
+    const section = sections[i] ?? "";
+    const custodianSplit = section.split(/((?:^|\n)\s*(?:CUSTODIAN|ORACLE)\s*)/i);
+    const rawContent = custodianSplit[0] ?? "";
+    const afterRaw = custodianSplit.slice(1).join("");
+
+    const parts = rawContent.split(/(?:^|\n)\s*[-•*]\s*/);
+    const leading = parts[0] ?? "";
+    const bulletTexts = parts.slice(1).filter((b) => b.trim().length > 0);
+    const bulletMarker = rawContent.match(/(?:^|\n)(\s*[-•*]\s*)/)?.[1] ?? "- ";
+
+    let normalized = leading;
+    for (const bullet of bulletTexts) {
+      const trimmed = bullet.trim();
+      const matches = trimmed.match(CITATION_KEY_VALUE_REGEX);
+      if (!matches || matches.length === 0) {
+        normalized += "\n" + bulletMarker + bullet.trimEnd();
+        continue;
+      }
+      if (matches.length === 1) {
+        const key = extractKeyFromCitation(matches[0]!);
+        if (allowedSet.has(key)) {
+          normalized += "\n" + bulletMarker + bullet.trimEnd();
+          continue;
+        }
+        // Single forbidden citation — cannot fix (no allowed to keep)
+        normalized += "\n" + bulletMarker + bullet.trimEnd();
+        continue;
+      }
+      // 2+ citations: keep one. Prefer last allowed; else last.
+      const allowedIndices = matches
+        .map((m, idx) => ({ m, idx, key: extractKeyFromCitation(m) }))
+        .filter(({ key }) => allowedSet.has(key))
+        .map(({ idx }) => idx);
+      const keepIdx = allowedIndices.length > 0
+        ? (allowedIndices[allowedIndices.length - 1] ?? 0)
+        : matches.length - 1;
+
+      let count = 0;
+      const normalizedBullet = trimmed.replace(CITATION_KEY_VALUE_REGEX, (m) => {
+        const idx = count++;
+        return idx === keepIdx ? m : "";
+      });
+      normalized += "\n" + bulletMarker + normalizedBullet.replace(/\s{2,}/g, " ").trim();
+    }
+    result += normalized + afterRaw;
+  }
+  return result;
+}
+
+/**
+ * Debug: log RAW SIGNAL bullets that would fail CITATION_MULTIPLE or CITATION_KEY_FORBIDDEN,
+ * and whether normalization changed them. Call immediately before final validation.
+ */
+export function logCitationDebug(
+  report: string,
+  context: string,
+  allowedKeys: readonly string[] = ALLOWED_CITATION_KEYS
+): void {
+  const citations = extractRawSignalCitations(report);
+  const allowedSet = new Set(allowedKeys.map((k) => k.toLowerCase()));
+  const normalized = normalizeRawSignalCitations(report, allowedKeys);
+  const afterCitations = extractRawSignalCitations(normalized);
+
+  for (let i = 0; i < citations.length; i++) {
+    const c = citations[i]!;
+    const isMultiple = c.citation === "MULTIPLE";
+    const key = c.key?.toLowerCase();
+    const isForbidden = key != null && !allowedSet.has(key) && c.citation && c.citation !== "MULTIPLE";
+    if (!isMultiple && !isForbidden) continue;
+
+    const matches = c.bullet.match(/\[[a-z0-9_]+=[^\]]*\]/g) ?? [];
+    const after = afterCitations[i];
+    const changed = after && after.bullet !== c.bullet;
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log("CITATION_DEBUG", {
+      context,
+      bullet: c.bullet.slice(0, 120),
+      matches,
+      matchCount: matches.length,
+      isMultiple,
+      isForbidden: isForbidden ?? false,
+      forbiddenKey: isForbidden ? key : undefined,
+      normalizationChanged: changed,
+      afterBullet: changed && after ? after.bullet.slice(0, 120) : undefined,
+    });
+    }
+  }
 }
 
 /** Strip deterministic blocks and [key=value] citations for narrative-only comparison. */

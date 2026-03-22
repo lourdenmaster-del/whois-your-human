@@ -103,6 +103,29 @@ export async function getAgentEntitlementByReportId(
   return memoryEntitlementsByReport.get(reportId) ?? null;
 }
 
+/**
+ * Revoke an entitlement by token. Updates status to "revoked" in both Blob paths.
+ * Revoked tokens fail whois/prior/feedback/drift-check with TOKEN_NOT_AUTHORIZED (403).
+ */
+export async function revokeAgentEntitlement(token: string): Promise<boolean> {
+  const entitlement = await getAgentEntitlementByToken(token);
+  if (!entitlement) return false;
+  const revoked: AgentEntitlement = { ...entitlement, status: "revoked" };
+  await saveAgentEntitlement(revoked);
+  return true;
+}
+
+/**
+ * Revoke an entitlement by reportId. Use when token is unknown (e.g. pre-deploy invalidation).
+ */
+export async function revokeAgentEntitlementByReportId(reportId: string): Promise<boolean> {
+  const entitlement = await getAgentEntitlementByReportId(reportId);
+  if (!entitlement) return false;
+  const revoked: AgentEntitlement = { ...entitlement, status: "revoked" };
+  await saveAgentEntitlement(revoked);
+  return true;
+}
+
 export async function saveAgentFeedback(
   record: AgentFeedbackRecord
 ): Promise<void> {

@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   log("info", "request", { requestId, route: "/api/stripe/create-checkout-session" });
 
   try {
-    let body: { reportId?: string; prePurchase?: boolean };
+    let body: { reportId?: string };
     try {
       body = await request.json();
     } catch {
@@ -22,24 +22,21 @@ export async function POST(request: Request) {
     }
 
     const reportId = typeof body?.reportId === "string" ? body.reportId.trim() : "";
-    const prePurchase = body?.prePurchase === true || (!reportId && body?.reportId === undefined);
 
-    if (!prePurchase && !reportId) {
+    if (!reportId) {
       return errorResponse(400, "MISSING_REPORT_ID", requestId);
     }
 
-    if (!prePurchase) {
-      try {
-        await loadBeautyProfileV1(reportId, requestId);
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        if (message === "BEAUTY_PROFILE_NOT_FOUND") {
-          log("info", "checkout_attempt", { requestId, reportId, result: "BEAUTY_PROFILE_NOT_FOUND" });
-          return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
-        }
-        log("error", "checkout_attempt", { requestId, reportId, result: "BEAUTY_PROFILE_READ_FAILED" });
-        return errorResponse(500, "BEAUTY_PROFILE_READ_FAILED", requestId);
+    try {
+      await loadBeautyProfileV1(reportId, requestId);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      if (message === "BEAUTY_PROFILE_NOT_FOUND") {
+        log("info", "checkout_attempt", { requestId, reportId, result: "BEAUTY_PROFILE_NOT_FOUND" });
+        return errorResponse(404, "BEAUTY_PROFILE_NOT_FOUND", requestId);
       }
+      log("error", "checkout_attempt", { requestId, reportId, result: "BEAUTY_PROFILE_READ_FAILED" });
+      return errorResponse(500, "BEAUTY_PROFILE_READ_FAILED", requestId);
     }
 
     const secretKey = process.env.STRIPE_SECRET_KEY?.trim();
@@ -60,21 +57,13 @@ export async function POST(request: Request) {
     const stripe = new Stripe(secretKey);
 
     const successUrl = `${origin}/whois/success?session_id={CHECKOUT_SESSION_ID}`;
-    const metadata: Record<string, string> = prePurchase
-      ? { prePurchase: "1" }
-      : { reportId };
+    const metadata: Record<string, string> = { reportId };
 
-    const productData = prePurchase
-      ? {
-          name: "WHOIS Agent Access",
-          description:
-            "Generates your WHOIS record and provides a token for agent-readable calibration via API. One-time unlock.",
-        }
-      : {
-          name: "WHOIS Agent Access",
-          description:
-            "Generates your WHOIS record and provides a token for agent-readable calibration via API. Not a subscription.",
-        };
+    const productData = {
+      name: "Mint registry record",
+      description:
+        "Mints your WHOIS record and provides an entitlement token for agent-readable calibration via API. One-time.",
+    };
 
     let session;
     try {
@@ -105,7 +94,7 @@ export async function POST(request: Request) {
 
     log("info", "stage", {
       requestId,
-      reportId: reportId || "(pre-purchase)",
+      reportId,
       stage: "stripe_session_created",
       testMode: secretKey.startsWith("sk_test_"),
     });

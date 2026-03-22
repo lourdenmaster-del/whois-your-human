@@ -136,7 +136,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
     if (FAKE_PAY) {
       console.log("FAKE PAY MODE – no charge made");
       setBeautyUnlocked();
-      window.location.href = "/whois/start";
+      window.location.href = `/whois/view?reportId=${encodeURIComponent(reportId)}`;
       return;
     }
     setCheckoutError(null);
@@ -199,7 +199,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
           className="px-8 py-3.5 bg-[#FF3B3B] text-white text-sm font-semibold transition-all duration-300 hover:bg-[#ff5252] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ borderRadius: 0 }}
         >
-          {apiDisabled ? "Unavailable" : loading ? "Generating Preview…" : "Preview & Pay to Unlock"}
+          {apiDisabled ? "Unavailable" : loading ? "Generating preview…" : "Preview & mint registry record"}
         </button>
         {error && <p className="text-red-500 text-sm">{error}</p>}
       </div>
@@ -221,7 +221,7 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
             </button>
 
             <h2 id="preview-title" className="text-xl font-semibold text-center text-gray-900">
-              Your WHOIS record preview
+              Registry record preview
             </h2>
 
             {profile?.emotionalSnippet && (
@@ -305,10 +305,10 @@ export default function PayUnlockButton({ birthData }: PayUnlockProps) {
                 disabled={apiDisabled || redirecting}
                 className="w-full px-6 py-3.5 bg-[#7A4FFF] text-white text-sm font-semibold rounded-xl hover:bg-[#8b5fff] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+                {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Mint registry record"}
               </button>
               <p className="text-xs text-gray-500 text-center">
-                One-time · For this report only
+                One-time · For this registry record only
               </p>
             </div>
           </div>

@@ -162,10 +162,10 @@ export default function WhoisStartPage() {
                 className="text-xl sm:text-2xl font-semibold tracking-wide"
                 style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
               >
-                Generate your WHOIS record
+                Execute full resolution
               </h1>
               <p className="text-sm leading-relaxed" style={{ color: "#9a9aa0" }}>
-                Your WHOIS record is already active. LIGS gives you the structure to understand it.
+                Mint active. Execute resolution to generate your full Resolution Record.
               </p>
             </div>
             {error && (
@@ -181,7 +181,7 @@ export default function WhoisStartPage() {
             <LightIdentityForm
               onSubmit={handleFormSubmit}
               showOptionalNotes={true}
-              submitButtonLabel={apiDisabled ? "Unavailable" : "Generate my report"}
+              submitButtonLabel={apiDisabled ? "Unavailable" : "Execute resolution"}
               initialFormData={lastFormData}
               hideSubmitButton={apiDisabled}
             />

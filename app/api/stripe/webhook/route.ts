@@ -2,7 +2,8 @@ import Stripe from "stripe";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
-import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { loadBeautyProfileV1, saveBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { buildRegistryForRegistered, mergeRegistryMinted } from "@/lib/beauty-profile-schema";
 import { stripeTestModeRequired } from "@/lib/runtime-mode";
 import {
   getAgentEntitlementByReportId,
@@ -108,6 +109,27 @@ export async function POST(request: Request) {
         reportId,
         stripeSessionId: session.id,
         tokenPrefix: token.slice(0, 12),
+      });
+    }
+
+    // Persist MINTED state on canonical record.
+    try {
+      const profile = await loadBeautyProfileV1(reportId, requestId);
+      const baseRegistry = profile.registry ?? buildRegistryForRegistered(reportId, "engine");
+      const nextRegistry = mergeRegistryMinted(baseRegistry);
+      await saveBeautyProfileV1(
+        reportId,
+        { ...profile, registry: nextRegistry },
+        requestId
+      );
+      log("info", "registry_minted_persisted", { requestId, reportId });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      log("warn", "registry_minted_persist_failed", { requestId, reportId, message });
+      console.error("CRITICAL: registry_minted_persist_failed", {
+        reportId,
+        checkoutSessionId,
+        error: e,
       });
     }
     log("info", "webhook_checkout_stage", {

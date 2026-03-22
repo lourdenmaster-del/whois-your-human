@@ -6,11 +6,9 @@ import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetype
 import {
   submitToBeautySubmit,
   submitToBeautyDryRun,
-  prepurchaseBeautyDraft,
 } from "@/lib/engine-client";
 import {
   setBeautyUnlocked,
-  setBeautyDraft,
   saveLastFormData,
   saveOriginIntake,
   loadLastFormData,
@@ -49,20 +47,20 @@ const INTAKE_PROMPTS = {
   email: "Contact email:",
 };
 
-/** Exact clipboard payload when a public extract exists (e.g. waitlist report payload). */
-const AI_WHOIS_USE_WITH_AI_BLOCK = `You can use my WHOIS profile to calibrate how you work with me (early-stage; not deterministic).
+/** Exact clipboard payload when a public extract exists (e.g. waitlist Human Prior). */
+const AI_WHOIS_USE_WITH_AI_BLOCK = `You can use my registry record to calibrate how you work with me (early-stage; not deterministic).
 
 Use it to:
 - adjust explanation style when it fits my record
 - frame decisions when it fits my record
 - note recurring patterns when they appear in the record`;
 
-/** Clipboard hint before checkout / paid unlock — no factual calibration claims. */
-const AI_WHOIS_PRE_UNLOCK_BLOCK = `I'm going through WHOIS YOUR HUMAN intake. My WHOIS record (agent calibration record) will be available after I complete checkout and unlock — please use neutral, general assistance until then.`;
+/** Clipboard hint before mint — no factual calibration claims. */
+const AI_WHOIS_PRE_UNLOCK_BLOCK = `I'm registering in the LIGS Human WHOIS Registry. My registry record will be minted and available to agents after I complete the mint step — please use neutral, general assistance until then.`;
 
-/** Sequential single-line status messages during processing (registry language). */
+/** Sequential single-line status messages during processing (registry protocol). */
 const PROCESSING_MESSAGES = [
-  "Creating your WHOIS record…",
+  "Registry record created…",
   "Resolving solar segment…",
   "Mapping archetypal structure…",
 ];
@@ -397,10 +395,10 @@ export default function OriginTerminalIntake() {
     setPhase("completeAwaitingEnterRedirect");
   }, []);
 
-  const advanceToProcessing = useCallback(() => {
+  const   advanceToProcessing = useCallback(() => {
     setPhase("processing");
     setProcessingIndex(0);
-    setTerminalLine("Registration complete. Resolving registry record…");
+    setTerminalLine("Resolution initiated. Creating registry record…");
   }, []);
 
   const showInputRow =
@@ -604,40 +602,41 @@ export default function OriginTerminalIntake() {
         });
         const json = await res.json();
         if (!res.ok) {
-          goToErrorAndComplete(json?.message ?? json?.error ?? "Checkout unavailable.");
+          goToErrorAndComplete(json?.message ?? json?.error ?? "Mint unavailable.");
           return;
         }
         const url = json?.data?.url ?? json?.url;
         if (url && typeof url === "string") {
           window.location.href = url;
         } else {
-          goToErrorAndComplete("No checkout URL returned.");
+          goToErrorAndComplete("No mint URL returned.");
         }
         return;
       }
-      setBeautyDraft(payload);
-      let draftId = null;
-      try {
-        const prep = await prepurchaseBeautyDraft(payload);
-        draftId = prep?.draftId ?? null;
-      } catch {
-        // fallback
+      // Canonical rule: record MUST exist before checkout. Create it now.
+      const result = await submitToBeautySubmit(payload);
+      const reportId = result?.reportId;
+      if (!reportId) {
+        goToErrorAndComplete("Registry record generation failed.");
+        return;
       }
+      saveLastFormData(reportId, payload);
+      setLastReportId(reportId);
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prePurchase: true, ...(draftId && { draftId }) }),
+        body: JSON.stringify({ reportId }),
       });
       const json = await res.json();
       if (!res.ok) {
-        goToErrorAndComplete(json?.error ?? "Checkout unavailable.");
+        goToErrorAndComplete(json?.message ?? json?.error ?? "Checkout unavailable.");
         return;
       }
       const url = json?.data?.url ?? json?.url;
       if (url && typeof url === "string") {
         window.location.href = url;
       } else {
-        goToErrorAndComplete("No checkout URL returned.");
+        goToErrorAndComplete("No mint URL returned.");
       }
     } catch (err) {
       goToErrorAndComplete(err?.message ?? "Something went wrong.");
@@ -652,23 +651,49 @@ export default function OriginTerminalIntake() {
 
   const handlePurchaseClick = useCallback(async () => {
     if (purchaseRedirecting) return;
-    if (FAKE_PAY) {
-      setBeautyUnlocked();
-      window.location.href = "/whois/start";
-      return;
-    }
     setPurchaseError(null);
     setPurchaseRedirecting(true);
     try {
-      const existingReportId = lastReportId || loadLastFormData()?.reportId;
+      let reportIdToUse = lastReportId || loadLastFormData()?.reportId;
+      if (!reportIdToUse) {
+        // Canonical rule: record MUST exist before checkout. Create it now from formData.
+        const payload = formDataRef.current
+          ? {
+              name: formDataRef.current.name?.trim() || "—",
+              birthDate: formDataRef.current.birthDate,
+              birthTime: formDataRef.current.birthTime,
+              birthLocation: formDataRef.current.birthLocation,
+              email: formDataRef.current.email?.trim?.()?.toLowerCase?.() || "",
+            }
+          : null;
+        if (!payload?.email || !payload.birthDate) {
+          setPurchaseError("Complete intake before unlocking.");
+          setPurchaseRedirecting(false);
+          return;
+        }
+        const result = await submitToBeautySubmit(payload);
+        reportIdToUse = result?.reportId;
+        if (!reportIdToUse) {
+          setPurchaseError("Registry record generation failed.");
+          setPurchaseRedirecting(false);
+          return;
+        }
+        saveLastFormData(reportIdToUse, payload);
+        setLastReportId(reportIdToUse);
+      }
+      if (FAKE_PAY) {
+        setBeautyUnlocked();
+        window.location.href = `/whois/view?reportId=${encodeURIComponent(reportIdToUse)}`;
+        return;
+      }
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(existingReportId ? { reportId: existingReportId } : { prePurchase: true }),
+        body: JSON.stringify({ reportId: reportIdToUse }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setPurchaseError(json?.message ?? json?.error ?? "Checkout unavailable.");
+        setPurchaseError(json?.message ?? json?.error ?? "Mint unavailable.");
         setPurchaseRedirecting(false);
         return;
       }
@@ -677,9 +702,9 @@ export default function OriginTerminalIntake() {
         window.location.href = url;
         return;
       }
-      setPurchaseError("No checkout URL returned.");
+        setPurchaseError("No mint URL returned.");
     } catch {
-      setPurchaseError("Could not start checkout.");
+      setPurchaseError("Could not start mint.");
     } finally {
       setPurchaseRedirecting(false);
     }
@@ -703,7 +728,7 @@ export default function OriginTerminalIntake() {
             beginRegistryReveal();
           }
         } else {
-          setTerminalLine("Executing WHOIS query…");
+          setTerminalLine("Resolution initiated…");
           setPhase("executing");
         }
       }
@@ -846,15 +871,15 @@ export default function OriginTerminalIntake() {
               >
                 {unpaidIntakeNoExtract ? (
                   <>
-                    <p>WHOIS STATUS: INTAKE RECORDED</p>
-                    <p>AI ACCESS: LOCKED UNTIL CHECKOUT</p>
-                    <p>IDENTITY RECORD: SERVER (PENDING UNLOCK)</p>
+                    <p>STATE: REGISTERED</p>
+                    <p>AGENT SURFACE: LOCKED UNTIL MINT</p>
+                    <p>REGISTRY RECORD: CANONICAL ID ISSUED (PENDING MINT)</p>
                   </>
                 ) : (
                   <>
-                    <p>WHOIS STATUS: ON FILE</p>
-                    <p>AI ACCESS: CALIBRATION AVAILABLE (UNVERIFIED)</p>
-                    <p>IDENTITY RECORD: GENERATED</p>
+                    <p>STATE: REGISTERED</p>
+                    <p>AGENT SURFACE: CALIBRATION AVAILABLE (UNVERIFIED)</p>
+                    <p>REGISTRY RECORD: ON FILE</p>
                   </>
                 )}
               </div>
@@ -863,16 +888,16 @@ export default function OriginTerminalIntake() {
                 style={{ color: muted }}
               >
                 {unpaidIntakeNoExtract
-                  ? "NEXT: Complete checkout to unlock agent record and analytical extract"
-                  : "NEXT: You may use your WHOIS with compatible AI tools"}
+                  ? "NEXT: Mint your record to unlock agent surface and analytical extract"
+                  : "NEXT: You may use your registry record with compatible AI tools"}
               </p>
               <p
                 className="font-mono text-[11px] uppercase tracking-[0.1em] pt-1"
                 style={{ color: muted }}
               >
                 {unpaidIntakeNoExtract
-                  ? "NEXT ACTION: Finish payment, then open API / case studies from unlock flow"
-                  : "NEXT ACTION: Open your WHOIS record preview"}
+                  ? "NEXT ACTION: Execute mint, then open agent surface / case studies"
+                  : "NEXT ACTION: Open your registry record"}
               </p>
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-3">
                 <p
@@ -960,7 +985,7 @@ export default function OriginTerminalIntake() {
               <p className="text-[13px]" style={{ color: bright }}>
                 Archetype Classification: {archetypeForCompletion}
               </p>
-              <p className="text-[13px] pt-1">Registry Status: On file</p>
+              <p className="text-[13px] pt-1">Registry Status: REGISTERED</p>
               <p className="text-[13px]">Created Date: {new Date().toISOString().slice(0, 10)}</p>
               <p className="text-[13px]">Record Authority: LIGS Human WHOIS Registry</p>
               <p className="text-[12px]">Registry Node</p>
@@ -1102,13 +1127,13 @@ export default function OriginTerminalIntake() {
                   disabled={purchaseRedirecting}
                   className="inline-block px-4 py-2.5 text-[12px] font-mono font-semibold bg-[#7A4FFF] text-white rounded border-0 hover:bg-[#8b5fff] disabled:opacity-50 disabled:cursor-not-allowed w-fit"
                 >
-                  {purchaseRedirecting ? "Redirecting…" : "Unlock WHOIS Agent Access"}
+                  {purchaseRedirecting ? "Redirecting…" : "Mint registry record"}
                 </button>
                 <a
                   href="#whois-preview"
                   className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
                 >
-                  Open your WHOIS record preview
+                  View registry record
                 </a>
                 <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
                   ← Return to Origin
@@ -1162,7 +1187,7 @@ export default function OriginTerminalIntake() {
             <p className="text-[11px] uppercase tracking-[0.1em] opacity-80">Preview Extract</p>
             <p className="text-[13px] leading-relaxed">
               {unpaidIntakeNoExtract
-                ? "No server-backed analytical extract is shown before checkout. Copy below describes product shape only; full agent calibration record is available after unlock."
+                ? "No server-backed analytical extract shown before mint. Copy below describes product shape only; full agent calibration record available after mint."
                   : "Analytical extract attached to the registry record above. Use it as calibration input, not certainty; full interpretive depth remains withheld until planned release."}
             </p>
             {/* WHOIS-style analytical report; section order coherent with free WHOIS: Genesis before Cosmic Twin before Archetype Expression. */}
@@ -1339,13 +1364,13 @@ export default function OriginTerminalIntake() {
                   className="mb-3 w-full font-mono text-[10px] uppercase tracking-[0.14em] sm:text-[11px] sm:tracking-[0.15em]"
                   style={{ color: "rgba(154,154,160,0.85)" }}
                 >
-                  WHOIS YOUR HUMAN — intake initialization
+                  LIGS HUMAN WHOIS REGISTRY — register your human
                 </p>
                 <p
                   className="mb-3 w-full font-mono text-[10px] leading-relaxed tracking-[0.06em] sm:text-[11px]"
                   style={{ color: "rgba(154,154,160,0.72)" }}
                 >
-                  This creates your WHOIS record. Unlock is required for AI access.
+                  Creates your registry record. Mint required for agent surface.
                 </p>
               </>
             )}

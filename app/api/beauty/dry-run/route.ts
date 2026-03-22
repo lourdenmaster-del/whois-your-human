@@ -16,7 +16,7 @@ import { buildMinimalVoiceProfile } from "@/lib/marketing/minimal-profile";
 import { buildOverlaySpecWithCopy } from "@/src/ligs/marketing";
 import { createArchetypeGradientSvgBuffer } from "@/lib/marketing/gradient-background";
 import { renderStaticCardOverlay } from "@/lib/marketing/static-overlay";
-import type { BeautyProfileV1 } from "@/lib/beauty-profile-schema";
+import { buildRegistryForRegistered, type BeautyProfileV1 } from "@/lib/beauty-profile-schema";
 
 const PLACEHOLDER_IMAGE =
   "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'/%3E";
@@ -73,6 +73,7 @@ function buildDryRunBeautyProfileV1(
   if (birthFields.dominantArchetype != null && String(birthFields.dominantArchetype).trim() !== "") {
     profile.dominantArchetype = birthFields.dominantArchetype.trim();
   }
+  profile.registry = buildRegistryForRegistered(reportId, "dry_run");
   return profile;
 }
 

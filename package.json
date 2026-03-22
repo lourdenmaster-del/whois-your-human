@@ -1,6 +1,7 @@
 {"name":"ligs-frontend","version":"0.1.0","private":true,"scripts": {"dev":"next dev --webpack",
     "dev:no-overlay":"NEXT_DISABLE_ERROR_OVERLAY=1 next dev --webpack","postinstall":"patch-package","build":"next build","start":"next start","lint":"eslint","test":"vitest","test:run":"vitest run","validate-archetypes":"vitest run src/ligs/archetypes/__tests__/validateArchetypeContract.test.ts","check:origin":"node scripts/check-origin-smoke.mjs","check:landing-assets":"node scripts/check-landing-assets.mjs","simulate:landing":"node scripts/simulate-landing-dry-run.mjs","verify:studio-test":"node scripts/verify-studio-test-paid-report.mjs",
-    "verify:agent-flow":"node scripts/verify-agent-flow.mjs","simulate:beauty":"node scripts/simulate-beauty-landing.mjs","run:ignispectrum-centerline":"node scripts/run-ignispectrum-centerline.mjs",
+    "verify:agent-flow":"node scripts/verify-agent-flow.mjs",
+    "revoke:exposed-tokens":"node scripts/revoke-exposed-tokens.mjs","simulate:beauty":"node scripts/simulate-beauty-landing.mjs","run:ignispectrum-centerline":"node scripts/run-ignispectrum-centerline.mjs",
     "blob:inventory":"node scripts/blob-storage-inventory.mjs",
     "blob:cleanup-health:dry":"node scripts/blob-storage-cleanup.mjs --prefix health/ --dry-run",
     "blob:cleanup-health":"node scripts/blob-storage-cleanup.mjs --prefix health/ --execute",

@@ -20,10 +20,10 @@ export default function WhoisCancelPage() {
           }}
         >
           <h1 className="text-xl sm:text-2xl font-semibold tracking-wide mb-4" style={{ color: "#e8e8ec", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
-            Your Sequence Was Not Completed
+            Mint not completed
           </h1>
           <p className="text-sm leading-relaxed mb-8" style={{ color: "#9a9aa0" }}>
-            You can begin again whenever you&apos;re ready.
+            Return to Origin to register and mint when ready.
           </p>
           <Link
             href="/origin"

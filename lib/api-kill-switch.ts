@@ -18,5 +18,8 @@ export function isApiDisabled(): boolean {
  */
 export function killSwitchResponse(): Response | null {
   if (!isApiDisabled()) return null;
-  return Response.json({ disabled: true, reason: "maintenance" }, { status: 503 });
+  return Response.json(
+    { disabled: true, reason: "maintenance", error: "LIGS_API_OFF" },
+    { status: 503 }
+  );
 }

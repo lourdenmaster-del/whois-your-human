@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation";
 import LandingPreviews from "@/components/LandingPreviews";
 import LightIdentityForm from "@/components/LightIdentityForm";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
-import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, setBeautyDraft, saveLastFormData } from "@/lib/landing-storage";
+import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, saveLastFormData } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
-import { submitToBeautySubmit, submitToBeautyDryRun, prepurchaseBeautyDraft } from "@/lib/engine-client";
+import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
@@ -180,20 +180,21 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
 
     setCtaCheckoutError(null);
     setAlreadyPurchasedMessage(null);
-    setBeautyDraft(formData);
     setCtaCheckoutLoading(true);
     try {
-      let draftId = null;
-      try {
-        const prep = await prepurchaseBeautyDraft(formData);
-        draftId = prep?.draftId ?? null;
-      } catch (e) {
-        if (process.env.NODE_ENV === "development") console.warn("[Prepurchase] server draft failed, using localStorage fallback:", e?.message);
+      // Canonical rule: record MUST exist before checkout. Create it now.
+      const result = await submitToBeautySubmit(formData);
+      const reportId = result?.reportId;
+      if (!reportId) {
+        setCtaCheckoutError("Generation failed: No report ID returned.");
+        setCtaCheckoutLoading(false);
+        return;
       }
+      saveLastFormData(reportId, formData);
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prePurchase: true, ...(draftId && { draftId }) }),
+        body: JSON.stringify({ reportId }),
       });
       const json = await res.json();
       if (!res.ok) {

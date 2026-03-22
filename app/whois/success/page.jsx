@@ -24,12 +24,12 @@ function WhoisSuccessContent() {
         className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
         style={{ color: "#58d68d" }}
       >
-        YOU NOW HAVE WHOIS AGENT ACCESS
+        RECORD MINTED — AGENT SURFACE ACTIVE
       </p>
       <ul className="mb-3 space-y-1 text-sm" style={{ color: "#c8c8cc" }}>
-        <li>- Your WHOIS record</li>
-        <li>- Your agent calibration record (API)</li>
-        <li>- Your access token for AI systems</li>
+        <li>- Registry record (machine-readable)</li>
+        <li>- Agent calibration record (API)</li>
+        <li>- Entitlement token for AI systems</li>
       </ul>
       <p className="text-sm" style={{ color: "#9a9aa0" }}>
         Use this to allow AI tools to adapt how they interact with you.
@@ -172,6 +172,7 @@ function WhoisSuccessContent() {
     );
   }
 
+  // Legacy prePurchase or missing reportId: no record exists. Canonical flow always has reportId.
   if (prePurchase || !reportId) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
@@ -190,25 +191,17 @@ function WhoisSuccessContent() {
                 fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
               }}
             >
-              You&apos;re Unlocked
+              Mint complete
             </h1>
-            <div className="mb-6 rounded border border-[#2a2a2e] bg-[#0a0a0b] p-4">
-              <p
-                className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
-                style={{ color: "#58d68d" }}
-              >
-                NEXT: CREATE YOUR WHOIS RECORD
-              </p>
-              <p className="text-sm leading-relaxed" style={{ color: "#9a9aa0" }}>
-                Enter your birth details to create your WHOIS record. You&apos;ll receive your agent calibration record and API token after creation.
-              </p>
-            </div>
+            <p className="text-sm leading-relaxed mb-6" style={{ color: "#9a9aa0" }}>
+              Mint received. Return to Origin to complete intake and create your registry record.
+            </p>
             <Link
-              href="/whois/start"
+              href="/origin"
               className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
               style={{ color: "#c8c8cc" }}
             >
-              Create your WHOIS record
+              Return to Origin
             </Link>
           </div>
           <p
@@ -240,7 +233,7 @@ function WhoisSuccessContent() {
                 fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
               }}
             >
-              WHOIS Agent Access active
+              STATE: MINTED — Registry record active
             </h1>
             {handoffBlock}
             <p className="text-sm mb-4" style={{ color: "#9a9aa0" }}>
@@ -272,7 +265,7 @@ function WhoisSuccessContent() {
                 className="text-[11px] uppercase tracking-wider mt-4"
                 style={{ color: "#8a8a90" }}
               >
-                reportId
+                Canonical ID (reportId)
               </p>
               <pre
                 className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
@@ -346,7 +339,7 @@ Authorization: Bearer ${entitlementToken}`}
               className="inline-flex mt-8 items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
               style={{ color: "#c8c8cc" }}
             >
-              View your WHOIS record
+              View registry record
             </Link>
             <FlowNav variant="dark" className="mt-8" />
           </div>
@@ -380,13 +373,13 @@ Authorization: Bearer ${entitlementToken}`}
               fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
             }}
           >
-            Payment received
+            Mint complete
           </h1>
           {handoffBlock}
           <p className="text-sm leading-relaxed mb-4" style={{ color: "#9a9aa0" }}>
             {tokenPollExhausted
-              ? "WHOIS Agent Access token is not available yet. Confirm Stripe delivered the webhook and your Beauty Profile exists for this report, then reload this page or use verify-session below."
-              : "Waiting for WHOIS Agent Access token (webhook). This page will update automatically…"}
+              ? "Entitlement token not yet available. Confirm webhook delivered and registry record exists for this canonical ID, then reload or use verify-session below."
+              : "Waiting for entitlement token (webhook). This page will update automatically…"}
           </p>
           <p
             className="text-[11px] uppercase tracking-wider mb-2"
@@ -425,16 +418,16 @@ Authorization: Bearer ${entitlementToken}`}
             call <code className="text-[#9a9aa0]">GET /api/agent/whois?reportId=…</code> with{" "}
             <code className="text-[#9a9aa0]">Authorization: Bearer &lt;token&gt;</code>.
           </p>
-          <p className="text-xs mb-6 font-mono" style={{ color: "#8a8a90" }}>
-            reportId: {reportId}
-          </p>
-          <Link
-            href={viewUrl}
-            className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
-            style={{ color: "#c8c8cc" }}
-          >
-            View your WHOIS record
-          </Link>
+            <p className="text-xs mb-6 font-mono" style={{ color: "#8a8a90" }}>
+              Canonical ID: {reportId}
+            </p>
+            <Link
+              href={viewUrl}
+              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
+              style={{ color: "#c8c8cc" }}
+            >
+              View registry record
+            </Link>
           <FlowNav variant="dark" className="mt-8" />
         </div>
         <p

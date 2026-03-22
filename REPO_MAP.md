@@ -8,7 +8,7 @@
 |------|------|
 | `middleware.ts` | Host canonicalization; `/` → `/origin`; `/beauty`, `/dossier`, `/voice` → `/origin`; `/whois-your-human` (+ unlock, api) public; `/ligs-studio` cookie gate. **API paths not matched.** |
 | `SYSTEM_SNAPSHOT.md` | Authoritative stack reference (must update on structural changes). |
-| `app/whois-your-human/` | Agent landing, unlock bridge → `/origin`, static API reference. |
+| `app/whois-your-human/` | Agent landing, unlock bridge → `/origin`, static API reference, **`case-studies/`** static audit pages. |
 | `.cursor/rules/` | Enforced policies (glyph law, landing lock, LIGS master, snapshot). |
 
 ## `app/`

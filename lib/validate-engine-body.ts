@@ -7,6 +7,14 @@ const REQUIRED_400_MESSAGE =
 const BIRTH_TIME_INVALID_MESSAGE =
   "birthTime is required and must be parseable (e.g. HH:MM or HH:MM:SS)";
 
+/** Birth date must be YYYY-MM-DD for engine resolution. */
+const BIRTH_DATE_INVALID_MESSAGE =
+  "birthDate must be YYYY-MM-DD format";
+
+/** birthLocation must be non-empty after trim. */
+const BIRTH_LOCATION_INVALID_MESSAGE =
+  "birthLocation is required and cannot be whitespace only";
+
 /** Minimal birth context (deriveFromBirthData) + optional on-this-day history. */
 export type BirthContextPayload = Record<string, unknown> & {
   onThisDay?: OnThisDayContext;
@@ -62,18 +70,32 @@ export function validateEngineBody(
     return { ok: false, error: { message: REQUIRED_400_MESSAGE } };
   }
   const b = body as Record<string, unknown>;
-  const fullName = b.fullName;
-  const birthDate = b.birthDate;
+  const fullNameRaw = typeof b.fullName === "string" ? b.fullName : "";
+  const birthDateRaw = typeof b.birthDate === "string" ? b.birthDate : "";
   const birthTime = b.birthTime;
-  const birthLocation = b.birthLocation;
+  const birthLocationRaw = typeof b.birthLocation === "string" ? b.birthLocation : "";
   const email = b.email;
-  if (!fullName || !birthDate || !birthLocation || !email) {
+  if (!fullNameRaw.trim() || !birthDateRaw || !birthLocationRaw.trim() || !email) {
     return { ok: false, error: { message: REQUIRED_400_MESSAGE } };
+  }
+  const birthDate = birthDateRaw.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
+    return { ok: false, error: { message: BIRTH_DATE_INVALID_MESSAGE } };
+  }
+  const birthLocation = birthLocationRaw.trim();
+  if (!birthLocation) {
+    return { ok: false, error: { message: BIRTH_LOCATION_INVALID_MESSAGE } };
   }
   const timeStr = typeof birthTime === "string" ? birthTime : "";
   if (!timeStr.trim() || !isParseableBirthTime(timeStr)) {
     return { ok: false, error: { message: BIRTH_TIME_INVALID_MESSAGE } };
   }
-  const normalized = { ...b, birthTime: normalizeBirthTime(timeStr) };
+  const normalized = {
+    ...b,
+    fullName: fullNameRaw.trim(),
+    birthDate,
+    birthLocation,
+    birthTime: normalizeBirthTime(timeStr),
+  };
   return { ok: true, value: normalized as ValidatedEngineBody };
 }

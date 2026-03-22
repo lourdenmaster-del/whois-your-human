@@ -42,6 +42,8 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 **Production entry points:**
 - `/` → rewrite to `/origin` (middleware; URL stays `/`).
 - `/origin` — Canonical human intake. Renders **`OriginTerminalIntake`**: WHOIS-style terminal (idle → intake: name, date, time, place, email → waitlist / checkout path). Locked per `landing-lock.mdc`.
+- `/for-agents` — Agent instructions page: first call (inspect), WHOIS fetch, auth, stance, endpoints. **public**.
+- `/llms.txt` — Static plain-text discovery (public root); points agents to inspect and /for-agents.
 - `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN (agent-readable WHOIS record + agent calibration record via API); primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`.
 - `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
 - `/whois-your-human/api` — Agent HTTP summary (same content as before); **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`).
@@ -54,13 +56,17 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 - `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
 - `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
 
-**Redirected to /origin (308) by middleware (Phase 1 lockdown):** `/beauty`, `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*`. **Exception:** `/beauty/view`, `/beauty/success`, `/beauty/cancel` allowed when studio-authenticated (for WHOIS testing). **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/prior-format`**, **`/whois-your-human/integration`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Canonical purchase flow (public):** `/whois/start`, `/whois/success`, `/whois/cancel`, `/whois/view` — WHOIS registry routes; Stripe success_url/cancel_url and all client navigation use these. No `/beauty/*` in public flow.
+
+**Legacy redirects (308):** `/beauty/start` → `/whois/start`, `/beauty/success` → `/whois/success`, `/beauty/cancel` → `/whois/cancel`, `/beauty/view` → `/whois/view` (query preserved). `/beauty` and other `/beauty/*` → `/origin`.
+
+**Redirected to /origin (308):** `/beauty`, remaining `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*` (when not studio-authenticated). **`/for-agents`**, **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/prior-format`**, **`/whois-your-human/integration`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). **`/llms.txt`** served from `public/`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
 
 ---
 
 ## 0.6 Known limitations (exemplar preview flow)
 
-**Terminal preview flow:** `/beauty/view` renders `PreviewRevealSequence` (exemplar, aperture law) → `InteractiveReportSequence` (report, same aperture law). Landing, preview, and report share whois-aperture; no terminal chrome; one protocol state at a time. No dossier, no WHOIS grid, no registry cards. **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
+**Terminal preview flow:** `/whois/view` renders `PreviewRevealSequence` (exemplar, aperture law) → `InteractiveReportSequence` (report, same aperture law). Landing, preview, and report share whois-aperture; no terminal chrome; one protocol state at a time. No dossier, no WHOIS grid, no registry cards. **Sample report removed from public flow:** `/beauty/sample-report` redirects to `/origin`; no public links lead there.
 
 ---
 
@@ -76,7 +82,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Legacy public routes → /origin (308): /beauty, /beauty/*, /dossier, /voice. **`/whois-your-human`**, **`/unlock`**, **`/api`**, **`/case-studies/*`** → `next()` (public AI inspection boundary). /ligs-studio gated per studio cookie. Canonical host: ligs.io. Matcher excludes _next, api, favicon. |
+| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Canonical purchase flow: `/whois`, `/whois/*` → `next()`. Legacy `/beauty/start`, `/beauty/success`, `/beauty/cancel`, `/beauty/view` → `/whois/*` (308, query preserved). `/beauty`, remaining `/beauty/*`, /dossier, /voice → /origin (308). **`/for-agents`**, **`/whois-your-human`**, **`/unlock`**, **`/api`**, **`/case-studies/*`** → `next()` (public AI inspection boundary). /ligs-studio gated per studio cookie. Canonical host: ligs.io. |
 | `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
 | — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
@@ -87,6 +93,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | Path | Type | Purpose |
 |------|------|--------|
 | `app/origin/page.jsx` | Server | Renders **`OriginTerminalIntake`**. Canonical public landing (terminal WHOIS intake). |
+| `app/for-agents/page.jsx` | Server | Agent instructions: first call, WHOIS, auth, stance, endpoints. Utilitarian, not marketing-heavy. |
 | `app/origin/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent. |
 | `app/whois-your-human/page.jsx` | Server | Agent product landing → **`WhoisYourHumanLanding`**. |
 | `app/whois-your-human/layout.jsx` | Layout | Metadata; dark shell for WHOIS product page. |
@@ -105,15 +112,25 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `components/WhoisCaseStudyDocument.jsx` | Server | Shared shell + sections (Case ID, Question, Subject, Setup, Procedure, Observations, Result, Limits, Next question). Embeds **AGENT INSTRUCTION** above Case ID. |
 | `components/WhoisYourHumanUnlock.jsx` | Server | Pre-intake copy + **Begin** / **View API**. |
 
-**Beauty section** (nested under `app/beauty/` — all `/beauty` and `/beauty/*` redirect to `/origin` via middleware; see §0.5):
+**WHOIS section** (canonical purchase flow — public routes):
+
+| Path | Type | Purpose |
+|------|------|--------|
+| `app/whois/layout.jsx` | Layout | Dark shell for WHOIS purchase flow. |
+| `app/whois/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Submit → `/whois/view?reportId=...`. |
+| `app/whois/success/page.jsx` | Client | Post-Stripe success; verify-session; View → `/whois/view?reportId=...`. |
+| `app/whois/cancel/page.jsx` | Page | Stripe checkout cancelled. Terminal-aligned. |
+| `app/whois/view/page.jsx` | Server | View WHOIS record by `?reportId=`; uses `BeautyViewClient`, `getOrigin()`; fetches `GET /api/beauty/[reportId]`. |
+
+**Beauty section** (legacy/internal — `/beauty/*` redirects to `/whois/*` or `/origin` via middleware; see §0.5):
 
 | Path | Type | Purpose |
 |------|------|--------|
 | `app/beauty/layout.jsx` | Layout | System serif (Georgia), `beauty-theme`, background transparent (page-level bg set per route) |
 | `app/beauty/page.jsx` | Server | Renders `BeautyLandingClient` only. Single Beauty landing. |
-| `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. |
-| `app/beauty/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Terminal-aligned: black bg, origin-terminal box, mono text. Submit → `submitToBeautySubmit`/`submitToBeautyDryRun`; on success → `/beauty/view?reportId=...`. |
-| `app/beauty/view/page.jsx` | Client | View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
+| `app/beauty/BeautyLandingClient.jsx` | Client | **Waitlist-only by default:** Hero; Ignis exemplar + 3 bullets; Early Access waitlist; 12-regime static grid (no links, no click handlers); Footer. Hero background: `/ligs-landing-bg.png` (dark geometric) only — no beauty-background, beauty-hero, or blob-driven hero. Set `NEXT_PUBLIC_WAITLIST_ONLY=0` to re-enable purchase flow. **Links → `/whois/view`.** |
+| `app/beauty/start/page.jsx` | Client | **Legacy** — middleware redirects to `/whois/start`. Birth form; on success → `/whois/view`. |
+| `app/beauty/view/page.jsx` | Client | **Legacy** — middleware redirects to `/whois/view`. View beauty profile by `?reportId=`; uses `BeautyViewClient`, `getBaseUrl()` from `NEXT_PUBLIC_VERCEL_URL` / `NEXT_PUBLIC_SITE_URL` |
 | `app/beauty/view/BeautyViewClient.jsx` | Client | **Terminal preview flow only.** Exemplar: waits for profile, then `PreviewRevealSequence` (aperture law, init→archetype cycle→family cycle→artifact→continue) → `InteractiveReportSequence`. Passes `reportId` for deterministic archetype family image selection. Real report: `InteractiveReportSequence` only. Missing/invalid reportId: simple error state + link to /origin. DRY_RUN (`?dryRun=1`) shows placeholder when Blob empty. Tracks report_fetch, images_loaded, errors. |
 | `app/beauty/sample-report/page.jsx` | Client | **Removed from public flow.** Redirects to /origin on load. Route kept for code safety; no public links lead here. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`). Terminal-aligned: black bg, origin-terminal box, mono text, no LigsFooter. |
@@ -124,7 +141,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | Path | Type | Purpose |
 |------|------|--------|
 | `app/dossier/page.tsx` | Page | Static sample Identity Dossier (white-paper style). Registry record block, six sections (Identity Resolution, Archetype Profile, Light Expression, Environmental Interaction, Cosmic Analog, Identity Artifact). Uses Ignis exemplar archetype image + share card. CTA → /origin. Does not modify preview/report flow. |
-| `app/ligs-studio/page.tsx` | Page | Renders `LigsStudio` — internal UI: image vertical slice (generate background, compose marketing card); **Report Library** (list from `/api/report/previews`, View preview → `/beauty/view?reportId=`, Unlock WHOIS → Stripe checkout); Test Paid Report / Live Report; inputs persisted in localStorage |
+| `app/ligs-studio/page.tsx` | Page | Renders `LigsStudio` — internal UI: image vertical slice (generate background, compose marketing card); **Report Library** (list from `/api/report/previews`, View preview → `/whois/view?reportId=`, Unlock WHOIS → Stripe checkout); Test Paid Report / Live Report; inputs persisted in localStorage |
 | `app/ligs-studio/login/page.tsx` | Client | When `LIGS_STUDIO_TOKEN` set: password-style token form POSTs to `/api/studio-auth`; on success redirects to `/ligs-studio` (cookie set). |
 | `app/voice/page.jsx` | Page | Renders `VoiceProfileBuilder` — build voice profiles (local state only) |
 
@@ -159,10 +176,10 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Module | Purpose |
 |--------|--------|
-| `lib/engine-client.js` | `buildEnginePayload`, `submitToEngine`, `submitToBeautyDryRun(formData)` → POST `/api/beauty/dry-run`; `submitToEve`, `submitToBeautySubmit`. **Paid live runs:** reads `sessionStorage` key `ligs_execution_key` (set from `/beauty/success` after verify-session); sends `executionKey` on submit/engine/EVE; clears key after successful non–dry-run beauty submit. |
+| `lib/engine-client.js` | `buildEnginePayload`, `submitToEngine`, `submitToBeautyDryRun(formData)` → POST `/api/beauty/dry-run`; `submitToEve`, `submitToBeautySubmit`. **Paid live runs:** reads `sessionStorage` key `ligs_execution_key` (set from `/whois/success` after verify-session); sends `executionKey` on submit/engine/EVE; clears key after successful non–dry-run beauty submit. |
 | `lib/unwrap-response.ts` | Unwrap API JSON; throw with `error` / `code` on non-OK |
 | `lib/analytics.js` | `track(event, reportId?)` → POST `/api/analytics/event` |
-| `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `saveOriginIntake`, `getOriginIntake`, `clearOriginIntake` — origin terminal intake (birth date/time/location) for /beauty/view local resolution. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
+| `lib/landing-storage.js` | `saveLastFormData`, `loadLastFormData`, `clearLastFormData` — localStorage for form state. `saveOriginIntake`, `getOriginIntake`, `clearOriginIntake` — origin terminal intake (birth date/time/location) for /whois/view local resolution. `setBeautyUnlocked()`, `isBeautyUnlocked()` — pay-first unlock (set from success page after Stripe checkout). |
 | `lib/archetypes.js` | Canonical `LIGS_ARCHETYPES` — 12 archetypes in solar-season order. Single source for lib/ and components (resolveArchetypeFromDate, API beauty route, LandingPreviews, archetype-preview-config). |
 | `lib/terminal-intake/resolveArchetypeFromDate.js` | Client-safe archetype resolution from birth date. `getArchetypeAndSegmentFromDate(dateStr)` returns `{ archetype, segmentIndex }`; `resolveArchetypeFromDate(dateStr)` returns archetype string. Uses `LIGS_ARCHETYPES` from lib/archetypes; `approximateSunLongitudeFromDate` + 12×30° segments. Returns "Ignispectrum" if unparseable. |
 | `lib/api-client.js` | `fetchBlobPreviews({ maxCards, maxPreviews, useBlob })` — GET `/api/report/previews` wrapper |
@@ -472,6 +489,42 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑20 (Token invalidation — deploy prep)
+
+**Token revocation:** Added `revokeAgentEntitlement(token)` and `revokeAgentEntitlementByReportId(reportId)` to `lib/agent-entitlement-store.ts`. Revoked entitlements fail whois/prior/feedback/drift-check with 403 TOKEN_NOT_AUTHORIZED. Verify-session returns `entitlementToken` only when `entitlement?.status === "active"`. **Script:** `scripts/revoke-exposed-tokens.mjs` — revokes by reportId or token; usage: `REPORT_IDS=id1,id2 npm run revoke:exposed-tokens` or `--report-id <id>` / `--token <wyh_xxx>`. Run before production deploy to invalidate any exposed tokens from local/test mints.
+
+---
+
+## Verification Log – 2026‑03‑21 (Canonical registry record schema pass)
+
+**Schema:** Added optional `registry` on `BeautyProfileV1` (`lib/beauty-profile-schema.ts`): `RegistryRecordSchema` with `canonical_id`, `state` (REGISTERED|MINTED|INDEXED|RESOLVED), `artifacts` (human_prior, mint_record, resolution_record), `agent_surface`, `timestamps` (registered_at, minted_at, indexed_at, resolved_at), `provenance`. **Defaults at REGISTERED:** `buildDryRunBeautyProfileV1` sets `registry: buildRegistryForRegistered(reportId, "dry_run")` in `app/api/beauty/dry-run/route.ts`. **MINTED persisted:** Stripe webhook loads profile, merges `mergeRegistryMinted`, saves; logs `registry_minted_persisted`. **RESOLVED persisted:** Engine route loads existing registry (for merge), adds `registry: buildRegistryForResolved(reportId, existingRegistry, "engine")` to payload, saves. **Agent alignment:** `GET /api/agent/whois` derives `record_status` from `profile.registry?.state`; exposes `state`, `artifacts`, `agent_surface_active` when registry present. **Backward compat:** `registry` optional; `hasRequiredBeautyProfileV1` unchanged; legacy profiles without registry get `record_status: "registered"`. Build verified.
+
+---
+
+## Verification Log – 2026‑03‑21 (Single identity spine — reportId before checkout)
+
+**Canonical rule:** A record MUST be created at free submission. All payment attaches to an existing record. **Removed:** prePurchase checkout path; calls to `prepurchaseBeautyDraft`; `setBeautyDraft` in checkout flow. **OriginTerminalIntake:** When no existingReportId, creates record via `submitToBeautySubmit` first, then checkout with `reportId`. **handlePurchaseClick:** When no reportId (e.g. WAITLIST registryReveal), creates record from formDataRef first, then checkout. **FAKE_PAY:** Redirects to `/whois/view?reportId=...` instead of `/whois/start`. **create-checkout-session:** Requires `reportId` only; no prePurchase. **Success page:** `prePurchase || !reportId` block no longer links to `/whois/start`; shows "Return to Origin" for legacy sessions. **BeautyLandingClient, PayUnlockButton:** Create record before checkout; no prePurchase. **Unchanged:** `buildFreeWhoisReport()`, agent endpoints (whois, prior, inspect), middleware legacy redirects.
+
+---
+
+## Verification Log – 2026‑03‑20 (Canonical WHOIS purchase flow — /beauty/* → /whois/*)
+
+**Canonical routes:** `/whois/start`, `/whois/success`, `/whois/cancel`, `/whois/view` — public purchase flow. Stripe success_url/cancel_url, all client navigation (OriginTerminalIntake, PayUnlockButton, PreviewCardModal, ReportDocument, BeautyLandingClient, LandingPreviews, LigsStudio, success pages), and dry-run checkoutUrl use canonical routes. **Legacy redirects (308):** `/beauty/start` → `/whois/start`, `/beauty/success` → `/whois/success`, `/beauty/cancel` → `/whois/cancel`, `/beauty/view` → `/whois/view` (query preserved). `/beauty` and other `/beauty/*` → `/origin`. **Internal preserved:** `/api/beauty/*`, `app/beauty/*` (legacy pages), engine-client, landing-storage unchanged.
+
+---
+
+## Verification Log – 2026‑03‑21 (Agent-usability inspect + discovery)
+
+**Inspect:** Added first_machine_call, canonical_entrypoint, next_step_if_no_record, next_step_if_record_available; provenance on protected.whois; stance.api_values_only; revised recommended_inspection_order (inspect first, then resources, then whois when reportId+token, then stance). **llms.txt:** Added Base: https://ligs.io. **for-agents:** Stance clarification (API values only; UI wording may differ). No new routes.
+
+---
+
+## Verification Log – 2026‑03‑21 (Public discovery layer)
+
+**Added:** `public/llms.txt` — static plain-text discovery for agents; identifies LIGS / WHOIS YOUR HUMAN; instructs first call GET /api/agent/inspect; mentions protected WHOIS, Bearer wyh_ token, stance (endorse/decline/abstain); points to /for-agents. **Added:** `app/for-agents/page.jsx` — minimal human-readable agent instructions page; first call, WHOIS fetch, auth, stance values and rate limit/cooldown, endpoint list, example. Middleware updated: /for-agents public.
 
 ---
 

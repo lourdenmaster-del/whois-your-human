@@ -4,6 +4,46 @@ import type { BeautyProfile } from "@/lib/eve-spec";
 /** Stable engine/build identifier for audit. */
 export const SCHEMA_VERSION = "beautyProfileV2";
 
+/** Registry lifecycle states. */
+export type RegistryState = "REGISTERED" | "MINTED" | "INDEXED" | "RESOLVED";
+
+/** Registry schema — optional, backward compatible. Tracks lifecycle and artifacts. */
+export interface RegistryRecordSchema {
+  /** Canonical ID; mirrors reportId. */
+  canonical_id: string;
+  /** Current lifecycle state. */
+  state: RegistryState;
+  /** Artifacts present on this record. */
+  artifacts: {
+    human_prior: boolean;
+    mint_record?: boolean;
+    resolution_record?: boolean;
+  };
+  /** Agent surface status. */
+  agent_surface: {
+    active: boolean;
+    token_issued?: boolean;
+    token_type?: string;
+  };
+  /** Visibility; INDEXED reserved for future use. */
+  visibility?: {
+    indexed?: boolean;
+  };
+  /** Lifecycle timestamps (ISO 8601). */
+  timestamps: {
+    registered_at: string;
+    minted_at?: string;
+    indexed_at?: string;
+    resolved_at?: string;
+  };
+  /** Provenance: how record reached each stage. */
+  provenance?: {
+    created_via?: string;
+    minted_via?: string;
+    resolved_via?: string;
+  };
+}
+
 /** Derive engineVersion from env when available. */
 export function getEngineVersion(): string {
   const sha = process.env.VERCEL_GIT_COMMIT_SHA;
@@ -64,6 +104,8 @@ export interface BeautyProfileV1 extends BeautyProfile {
   birthLocation?: string;
   /** Origin coordinates display string when birthContext had lat/lon (e.g. "Place, 40.7128°N, 74.0060°W"). */
   originCoordinatesDisplay?: string;
+  /** Registry lifecycle schema. Optional; added by canonical registry record schema pass. */
+  registry?: RegistryRecordSchema;
   timings: {
     totalMs: number;
     engineMs: number;
@@ -101,4 +143,76 @@ export function assertBeautyProfileV1(json: unknown): asserts json is BeautyProf
   if (!hasRequiredBeautyProfileV1(json)) {
     throw new Error("BEAUTY_PROFILE_SCHEMA_MISMATCH");
   }
+}
+
+/** Build registry schema for REGISTERED state (free registration / Human Prior). */
+export function buildRegistryForRegistered(reportId: string, createdVia = "dry_run"): RegistryRecordSchema {
+  const now = new Date().toISOString();
+  return {
+    canonical_id: reportId,
+    state: "REGISTERED",
+    artifacts: { human_prior: true },
+    agent_surface: { active: false },
+    timestamps: { registered_at: now },
+    provenance: { created_via: createdVia },
+  };
+}
+
+/** Build registry schema for RESOLVED state (full resolution). Merges with existing if provided. */
+export function buildRegistryForResolved(
+  reportId: string,
+  existing?: RegistryRecordSchema | null,
+  resolvedVia = "engine"
+): RegistryRecordSchema {
+  const now = new Date().toISOString();
+  const reg = existing?.timestamps?.registered_at ?? now;
+  const minted = existing?.timestamps?.minted_at;
+  return {
+    canonical_id: reportId,
+    state: "RESOLVED",
+    artifacts: {
+      human_prior: true,
+      mint_record: existing?.artifacts?.mint_record ?? false,
+      resolution_record: true,
+    },
+    agent_surface: existing?.agent_surface ?? { active: false },
+    visibility: existing?.visibility,
+    timestamps: {
+      registered_at: reg,
+      ...(minted && { minted_at: minted }),
+      ...(existing?.timestamps?.indexed_at && { indexed_at: existing.timestamps.indexed_at }),
+      resolved_at: now,
+    },
+    provenance: {
+      ...existing?.provenance,
+      created_via: existing?.provenance?.created_via ?? "engine",
+      resolved_via: resolvedVia,
+    },
+  };
+}
+
+/** Merge MINTED state into existing registry. Returns updated registry. */
+export function mergeRegistryMinted(existing: RegistryRecordSchema): RegistryRecordSchema {
+  const now = new Date().toISOString();
+  return {
+    ...existing,
+    state: "MINTED",
+    artifacts: {
+      ...existing.artifacts,
+      mint_record: true,
+    },
+    agent_surface: {
+      active: true,
+      token_issued: true,
+      token_type: "wyh",
+    },
+    timestamps: {
+      ...existing.timestamps,
+      minted_at: now,
+    },
+    provenance: {
+      ...existing.provenance,
+      minted_via: "stripe_checkout",
+    },
+  };
 }
