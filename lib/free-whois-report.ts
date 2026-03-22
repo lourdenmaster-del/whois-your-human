@@ -546,7 +546,7 @@ export async function buildPaidWhoisReport(
   const s2to5 = parseSectionRange(fullReport, 2, 5);
 
   const IDENTITY_ARCHITECTURE_UNAVAILABLE = "[Identity Architecture section unavailable]";
-  const INTERPRETIVE_NOTES_UNAVAILABLE = "[Interpretive Notes section unavailable]";
+  const INTERPRETIVE_NOTES_UNAVAILABLE = "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.";
 
   if (s1 || s2) {
     const combined = [s1, s2].filter(Boolean).join("\n\n");
@@ -705,7 +705,7 @@ export function renderFreeWhoisReport(
   const interpretiveNotes =
     report.interpretiveNotesBody != null && String(report.interpretiveNotesBody).trim() !== ""
       ? report.interpretiveNotesBody.trim()
-      : "[Interpretive Notes section unavailable]";
+      : "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.";
   const civilizationalFunction =
     report.civilizationalFunctionBody != null && String(report.civilizationalFunctionBody).trim() !== ""
       ? report.civilizationalFunctionBody.trim()
@@ -725,7 +725,7 @@ export function renderFreeWhoisReport(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Your identity query has been logged</title>
+  <title>Registry Record — LIGS Human WHOIS</title>
 </head>
 <body style="margin:0;padding:0;background:#fff;font-family:Georgia,serif;color:#1a1a1a;line-height:1.5;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
@@ -752,7 +752,7 @@ ${recordRows}
 ${genesisRows}
     </table>
 
-    <p style="margin:0 0 24px 0;font-size:14px;color:#333;">You now have access to the Human WHOIS registry. Full node analytics will become available when the registry opens.</p>
+    <p style="margin:0 0 24px 0;font-size:14px;color:#333;">This document constitutes the official registry record for the identity designated above.</p>
 ${artifactBlock || ""}
 
     <p style="${sectionHeading}">IDENTITY ARCHITECTURE</p>
@@ -782,7 +782,7 @@ ${artifactBlock || ""}
 
     <footer style="margin-top:40px;padding-top:16px;border-top:1px solid #e8e8e8;font-size:11px;color:#666;">
       <p style="margin:0;">LIGS Systems</p>
-      <p style="margin:4px 0 0 0;">This message was generated automatically by the registry.</p>
+      <p style="margin:4px 0 0 0;">Issued by LIGS Human Identity Registry.</p>
     </footer>
 
     <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e0e0e0;">
@@ -841,7 +841,7 @@ export function renderFreeWhoisReportText(
     "Climate Signature: " + (report.climateSignatureDisplay ?? "Restricted Node Data"),
     "Sensory Field Conditions: " + (report.sensoryFieldConditionsDisplay ?? "Restricted Node Data"),
     "",
-    "You now have access to the Human WHOIS registry. Full node analytics will become available when the registry opens.",
+    "This document constitutes the official registry record for the identity designated above.",
     "",
     "IDENTITY ARCHITECTURE",
     report.identityArchitectureBody != null && String(report.identityArchitectureBody).trim() !== ""
@@ -872,7 +872,7 @@ export function renderFreeWhoisReportText(
     "INTERPRETIVE NOTES",
     report.interpretiveNotesBody != null && String(report.interpretiveNotesBody).trim() !== ""
       ? report.interpretiveNotesBody.trim()
-      : "[Interpretive Notes section unavailable]",
+      : "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.",
     "",
     "INTEGRATION NOTE",
     "",
@@ -883,7 +883,7 @@ export function renderFreeWhoisReportText(
     "Return to the registry: " + siteUrl,
     "",
     "LIGS Systems",
-    "This message was generated automatically by the registry.",
+    "Issued by LIGS Human Identity Registry.",
     "",
     "OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO",
     "",

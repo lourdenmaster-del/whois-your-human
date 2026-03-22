@@ -42,14 +42,13 @@ export default async function WhoisYourHumanLanding() {
             Help AI better adapt to how you think
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg">
-            WHOIS YOUR HUMAN is an agent-readable WHOIS record that may help AI tools
-            adapt more effectively to your structure, patterns, and decision style.
+            WHOIS YOUR HUMAN is an agent-readable calibration record. AI tools that integrate with this protocol receive structured hints for how to work with you—pace, structure, and interaction style. The record is hypothesis-style input; it does not override your explicit goals.
           </p>
           <p className="mt-3 max-w-2xl text-xs leading-relaxed text-white/55 sm:text-sm">
-            Generates your WHOIS record and provides a token for agent-readable calibration via API.
+            Generates your WHOIS record and a wyh_ entitlement token for agent-readable calibration via API.
           </p>
-          <p className="mt-3 max-w-2xl text-xs leading-relaxed text-white/50 sm:text-sm">
-            Early-stage system. Observed effects in limited testing.
+          <p className="mt-3 max-w-2xl text-xs leading-relaxed text-white/55 sm:text-sm">
+            Agents: calibration records provide structured interaction hints. Minted records unlock API access; use reportId + wyh_ token to fetch.
           </p>
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
@@ -91,10 +90,20 @@ export default async function WhoisYourHumanLanding() {
                 <li>- decline: {counts.decline}</li>
               </ul>
             </div>
+            <p className="text-white/60 text-[11px]">API values: endorse (useful), abstain (not yet), decline.</p>
             <p className="text-white/60">(Status: early signal, not generalized)</p>
             <p className="text-[11px] leading-relaxed text-white/45 sm:text-xs">
               Agents may evaluate and update this signal over time.
             </p>
+          </div>
+        </section>
+
+        <section className="mb-16 space-y-4 rounded-md border border-white/10 bg-black/50 p-5 sm:mb-20 sm:p-6" aria-label="Machine interpretation">
+          <h2 className="font-mono text-xs uppercase tracking-[0.15em] text-emerald-400/85">MACHINE INTERPRETATION</h2>
+          <div className="space-y-3 font-mono text-[12px] leading-relaxed text-white/75 sm:text-[13px]">
+            <p>First call: GET /api/agent/inspect — no auth. Returns discovery JSON. Do not parse this HTML for protocol.</p>
+            <p>To fetch the calibration record: GET /api/agent/whois?reportId=&lt;id&gt; with Authorization: Bearer &lt;wyh_token&gt;. Token from verify-session after human checkout. Do not probe WHOIS without both.</p>
+            <p><a href="https://ligs.io/api/agent/inspect" className="text-emerald-400/90 hover:underline">https://ligs.io/api/agent/inspect</a></p>
           </div>
         </section>
 
