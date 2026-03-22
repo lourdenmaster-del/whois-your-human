@@ -41,6 +41,26 @@ export async function GET(request: Request) {
     }
     const reportId = typeof session.metadata?.reportId === "string" ? session.metadata.reportId.trim() : "";
     const prePurchase = session.metadata?.prePurchase === "1";
+
+    if (process.env.NODE_ENV !== "production") {
+      log("info", "verify_session_metadata", { requestId, sessionId, reportId: reportId || "(empty)", prePurchase });
+    }
+
+    if (!reportId && !prePurchase) {
+      log("error", "verify_session_missing_report_id", { requestId, sessionId });
+      const res = successResponse(
+        200,
+        {
+          paid: true,
+          error: "SESSION_MISSING_REPORT_ID",
+          message: "Payment completed but registry record link is missing. Contact support with your session_id.",
+        },
+        requestId
+      );
+      res.cookies.set(WYH_CONTENT_GATE_COOKIE, "1", wyhContentGateCookieOptions());
+      return res;
+    }
+
     let entitlementToken: string | undefined;
     if (reportId) {
       const entitlement = await getAgentEntitlementByReportId(reportId);

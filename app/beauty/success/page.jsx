@@ -11,10 +11,11 @@ function BeautySuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("session_id");
 
-  const [status, setStatus] = useState("loading"); // loading | paid | error
+  const [status, setStatus] = useState("loading");
   const [reportId, setReportId] = useState(null);
   const [prePurchase, setPrePurchase] = useState(false);
   const [entitlementToken, setEntitlementToken] = useState(null);
+  const [sessionMissingReportId, setSessionMissingReportId] = useState(false);
   const [tokenPollExhausted, setTokenPollExhausted] = useState(false);
   const [apiOrigin, setApiOrigin] = useState("");
   const pollCountRef = useRef(0);
@@ -54,6 +55,11 @@ function BeautySuccessContent() {
         if (cancelled) return;
         const data = json?.data ?? json;
         if (data?.paid === true) {
+          if (data?.error === "SESSION_MISSING_REPORT_ID") {
+            setSessionMissingReportId(true);
+            setStatus("paid");
+            return;
+          }
           setBeautyUnlocked();
           setReportId(data.reportId || null);
           setPrePurchase(data.prePurchase === true);
@@ -115,6 +121,63 @@ function BeautySuccessContent() {
     }, 2000);
     return () => clearInterval(id);
   }, [status, sessionId, reportId, prePurchase, entitlementToken]);
+
+  if (sessionMissingReportId) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 bg-[#0a0a0b]">
+        <div className="w-full max-w-2xl min-w-0">
+          <div
+            className="origin-terminal rounded-lg border border-[#2a2a2e] bg-[#0d0d0f] shadow-xl overflow-hidden px-6 py-12 text-left"
+            style={{
+              boxShadow:
+                "0 0 0 1px rgba(255,255,255,0.03), 0 4px 24px rgba(0,0,0,0.5)",
+            }}
+          >
+            <h1
+              className="text-xl sm:text-2xl font-semibold tracking-wide mb-4"
+              style={{
+                color: "#e8e8ec",
+                fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+              }}
+            >
+              Payment completed — record link missing
+            </h1>
+            <p className="text-sm leading-relaxed mb-6" style={{ color: "#9a9aa0" }}>
+              Payment completed, but the registry record link is missing. Save your session_id below and contact support.
+            </p>
+            <p
+              className="text-[11px] uppercase tracking-wider mb-2"
+              style={{ color: "#8a8a90" }}
+            >
+              session_id (save for support)
+            </p>
+            <pre
+              className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-6"
+              style={{
+                color: "#e8e8ec",
+                fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+              }}
+            >
+              {sessionId}
+            </pre>
+            <Link
+              href="/origin"
+              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors focus:outline-none focus:border-[#5a5a62] touch-manipulation"
+              style={{ color: "#c8c8cc" }}
+            >
+              Back to Origin
+            </Link>
+          </div>
+          <p
+            className="mt-4 pt-3 text-left text-[10px] uppercase tracking-widest font-mono border-t border-[#2a2a2e]/80"
+            style={{ fontFamily: "inherit", color: "#8a8a90" }}
+          >
+            LIGS
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!sessionId || status === "loading" || status === "error") {
     const isError = status === "error" || !sessionId;
@@ -333,9 +396,9 @@ Authorization: Bearer ${entitlementToken}`}
                 : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
             </pre>
             <p className="text-xs mb-6" style={{ color: "#7a7a80" }}>
-              Response JSON includes <code className="text-[#9a9aa0]">entitlementToken</code> when
+              Response JSON includes <code className="text-[#9a9aa0">entitlementToken</code> when
               payment is complete and the webhook has registered access (field may be inside{" "}
-              <code className="text-[#9a9aa0]">data</code>).
+              <code className="text-[#9a9aa0">data</code>).
             </p>
             <p className="mt-2 text-xs" style={{ color: "#7a7a80" }}>
               Store the token in a password manager or secure vault. Do not commit
@@ -421,9 +484,9 @@ Authorization: Bearer ${entitlementToken}`}
               : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
           </pre>
           <p className="text-xs mb-4" style={{ color: "#7a7a80" }}>
-            After <code className="text-[#9a9aa0]">entitlementToken</code> appears in the response,
-            call <code className="text-[#9a9aa0]">GET /api/agent/whois?reportId=…</code> with{" "}
-            <code className="text-[#9a9aa0]">Authorization: Bearer &lt;token&gt;</code>.
+            After <code className="text-[#9a9aa0">entitlementToken</code> appears in the response,
+            call <code className="text-[#9a9aa0">GET /api/agent/whois?reportId=…</code> with{" "}
+            <code className="text-[#9a9aa0">Authorization: Bearer &lt;token&gt;</code>.
           </p>
           <p className="text-xs mb-6 font-mono" style={{ color: "#8a8a90" }}>
             reportId: {reportId}

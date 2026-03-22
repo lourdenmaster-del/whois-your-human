@@ -24,7 +24,17 @@ export async function POST(request: Request) {
     const reportId = typeof body?.reportId === "string" ? body.reportId.trim() : "";
 
     if (!reportId) {
+      log("warn", "checkout_missing_report_id", { requestId });
       return errorResponse(400, "MISSING_REPORT_ID", requestId);
+    }
+    const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reportId);
+    if (!uuidLike) {
+      log("warn", "checkout_invalid_report_id_format", { requestId, reportIdPrefix: reportId.slice(0, 12) });
+      return errorResponse(400, "INVALID_REPORT_ID", requestId);
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      log("info", "checkout_report_id_received", { requestId, reportId });
     }
 
     try {
@@ -58,6 +68,10 @@ export async function POST(request: Request) {
 
     const successUrl = `${origin}/whois/success?session_id={CHECKOUT_SESSION_ID}`;
     const metadata: Record<string, string> = { reportId };
+
+    if (process.env.NODE_ENV !== "production") {
+      log("info", "checkout_stripe_metadata", { requestId, reportId, metadataKeys: Object.keys(metadata) });
+    }
 
     const productData = {
       name: "Mint registry record",
@@ -98,6 +112,9 @@ export async function POST(request: Request) {
       stage: "stripe_session_created",
       testMode: secretKey.startsWith("sk_test_"),
     });
+    if (process.env.NODE_ENV !== "production") {
+      log("info", "checkout_session_metadata_written", { requestId, reportId, sessionId: session.id });
+    }
 
     return successResponse(200, { url: session.url }, requestId);
   } catch (e) {
