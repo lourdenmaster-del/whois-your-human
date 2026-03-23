@@ -9,7 +9,7 @@ import LightIdentityForm from "@/components/LightIdentityForm";
 import { getMarketingDescriptor } from "@/lib/marketing/descriptor";
 import { isBeautyUnlocked, setBeautyUnlocked, getBeautyDraft, saveLastFormData } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
-import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client";
+import { submitToWhoisSubmit, submitToWhoisDryRun } from "@/lib/engine-client";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
@@ -144,8 +144,8 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
       setAlreadyPurchasedMessage(null);
       try {
         const result = dryRun
-          ? await submitToBeautyDryRun(data)
-          : await submitToBeautySubmit(data);
+          ? await submitToWhoisDryRun(data)
+          : await submitToWhoisSubmit(data);
         const reportId = result?.reportId;
         if (!reportId) {
           setCtaCheckoutError("Generation failed: No report ID returned.");
@@ -183,7 +183,7 @@ export default function BeautyLandingClient({ dryRun: dryRunProp = false, initia
     setCtaCheckoutLoading(true);
     try {
       // Canonical rule: record MUST exist before checkout. Create it now.
-      const result = await submitToBeautySubmit(formData);
+      const result = await submitToWhoisSubmit(formData);
       const reportId = result?.reportId;
       if (!reportId) {
         setCtaCheckoutError("Generation failed: No report ID returned.");

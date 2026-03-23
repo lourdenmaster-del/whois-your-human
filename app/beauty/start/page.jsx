@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LightIdentityForm from "@/components/LightIdentityForm";
 import FlowNav from "@/components/FlowNav";
-import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client";
+import { submitToWhoisSubmit, submitToWhoisDryRun } from "@/lib/engine-client";
 import { saveLastFormData, loadLastFormData, isBeautyUnlocked } from "@/lib/landing-storage";
 import { TEST_MODE } from "@/lib/dry-run-config";
 import { useApiStatus } from "@/hooks/useApiStatus";
@@ -72,8 +72,8 @@ export default function BeautyStartPage() {
       setError(null);
       try {
         const data = dryRun
-          ? await submitToBeautyDryRun(formData)
-          : await submitToBeautySubmit(formData);
+          ? await submitToWhoisDryRun(formData)
+          : await submitToWhoisSubmit(formData);
         const reportId = data?.reportId;
         if (!reportId) {
           setError("Generation failed: No report ID returned. Not retrying.");
