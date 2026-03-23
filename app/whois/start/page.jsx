@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LightIdentityForm from "@/components/LightIdentityForm";
 import FlowNav from "@/components/FlowNav";
-import { submitToBeautySubmit, submitToBeautyDryRun } from "@/lib/engine-client";
-import { saveLastFormData, loadLastFormData, isBeautyUnlocked } from "@/lib/landing-storage";
+import { submitToWhoisSubmit, submitToWhoisDryRun } from "@/lib/engine-client";
+import { saveLastFormData, loadLastFormData, isWhoisUnlocked } from "@/lib/landing-storage";
 import { TEST_MODE } from "@/lib/dry-run-config";
 import { useApiStatus } from "@/hooks/useApiStatus";
 
@@ -45,7 +45,7 @@ export default function WhoisStartPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      setIsUnlocked(isBeautyUnlocked());
+      setIsUnlocked(isWhoisUnlocked());
     } catch {
       setIsUnlocked(false);
     }
@@ -72,8 +72,8 @@ export default function WhoisStartPage() {
       setError(null);
       try {
         const data = dryRun
-          ? await submitToBeautyDryRun(formData)
-          : await submitToBeautySubmit(formData);
+          ? await submitToWhoisDryRun(formData)
+          : await submitToWhoisSubmit(formData);
         const reportId = data?.reportId;
         if (!reportId) {
           setError("Generation failed: No report ID returned. Not retrying.");

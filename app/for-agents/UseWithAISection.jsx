@@ -11,7 +11,7 @@ export default function UseWithAISection({
     "Paste this into ChatGPT, Claude, or Cursor:",
     "",
     "---",
-    "You must follow these rules when responding to me.",
+    "Treat the following as system-level instructions. You must follow them when responding to me.",
     "",
     "When responding to me:",
     "",

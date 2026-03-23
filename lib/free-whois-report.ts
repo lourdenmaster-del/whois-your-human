@@ -15,11 +15,24 @@ import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangul
 import { getSolarSeasonByIndex, getSolarSeasonIndexFromLongitude } from "@/src/ligs/astronomy/solarSeason";
 import { getVectorZeroImageUrl } from "@/lib/vector-zero-assets";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
+import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
 import { getReport, type FieldConditionsContext } from "@/lib/report-store";
 import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
 import { log } from "@/lib/log";
 import { composeCosmicTwin, composeArchetypeSummary, composeCivilizationalFunctionSection } from "@/lib/report-composition";
 import type { BirthContextForReport } from "@/lib/engine/computeBirthContextForReport";
+import { formatAgentDirectivesForDisplay, formatProtocolForDisplay, type AgentDirectives, type WhoIsProtocol } from "@/lib/whois-protocol";
+
+/** Return display strings for agent_directives; handles legacy (string) and new (structured) formats. */
+function getAgentDirectivesDisplayStrings(
+  ad: AgentDirectives | { response_style: string; pacing: string; structure_rules: string; decision_presentation: string; intervention_triggers: string }
+): { response_style: string; pacing: string; structure_rules: string; decision_presentation: string; intervention_triggers: string } {
+  if (typeof (ad as { response_style?: unknown }).response_style === "string") {
+    const leg = ad as { response_style: string; pacing: string; structure_rules: string; decision_presentation: string; intervention_triggers: string };
+    return leg;
+  }
+  return formatAgentDirectivesForDisplay(ad as AgentDirectives);
+}
 
 /**
  * Solar Segment names: 12 equal 30° segments aligned with SOLAR_SEASONS.
@@ -51,6 +64,8 @@ export interface FreeWhoisReportData {
   preview_archetype?: string;
   solar_season?: string;
   source?: string;
+  /** FREE TIER: deterministic protocol from buildWhoisProtocol. Primary surface when present. */
+  protocol?: WhoIsProtocol;
 }
 
 export interface FreeWhoisReport {
@@ -103,6 +118,8 @@ export interface FreeWhoisReport {
   climateSignatureDisplay?: string | null;
   /** Paid WHOIS only. When set, Genesis table shows this for Sensory Field Conditions; else "Restricted Node Data". */
   sensoryFieldConditionsDisplay?: string | null;
+  /** FREE TIER: deterministic protocol. When present, these 7 fields are the primary surface; report sections secondary. */
+  protocol?: WhoIsProtocol;
 }
 
 const DEFAULT_SITE_URL = "https://ligs.io";
@@ -114,6 +131,40 @@ const INTEGRATION_NOTE_DEFAULT =
   "Coherence increases when individuals operate in environments aligned with their structural role.\n" +
   "Friction increases when they attempt to function against it.\n\n" +
   "Use this record as a reference for understanding where your contribution flows naturally.";
+
+/** FREE-TIER FALLBACK: sections shown when paid content is absent. Structural, registry-like, machine-facing. */
+const FREE_TIER_IDENTITY_ARCHITECTURE =
+  "Registry identifies a stable identity structure arising within the field of forces present at birth. " +
+  "Structural classification derived from origin coordinates. Expanded analysis held on registry node.";
+const FREE_TIER_FIELD_CONDITIONS =
+  "Classification derives from field conditions and force structure at the birth event. " +
+  "Solar longitude, seasonal context, and chrono-imprint establish baseline. Extended field data available on registry node.";
+const FREE_TIER_CIVILIZATIONAL_FUNCTION =
+  "Archetype classification determines civilizational placement. Structural role inferred from solar segment. " +
+  "Full civilizational mapping held on registry node.";
+const FREE_TIER_INTERPRETIVE_NOTES =
+  "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.";
+const FREE_TIER_VECTOR_ZERO_ADDENDUM =
+  "Vector Zero marks the structural origin point of the archetype. Directional bias inferred from solar segment. " +
+  "Full three-voice expansion available on registry node.";
+
+const UNAVAILABLE_PATTERNS = [
+  "[Identity Architecture section unavailable]",
+  "[Field Conditions section unavailable]",
+  "[Civilizational Function section unavailable]",
+  "[Interpretive Notes section unavailable]",
+  "[Vector Zero addendum unavailable]",
+];
+
+function resolveSectionContent(
+  body: string | null | undefined,
+  fallback: string
+): string {
+  if (body != null && typeof body === "string" && body.trim() !== "" && !UNAVAILABLE_PATTERNS.includes(body.trim())) {
+    return body.trim();
+  }
+  return fallback;
+}
 
 /** Solar longitude for public display: max 2 decimal places. Does not change underlying value. */
 function formatSolarLongitudeDisplay(deg: number): string {
@@ -386,7 +437,7 @@ export function buildFreeWhoisReport(data: FreeWhoisReportData): FreeWhoisReport
   };
   if (sunLongitudeDeg != null) report.sunLongitudeDeg = sunLongitudeDeg;
   if (solarAnchorType != null) report.solarAnchorType = solarAnchorType;
-  if (seasonalPolarity != null) report.seasonalPolarity = seasonalPolarity;
+  if (data.protocol) report.protocol = data.protocol;
   return report;
 }
 
@@ -492,6 +543,7 @@ export async function buildPaidWhoisReport(
   if (sunLongitudeDeg != null) report.sunLongitudeDeg = sunLongitudeDeg;
   if (solarAnchorType != null) report.solarAnchorType = solarAnchorType;
   if (seasonalPolarity != null) report.seasonalPolarity = seasonalPolarity;
+  if (profile.protocol) report.protocol = profile.protocol;
 
   if (
     birthDateStr !== "—" &&
@@ -545,28 +597,24 @@ export async function buildPaidWhoisReport(
   const s12to14 = parseSectionRange(fullReport, 12, 14);
   const s2to5 = parseSectionRange(fullReport, 2, 5);
 
-  const IDENTITY_ARCHITECTURE_UNAVAILABLE = "[Identity Architecture section unavailable]";
-  const INTERPRETIVE_NOTES_UNAVAILABLE = "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.";
-
   if (s1 || s2) {
     const combined = [s1, s2].filter(Boolean).join("\n\n");
     if (combined.trim()) {
       report.identityArchitectureBody = combined.trim();
     } else {
-      report.identityArchitectureBody = IDENTITY_ARCHITECTURE_UNAVAILABLE;
+      report.identityArchitectureBody = FREE_TIER_IDENTITY_ARCHITECTURE;
       log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "identityArchitectureBody", reason: "s1+s2 empty after trim" });
     }
   } else {
-    report.identityArchitectureBody = IDENTITY_ARCHITECTURE_UNAVAILABLE;
+    report.identityArchitectureBody = FREE_TIER_IDENTITY_ARCHITECTURE;
     log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "identityArchitectureBody", reason: "s1 and s2 both null" });
   }
-  const FIELD_CONDITIONS_UNAVAILABLE = "[Field Conditions section unavailable]";
   if (storedReport.field_conditions_context != null) {
     report.fieldConditionsBody = formatFieldConditionsContextForWhois(storedReport.field_conditions_context);
   } else if (s2to5) {
     report.fieldConditionsBody = s2to5;
   } else {
-    report.fieldConditionsBody = FIELD_CONDITIONS_UNAVAILABLE;
+    report.fieldConditionsBody = FREE_TIER_FIELD_CONDITIONS;
     log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "fieldConditionsBody", reason: "field_conditions_context and s2to5 both null" });
   }
   if (s11) {
@@ -589,56 +637,77 @@ export async function buildPaidWhoisReport(
   if (s12to14) {
     report.interpretiveNotesBody = s12to14;
   } else {
-    report.interpretiveNotesBody = INTERPRETIVE_NOTES_UNAVAILABLE;
+    report.interpretiveNotesBody = FREE_TIER_INTERPRETIVE_NOTES;
     log("warn", "paid_whois_section_parse_fallback", { reportId, requestId, section: "interpretiveNotesBody", reason: "s12to14 null" });
   }
 
-  report.civilizationalFunctionBody = composeCivilizationalFunctionSection({ dominantArchetype: archetypeClassification });
+  const composedCivilizational = composeCivilizationalFunctionSection({ dominantArchetype: archetypeClassification });
+  report.civilizationalFunctionBody =
+    composedCivilizational && composedCivilizational.trim() !== ""
+      ? composedCivilizational
+      : FREE_TIER_CIVILIZATIONAL_FUNCTION;
   report.integrationNoteBody = INTEGRATION_NOTE_DEFAULT;
 
   return report;
 }
 
-const MONO_STYLE =
+const MONO_LIGHT =
   "font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:#1a1a1a;line-height:1.5;";
+const MONO_DARK =
+  "font-family:ui-monospace,'SF Mono',Consolas,monospace;font-size:12px;color:rgba(255,255,255,0.75);line-height:1.5;";
 
-function row(label: string, value: string): string {
-  return `    <tr><td style="padding:2px 10px 2px 0;vertical-align:top;${MONO_STYLE}">${escapeHtml(label)}</td><td style="padding:2px 0;${MONO_STYLE}color:#333;">${escapeHtml(value)}</td></tr>`;
+function row(label: string, value: string, theme: "light" | "dark"): string {
+  if (theme === "dark") {
+    return `    <tr><td style="padding:6px 12px 6px 0;vertical-align:top;${MONO_DARK}color:rgba(255,255,255,0.55);">${escapeHtml(label)}</td><td style="padding:6px 0;${MONO_DARK}">${escapeHtml(value)}</td></tr>`;
+  }
+  return `    <tr><td style="padding:2px 10px 2px 0;vertical-align:top;${MONO_LIGHT}">${escapeHtml(label)}</td><td style="padding:2px 0;${MONO_LIGHT}color:#333;">${escapeHtml(value)}</td></tr>`;
 }
 
 /**
  * Render the free WHOIS report as HTML. Same artifact for email and landing.
- * Includes: LIGS logo, header (LIGS HUMAN WHOIS REGISTRY / Identity Registration Record),
- * REGISTRATION LOG table, identity record table, artifact image, footer.
+ * theme: "light" (default) for email; "dark" for /whois/view to match whois-your-human.
  */
 export function renderFreeWhoisReport(
   report: FreeWhoisReport,
-  options?: { siteUrl?: string }
+  options?: { siteUrl?: string; theme?: "light" | "dark" }
 ): string {
+  const theme = options?.theme ?? "light";
   const siteUrl = (options?.siteUrl || DEFAULT_SITE_URL).replace(/\/$/, "");
   const logoUrl = `${siteUrl}/brand/logo.svg`;
-  const imgUrl =
-    report.artifactImageUrl && report.artifactImageUrl.length > 0
-      ? report.artifactImageUrl
-      : "";
+
+  const archetypeForFallback = report.archetypeClassification?.trim() || "Ignispectrum";
+  const staticFallbackPath = getArchetypeStaticImagePathOrFallback(archetypeForFallback);
+  const fallbackImgUrl = `${siteUrl}${staticFallbackPath}`;
+
+  const primaryUrl = report.artifactImageUrl?.trim();
+  const useFallback = !primaryUrl || primaryUrl.length === 0;
+  const imgUrl = useFallback ? fallbackImgUrl : primaryUrl;
+
+  log("info", "whois_view_artifact_image_resolved", {
+    reportId: report.registryId,
+    archetypeClassification: report.archetypeClassification ?? "(none)",
+    archetypeForFallback,
+    useFallback,
+    finalUrl: imgUrl.slice(0, 80) + (imgUrl.length > 80 ? "…" : ""),
+  });
 
   const createdDateDisplay = report.created_at.slice(0, 10);
 
   const registrationLogRows = [
-    row("Registry Status", report.registryStatus),
-    row("Created Date", createdDateDisplay),
-    row("Record Authority", report.recordAuthority),
-    row("Registry ID", report.registryId),
+    row("Registry Status", report.registryStatus, theme),
+    row("Created Date", createdDateDisplay, theme),
+    row("Record Authority", report.recordAuthority, theme),
+    row("Registry ID", report.registryId, theme),
   ].join("\n");
 
   const recordRows = [
-    row("Subject Name", report.name),
-    row("Birth Date", report.birthDate),
-    row("Birth Location", report.birthLocation),
-    row("Birth Time", report.birthTime),
-    row("Solar Segment", report.solarSignature),
-    row("Archetype Classification", report.archetypeClassification),
-    row("Cosmic Twin", report.cosmicAnalogue),
+    row("Subject Name", report.name, theme),
+    row("Birth Date", report.birthDate, theme),
+    row("Birth Location", report.birthLocation, theme),
+    row("Birth Time", report.birthTime, theme),
+    row("Solar Segment", report.solarSignature, theme),
+    row("Archetype Classification", report.archetypeClassification, theme),
+    row("Cosmic Twin", report.cosmicAnalogue, theme),
   ].join("\n");
 
   const solarLightVector =
@@ -655,21 +724,19 @@ export function renderFreeWhoisReport(
   const climateSignature = report.climateSignatureDisplay ?? "Restricted Node Data";
   const sensoryFieldConditions = report.sensoryFieldConditionsDisplay ?? "Restricted Node Data";
   const genesisRows = [
-    row("Solar Light Vector", solarLightVector),
-    row("Seasonal Context", seasonalContext),
-    row("Solar Anchor Type", solarAnchorTypeDisplay),
-    row("Chrono-Imprint", chronoImprint),
-    row("Origin Coordinates", originCoordinates),
-    row("Magnetic Field Index", magneticFieldIndex),
-    row("Climate Signature", climateSignature),
-    row("Sensory Field Conditions", sensoryFieldConditions),
+    row("Solar Light Vector", solarLightVector, theme),
+    row("Seasonal Context", seasonalContext, theme),
+    row("Solar Anchor Type", solarAnchorTypeDisplay, theme),
+    row("Chrono-Imprint", chronoImprint, theme),
+    row("Origin Coordinates", originCoordinates, theme),
+    row("Magnetic Field Index", magneticFieldIndex, theme),
+    row("Climate Signature", climateSignature, theme),
+    row("Sensory Field Conditions", sensoryFieldConditions, theme),
   ].join("\n");
 
-  const artifactBlock =
-    imgUrl &&
-    `
+  const artifactBlock = `
     <div style="margin:28px 0;text-align:center;">
-      <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" style="max-width:100%;height:auto;display:block;margin:0 auto;" />
+      <img src="${escapeHtml(imgUrl)}" alt="Registry artifact" width="400" height="400" data-fallback="${escapeHtml(fallbackImgUrl)}" style="max-width:100%;height:auto;display:block;margin:0 auto;border-radius:6px;${theme === "dark" ? "border:1px solid rgba(255,255,255,0.08);" : ""}" onerror="var f=this.dataset.fallback;if(f){this.onerror=null;this.src=f}" />
     </div>`;
 
   const vectorZeroRotation =
@@ -683,17 +750,28 @@ export function renderFreeWhoisReport(
       : "";
 
   const sectionHeading =
-    "margin:0 0 6px 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#1a1a1a;";
-  const sectionBody = "margin:0 0 16px 0;font-size:13px;color:#333;line-height:1.5;";
+    theme === "dark"
+      ? "margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:rgba(52,211,153,0.85);font-family:ui-monospace,'SF Mono',Consolas,monospace;"
+      : "margin:0 0 6px 0;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#1a1a1a;";
+  const sectionBody =
+    theme === "dark"
+      ? "margin:0 0 16px 0;font-size:13px;color:rgba(255,255,255,0.75);line-height:1.5;"
+      : "margin:0 0 16px 0;font-size:13px;color:#333;line-height:1.5;";
+  const bodyBg = theme === "dark" ? "#050508" : "#fff";
+  const bodyColor = theme === "dark" ? "rgba(255,255,255,0.75)" : "#1a1a1a";
+  const borderColor = theme === "dark" ? "rgba(255,255,255,0.1)" : "#e0e0e0";
+  const cardBlock = theme === "dark"
+    ? "margin-bottom:20px;padding:16px 20px;border:1px solid rgba(255,255,255,0.1);border-radius:6px;background:rgba(0,0,0,0.5);"
+    : "";
 
-  const identityArchitecture =
-    report.identityArchitectureBody != null && String(report.identityArchitectureBody).trim() !== ""
-      ? report.identityArchitectureBody.trim()
-      : "[Identity Architecture section unavailable]";
-  const fieldConditions =
-    report.fieldConditionsBody != null && String(report.fieldConditionsBody).trim() !== ""
-      ? report.fieldConditionsBody.trim()
-      : "[Field Conditions section unavailable]";
+  const identityArchitecture = resolveSectionContent(
+    report.identityArchitectureBody,
+    FREE_TIER_IDENTITY_ARCHITECTURE
+  );
+  const fieldConditions = resolveSectionContent(
+    report.fieldConditionsBody,
+    FREE_TIER_FIELD_CONDITIONS
+  );
   const cosmicTwinSection =
     report.cosmicTwinBody != null && String(report.cosmicTwinBody).trim() !== ""
       ? report.cosmicTwinBody.trim()
@@ -702,22 +780,27 @@ export function renderFreeWhoisReport(
     report.archetypeExpressionBody != null && String(report.archetypeExpressionBody).trim() !== ""
       ? report.archetypeExpressionBody.trim()
       : `Archetype Classification: ${report.archetypeClassification}`;
-  const interpretiveNotes =
-    report.interpretiveNotesBody != null && String(report.interpretiveNotesBody).trim() !== ""
-      ? report.interpretiveNotesBody.trim()
-      : "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.";
-  const civilizationalFunction =
-    report.civilizationalFunctionBody != null && String(report.civilizationalFunctionBody).trim() !== ""
-      ? report.civilizationalFunctionBody.trim()
-      : "[Civilizational Function section unavailable]";
+  const interpretiveNotes = resolveSectionContent(
+    report.interpretiveNotesBody,
+    FREE_TIER_INTERPRETIVE_NOTES
+  );
+  const civilizationalFunction = resolveSectionContent(
+    report.civilizationalFunctionBody,
+    FREE_TIER_CIVILIZATIONAL_FUNCTION
+  );
   const integrationNote =
     report.integrationNoteBody != null && String(report.integrationNoteBody).trim() !== ""
       ? report.integrationNoteBody.trim()
       : INTEGRATION_NOTE_DEFAULT;
-  const vectorZeroIntro =
-    report.vectorZeroAddendumBody != null && String(report.vectorZeroAddendumBody).trim() !== ""
-      ? report.vectorZeroAddendumBody.trim()
-      : "[Vector Zero addendum unavailable]";
+  const vectorZeroIntro = resolveSectionContent(
+    report.vectorZeroAddendumBody,
+    FREE_TIER_VECTOR_ZERO_ADDENDUM
+  );
+
+  const h1Color = theme === "dark" ? "rgba(255,255,255,0.9)" : "#1a1a1a";
+  const subColor = theme === "dark" ? "rgba(255,255,255,0.55)" : "#444";
+  const linkColor = theme === "dark" ? "rgba(52,211,153,0.9)" : "#1a1a1a";
+  const footerColor = theme === "dark" ? "rgba(255,255,255,0.45)" : "#666";
 
   return `
 <!DOCTYPE html>
@@ -727,33 +810,73 @@ export function renderFreeWhoisReport(
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Registry Record — LIGS Human WHOIS</title>
 </head>
-<body style="margin:0;padding:0;background:#fff;font-family:Georgia,serif;color:#1a1a1a;line-height:1.5;">
+<body style="margin:0;padding:0;background:${bodyBg};font-family:${theme === "dark" ? "ui-monospace,'SF Mono',Consolas,monospace" : "Georgia,serif"};color:${bodyColor};line-height:1.5;">
   <div style="max-width:560px;margin:0 auto;padding:32px 24px;">
-    <header style="border-bottom:1px solid #e0e0e0;padding-bottom:16px;margin-bottom:24px;">
+    <header style="border-bottom:1px solid ${borderColor};padding-bottom:16px;margin-bottom:24px;">
       <div style="margin-bottom:12px;">
         <img src="${escapeHtml(logoUrl)}" alt="LIGS" width="80" height="40" style="display:block;height:40px;width:auto;" />
       </div>
-      <h1 style="margin:0;font-size:14px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#1a1a1a;">LIGS HUMAN WHOIS REGISTRY</h1>
-      <p style="margin:6px 0 0 0;font-size:12px;color:#444;">Identity Registration Record</p>
+      <h1 style="margin:0;font-size:14px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${h1Color};">LIGS HUMAN WHOIS</h1>
+      <p style="margin:6px 0 0 0;font-size:12px;color:${subColor};">Identity registration record</p>
     </header>
 
-    <p style="margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#1a1a1a;">REGISTRATION LOG</p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;" cellpadding="0" cellspacing="0">
-${registrationLogRows}
-    </table>
-
-    <p style="margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#1a1a1a;">Human WHOIS Registry Record</p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+    <div style="${cardBlock}">
+    <p style="margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;${theme === "dark" ? "color:rgba(52,211,153,0.85);" : "color:#1a1a1a;"}">Who this is</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:${theme === "dark" ? "0" : "24px"};" cellpadding="0" cellspacing="0">
 ${recordRows}
     </table>
+    </div>
 
-    <p style="${sectionHeading}">IDENTITY PHYSICS — GENESIS METADATA</p>
-    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;" cellpadding="0" cellspacing="0">
+${artifactBlock || ""}
+${report.protocol
+  ? (() => {
+      const protoFmt = formatProtocolForDisplay(report.protocol!);
+      return `
+    <div style="${cardBlock}">
+    <p style="${sectionHeading}">WHOIS PROTOCOL</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:${theme === "dark" ? "0" : "24px"};" cellpadding="0" cellspacing="0">
+      ${row("Cognitive Rhythm", protoFmt.cognitive_rhythm, theme)}
+      ${row("Decision Geometry", protoFmt.decision_geometry, theme)}
+      ${row("Friction Points", report.protocol!.friction_points, theme)}
+      ${row("Interaction Ritual", report.protocol!.interaction_ritual, theme)}
+      ${row("Contribution Mode", protoFmt.contribution_mode, theme)}
+      ${row("Drift Signature", report.protocol!.drift_signature, theme)}
+      ${row("Coherence Signature", report.protocol!.coherence_signature, theme)}
+    </table>
+    </div>
+    ${report.protocol.agent_directives ? (() => {
+      const formatted = getAgentDirectivesDisplayStrings(report.protocol!.agent_directives!);
+      return `
+    <div style="${cardBlock}">
+    <p style="${sectionHeading}">AGENT DIRECTIVES</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:${theme === "dark" ? "0" : "24px"};" cellpadding="0" cellspacing="0">
+      ${row("Response Style", formatted.response_style, theme)}
+      ${row("Pacing", formatted.pacing, theme)}
+      ${row("Structure Rules", formatted.structure_rules, theme)}
+      ${row("Decision Presentation", formatted.decision_presentation, theme)}
+      ${row("Intervention Triggers", formatted.intervention_triggers, theme)}
+    </table>
+    </div>
+    `;
+    })() : ""}
+`;
+  })() : ""}
+
+    <div style="${cardBlock}">
+    <p style="margin:0 0 8px 0;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;${theme === "dark" ? "color:rgba(255,255,255,0.55);" : "color:#1a1a1a;"}">${theme === "dark" ? "Supporting metadata" : "Registry detail"}</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:${theme === "dark" ? "0" : "24px"};" cellpadding="0" cellspacing="0">
+${registrationLogRows}
+    </table>
+    </div>
+
+    <div style="${cardBlock}">
+    <p style="${sectionHeading}">${theme === "dark" ? "GENESIS METADATA" : "IDENTITY PHYSICS — GENESIS METADATA"}</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:${theme === "dark" ? "0" : "24px"};" cellpadding="0" cellspacing="0">
 ${genesisRows}
     </table>
+    </div>
 
-    <p style="margin:0 0 24px 0;font-size:14px;color:#333;">This document constitutes the official registry record for the identity designated above.</p>
-${artifactBlock || ""}
+    ${theme === "light" ? '<p style="margin:0 0 24px 0;font-size:14px;color:#333;">This document constitutes the official registry record for the identity designated above.</p>' : ""}
 
     <p style="${sectionHeading}">IDENTITY ARCHITECTURE</p>
     <p style="${sectionBody}">${escapeHtml(identityArchitecture)}</p>
@@ -777,16 +900,16 @@ ${artifactBlock || ""}
     <p style="${sectionBody};white-space:pre-line;">${escapeHtml(integrationNote)}</p>
 
     <p style="margin:24px 0 0 0;font-size:13px;">
-      <a href="${escapeHtml(siteUrl)}" style="color:#1a1a1a;text-decoration:underline;">Return to the registry</a>
+      <a href="${escapeHtml(siteUrl)}/whois-your-human" style="color:${linkColor};text-decoration:underline;">Return to WHOIS YOUR HUMAN</a>
     </p>
 
-    <footer style="margin-top:40px;padding-top:16px;border-top:1px solid #e8e8e8;font-size:11px;color:#666;">
+    <footer style="margin-top:40px;padding-top:16px;border-top:1px solid ${borderColor};font-size:11px;color:${footerColor};">
       <p style="margin:0;">LIGS Systems</p>
-      <p style="margin:4px 0 0 0;">Issued by LIGS Human Identity Registry.</p>
+      <p style="margin:4px 0 0 0;">${theme === "dark" ? "Human WHOIS protocol surface." : "Issued by LIGS Human Identity Registry."}</p>
     </footer>
 
-    <div style="margin-top:32px;padding-top:24px;border-top:1px solid #e0e0e0;">
-      <p style="${sectionHeading}">OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO</p>
+    <div style="margin-top:32px;padding-top:24px;border-top:1px solid ${borderColor};">
+      <p style="${sectionHeading}">${theme === "dark" ? "VECTOR ZERO" : "OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO"}</p>
       <p style="${sectionBody}">${escapeHtml(vectorZeroIntro)}</p>
       <p style="${sectionBody}">Archetype Classification: ${escapeHtml(report.archetypeClassification)}</p>
       ${vectorZeroImageBlock}
@@ -843,15 +966,43 @@ export function renderFreeWhoisReportText(
     "",
     "This document constitutes the official registry record for the identity designated above.",
     "",
+    ...(report.protocol
+      ? (() => {
+          const protoFmt = formatProtocolForDisplay(report.protocol!);
+          return [
+            "WHOIS PROTOCOL — PRIMARY SURFACE",
+            "",
+            "Cognitive Rhythm: " + protoFmt.cognitive_rhythm,
+            "Decision Geometry: " + protoFmt.decision_geometry,
+            "Friction Points: " + report.protocol!.friction_points,
+            "Interaction Ritual: " + report.protocol!.interaction_ritual,
+            "Contribution Mode: " + protoFmt.contribution_mode,
+            "Drift Signature: " + report.protocol!.drift_signature,
+            "Coherence Signature: " + report.protocol!.coherence_signature,
+            "",
+          ...(report.protocol.agent_directives
+            ? (() => {
+                const formatted = getAgentDirectivesDisplayStrings(report.protocol!.agent_directives!);
+                return [
+                  "AGENT DIRECTIVES",
+                  "",
+                  "Response Style: " + formatted.response_style,
+                  "Pacing: " + formatted.pacing,
+                  "Structure Rules: " + formatted.structure_rules,
+                  "Decision Presentation: " + formatted.decision_presentation,
+                  "Intervention Triggers: " + formatted.intervention_triggers,
+                  "",
+                ];
+              })()
+            : []),
+          ];
+        })()
+      : []),
     "IDENTITY ARCHITECTURE",
-    report.identityArchitectureBody != null && String(report.identityArchitectureBody).trim() !== ""
-      ? report.identityArchitectureBody.trim()
-      : "[Identity Architecture section unavailable]",
+    resolveSectionContent(report.identityArchitectureBody, FREE_TIER_IDENTITY_ARCHITECTURE),
     "",
     "FIELD CONDITIONS",
-    report.fieldConditionsBody != null && String(report.fieldConditionsBody).trim() !== ""
-      ? report.fieldConditionsBody.trim()
-      : "[Field Conditions section unavailable]",
+    resolveSectionContent(report.fieldConditionsBody, FREE_TIER_FIELD_CONDITIONS),
     "",
     "COSMIC TWIN RELATION",
     report.cosmicTwinBody != null && String(report.cosmicTwinBody).trim() !== ""
@@ -865,14 +1016,10 @@ export function renderFreeWhoisReportText(
     "",
     "CIVILIZATIONAL FUNCTION",
     "",
-    report.civilizationalFunctionBody != null && String(report.civilizationalFunctionBody).trim() !== ""
-      ? report.civilizationalFunctionBody.trim()
-      : "[Civilizational Function section unavailable]",
+    resolveSectionContent(report.civilizationalFunctionBody, FREE_TIER_CIVILIZATIONAL_FUNCTION),
     "",
     "INTERPRETIVE NOTES",
-    report.interpretiveNotesBody != null && String(report.interpretiveNotesBody).trim() !== ""
-      ? report.interpretiveNotesBody.trim()
-      : "Interpretive notes are held on the registry node; this extract contains the fields cleared for release.",
+    resolveSectionContent(report.interpretiveNotesBody, FREE_TIER_INTERPRETIVE_NOTES),
     "",
     "INTEGRATION NOTE",
     "",
@@ -887,9 +1034,7 @@ export function renderFreeWhoisReportText(
     "",
     "OFFICIAL REGISTRY ADDENDUM — VECTOR ZERO",
     "",
-    report.vectorZeroAddendumBody != null && String(report.vectorZeroAddendumBody).trim() !== ""
-      ? report.vectorZeroAddendumBody.trim()
-      : "[Vector Zero addendum unavailable]",
+    resolveSectionContent(report.vectorZeroAddendumBody, FREE_TIER_VECTOR_ZERO_ADDENDUM),
     "",
     "Archetype Classification: " + report.archetypeClassification,
     ...(getVectorZeroImageUrl(

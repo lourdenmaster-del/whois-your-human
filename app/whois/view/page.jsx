@@ -1,6 +1,9 @@
+// CANONICAL WHOIS FLOW
+// This file is part of the active WHOIS human→agent system.
+// Do not introduce beauty-named dependencies here.
 import { Suspense } from "react";
 import { headers } from "next/headers";
-import BeautyViewClient from "@/app/beauty/view/BeautyViewClient";
+import WhoisViewClient from "@/app/whois/view/WhoisViewClient";
 import { log } from "@/lib/log";
 
 async function getOrigin() {
@@ -50,7 +53,7 @@ export async function generateMetadata({ searchParams }) {
       return { title: "WHOIS record" };
     }
 
-    const res = await fetch(`${origin}/api/beauty/${encodeURIComponent(reportId)}`, {
+    const res = await fetch(`${origin}/api/whois/${encodeURIComponent(reportId)}`, {
       cache: "no-store",
     });
     const json = await res.json().catch(() => ({}));
@@ -111,7 +114,7 @@ export default function WhoisViewPage() {
             Loading registry record…
           </p>
         }>
-          <BeautyViewClient />
+          <WhoisViewClient />
         </Suspense>
       </div>
     </div>

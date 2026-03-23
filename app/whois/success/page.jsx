@@ -1,11 +1,14 @@
 "use client";
 
+// CANONICAL WHOIS FLOW
+// This file is part of the active WHOIS human→agent system.
+// Do not introduce beauty-named dependencies here.
 import { Suspense, useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import FlowNav from "@/components/FlowNav";
 import { track } from "@/lib/analytics";
-import { setBeautyUnlocked } from "@/lib/landing-storage";
+import { setWhoisUnlocked } from "@/lib/landing-storage";
 
 function WhoisSuccessContent() {
   const searchParams = useSearchParams();
@@ -25,12 +28,12 @@ function WhoisSuccessContent() {
         className="mb-3 font-mono text-[11px] uppercase tracking-[0.15em]"
         style={{ color: "#58d68d" }}
       >
-        RECORD MINTED — AGENT SURFACE ACTIVE
+        PAYMENT COMPLETE — AGENT SURFACE ACTIVE
       </p>
       <ul className="mb-3 space-y-1 text-sm" style={{ color: "#c8c8cc" }}>
         <li>- Registry record (machine-readable)</li>
         <li>- Agent calibration record (API)</li>
-        <li>- Entitlement token for AI systems</li>
+        <li>- Token for AI systems</li>
       </ul>
       <p className="text-sm" style={{ color: "#9a9aa0" }}>
         Use this to allow AI tools to adapt how they interact with you.
@@ -60,7 +63,7 @@ function WhoisSuccessContent() {
             setStatus("paid");
             return;
           }
-          setBeautyUnlocked();
+          setWhoisUnlocked();
           setReportId(data.reportId || null);
           setPrePurchase(data.prePurchase === true);
           if (data.entitlementToken) {
@@ -254,10 +257,10 @@ function WhoisSuccessContent() {
                 fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
               }}
             >
-              Mint complete
+              Payment complete
             </h1>
             <p className="text-sm leading-relaxed mb-6" style={{ color: "#9a9aa0" }}>
-              Mint received. Return to Origin to complete intake.
+              Your payment was received. This was a pre-payment — return to Origin to complete the intake form and generate your registry record.
             </p>
             <Link
               href="/origin"
@@ -296,39 +299,27 @@ function WhoisSuccessContent() {
                 fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
               }}
             >
-              STATE: MINTED — Registry record active
+              Registry record active
             </h1>
             {handoffBlock}
+            <div className="mb-6 rounded border border-emerald-500/40 bg-emerald-500/10 p-4">
+              <p className="font-medium text-sm" style={{ color: "#58d68d" }}>
+                Copy your Report ID and Token. You will use these with your AI.
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "#9a9aa0" }}>
+                Save them before leaving this page. Select and copy each value below.
+              </p>
+            </div>
             <p className="text-sm mb-4" style={{ color: "#9a9aa0" }}>
-              Save these values securely. The entitlement token is secret — anyone
-              with it can call the agent calibration API for this report.
-            </p>
-            <p className="text-xs mb-2" style={{ color: "#8a8a90" }}>
-              Also save your <strong style={{ color: "#c8c8cc" }}>session_id</strong> below.
-              If you lose the token, you can get it back by calling verify-session with that id
-              (see example at the bottom).
+              Save these values securely. The Token is secret — anyone with it can
+              call the agent calibration API for this report.
             </p>
             <div className="space-y-3 mb-6">
               <p
                 className="text-[11px] uppercase tracking-wider"
                 style={{ color: "#8a8a90" }}
               >
-                session_id (recover token anytime)
-              </p>
-              <pre
-                className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
-                style={{
-                  color: "#e8e8ec",
-                  fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
-                }}
-              >
-                {sessionId}
-              </pre>
-              <p
-                className="text-[11px] uppercase tracking-wider mt-4"
-                style={{ color: "#8a8a90" }}
-              >
-                Canonical ID (reportId)
+                Report ID
               </p>
               <pre
                 className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
@@ -343,7 +334,7 @@ function WhoisSuccessContent() {
                 className="text-[11px] uppercase tracking-wider mt-4"
                 style={{ color: "#8a8a90" }}
               >
-                entitlementToken
+                Token
               </p>
               <pre
                 className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
@@ -371,39 +362,58 @@ function WhoisSuccessContent() {
               {`GET /api/agent/whois?reportId=${reportId}
 Authorization: Bearer ${entitlementToken}`}
             </pre>
-            <p
-              className="text-[11px] uppercase tracking-wider mt-6 mb-2"
-              style={{ color: "#8a8a90" }}
-            >
-              Re-fetch entitlement token (same session)
-            </p>
-            <pre
-              className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-2"
-              style={{
-                color: "#c8c8cc",
-                fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
-              }}
-            >
-              {apiOrigin
-                ? `GET ${apiOrigin}/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
-                : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
-            </pre>
-            <p className="text-xs mb-6" style={{ color: "#7a7a80" }}>
-              Response JSON includes <code className="text-[#9a9aa0]">entitlementToken</code> when
-              payment is complete and the webhook has registered access (field may be inside{" "}
-              <code className="text-[#9a9aa0]">data</code>).
-            </p>
-            <p className="mt-2 text-xs" style={{ color: "#7a7a80" }}>
-              Store the token in a password manager or secure vault. Do not commit
+            <p className="mt-2 text-xs mb-6" style={{ color: "#7a7a80" }}>
+              Store the Token in a password manager or secure vault. Do not commit
               it to source control or share it in public channels.
             </p>
-            <Link
-              href={`/whois/view?reportId=${encodeURIComponent(reportId)}`}
-              className="inline-flex mt-8 items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
-              style={{ color: "#c8c8cc" }}
-            >
-              View registry record
-            </Link>
+            <details className="mt-4 rounded border border-[#2a2a2e]/60 bg-[#0a0a0b]/50 p-3">
+              <summary className="text-[11px] uppercase tracking-wider cursor-pointer" style={{ color: "#6a6a70" }}>
+                Recover Token if lost (session_id)
+              </summary>
+              <p className="text-xs mt-2 mb-2" style={{ color: "#7a7a80" }}>
+                If you lose the Token, save your session_id below and call verify-session.
+                Response JSON includes <code className="text-[#9a9aa0]">entitlementToken</code> in <code className="text-[#9a9aa0]">data</code>.
+              </p>
+              <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "#6a6a70" }}>
+                session_id
+              </p>
+              <pre
+                className="text-[11px] p-2 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
+                style={{
+                  color: "#9a9aa0",
+                  fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+                }}
+              >
+                {sessionId}
+              </pre>
+              <pre
+                className="text-[11px] mt-2 p-2 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
+                style={{
+                  color: "#9a9aa0",
+                  fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
+                }}
+              >
+                {apiOrigin
+                  ? `GET ${apiOrigin}/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
+                  : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
+              </pre>
+            </details>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href={`/whois/view?reportId=${encodeURIComponent(reportId)}`}
+                className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
+                style={{ color: "#c8c8cc" }}
+              >
+                View your report
+              </Link>
+              <Link
+                href={`/for-agents?reportId=${encodeURIComponent(reportId)}`}
+                className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-emerald-500/50 font-mono text-[11px] font-medium hover:border-emerald-500 hover:text-[#e8e8ec] transition-colors"
+                style={{ color: "#58d68d" }}
+              >
+                Use with AI
+              </Link>
+            </div>
             <FlowNav variant="dark" className="mt-8" />
           </div>
           <p
@@ -436,19 +446,24 @@ Authorization: Bearer ${entitlementToken}`}
               fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
             }}
           >
-            Mint complete
+            Payment complete
           </h1>
           {handoffBlock}
+          <div className="mb-6 rounded border border-amber-500/40 bg-amber-500/10 p-4">
+            <p className="font-medium text-sm" style={{ color: "#fbbf24" }}>
+              Copy your Report ID now. You will use it with your AI.
+            </p>
+            <p className="mt-1 text-xs" style={{ color: "#9a9aa0" }}>
+              Token will appear below when ready. Do not leave before copying both.
+            </p>
+          </div>
           <p className="text-sm leading-relaxed mb-4" style={{ color: "#9a9aa0" }}>
             {tokenPollExhausted
-              ? "Entitlement token not yet available. Confirm webhook delivered and registry record exists for this canonical ID, then reload or use verify-session below."
-              : "Waiting for entitlement token (webhook). This page will update automatically…"}
+              ? "Token not yet available. Confirm webhook delivered and registry record exists for this Report ID, then reload or use verify-session below."
+              : "Waiting for Token (webhook). This page will update automatically…"}
           </p>
-          <p
-            className="text-[11px] uppercase tracking-wider mb-2"
-            style={{ color: "#8a8a90" }}
-          >
-            session_id — copy and keep (recover token anytime)
+          <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "#8a8a90" }}>
+            Report ID — copy now
           </p>
           <pre
             className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-4"
@@ -457,40 +472,47 @@ Authorization: Bearer ${entitlementToken}`}
               fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
             }}
           >
-            {sessionId}
+            {reportId}
           </pre>
-          <p
-            className="text-[11px] uppercase tracking-wider mb-2"
-            style={{ color: "#8a8a90" }}
-          >
-            Re-fetch token (browser or curl)
-          </p>
-          <pre
-            className="text-xs p-3 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-4"
-            style={{
-              color: "#c8c8cc",
-              fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace",
-            }}
-          >
-            {apiOrigin
-              ? `GET ${apiOrigin}/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
-              : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
-          </pre>
-          <p className="text-xs mb-4" style={{ color: "#7a7a80" }}>
-            After <code className="text-[#9a9aa0]">entitlementToken</code> appears in the response,
-            call <code className="text-[#9a9aa0]">GET /api/agent/whois?reportId=…</code> with{" "}
-            <code className="text-[#9a9aa0]">Authorization: Bearer &lt;token&gt;</code>.
-          </p>
-            <p className="text-xs mb-6 font-mono" style={{ color: "#8a8a90" }}>
-              Canonical ID: {reportId}
+          <details className="mb-6 rounded border border-[#2a2a2e]/60 bg-[#0a0a0b]/50 p-3">
+            <summary className="text-[11px] uppercase tracking-wider cursor-pointer" style={{ color: "#6a6a70" }}>
+              Token not here yet? Recover via session_id
+            </summary>
+            <p className="text-xs mt-2 mb-2" style={{ color: "#7a7a80" }}>
+              Save session_id below. Call verify-session; when <code className="text-[#9a9aa0]">entitlementToken</code> appears in the response, use it with Report ID.
             </p>
+            <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "#6a6a70" }}>session_id</p>
+            <pre
+              className="text-[11px] p-2 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all mb-2"
+              style={{ color: "#9a9aa0", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
+            >
+              {sessionId}
+            </pre>
+            <pre
+              className="text-[11px] p-2 rounded border border-[#2a2a2e] overflow-x-auto whitespace-pre-wrap break-all"
+              style={{ color: "#9a9aa0", fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
+            >
+              {apiOrigin
+                ? `GET ${apiOrigin}/api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`
+                : `GET /api/stripe/verify-session?session_id=${encodeURIComponent(sessionId)}`}
+            </pre>
+          </details>
+          <div className="flex flex-wrap gap-3">
             <Link
               href={viewUrl}
               className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-[#2a2a2e] font-mono text-[11px] font-medium hover:border-[#5a5a62] hover:text-[#e8e8ec] transition-colors"
               style={{ color: "#c8c8cc" }}
             >
-              View registry record
+              View your report
             </Link>
+            <Link
+              href={`/for-agents?reportId=${encodeURIComponent(reportId)}`}
+              className="inline-flex items-center justify-center min-h-[44px] px-5 py-2.5 rounded border border-emerald-500/50 font-mono text-[11px] font-medium hover:border-emerald-500 hover:text-[#e8e8ec] transition-colors"
+              style={{ color: "#58d68d" }}
+            >
+              Use with AI
+            </Link>
+          </div>
           <FlowNav variant="dark" className="mt-8" />
         </div>
         <p

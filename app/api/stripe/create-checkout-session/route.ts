@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
-import { loadBeautyProfileV1 } from "@/lib/beauty-profile-store";
+import { loadWhoisProfileV1 } from "@/lib/whois-profile-store";
 import { stripeTestModeRequired } from "@/lib/runtime-mode";
 import { killSwitchResponse } from "@/lib/api-kill-switch";
 
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await loadBeautyProfileV1(reportId, requestId);
+      await loadWhoisProfileV1(reportId, requestId);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (message === "BEAUTY_PROFILE_NOT_FOUND") {
@@ -104,6 +104,18 @@ export async function POST(request: Request) {
         { error: "STRIPE_ERROR", message },
         { status: 500 }
       );
+    }
+
+    const hasReportId =
+      typeof session.metadata?.reportId === "string" && session.metadata.reportId.trim().length > 0;
+    if (!hasReportId) {
+      log("error", "checkout_session_metadata_empty", {
+        requestId,
+        reportId,
+        sessionId: session.id,
+        metadataKeys: session.metadata ? Object.keys(session.metadata) : [],
+      });
+      return errorResponse(500, "Checkout could not be started. Please try again or contact support if this persists.", requestId);
     }
 
     log("info", "stage", {

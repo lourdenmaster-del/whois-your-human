@@ -2,8 +2,8 @@ import Stripe from "stripe";
 import { errorResponse } from "@/lib/api-response";
 import { log } from "@/lib/log";
 import { successResponse } from "@/lib/success-response";
-import { loadBeautyProfileV1, saveBeautyProfileV1 } from "@/lib/beauty-profile-store";
-import { buildRegistryForRegistered, mergeRegistryMinted } from "@/lib/beauty-profile-schema";
+import { loadWhoisProfileV1, saveWhoisProfileV1 } from "@/lib/whois-profile-store";
+import { buildRegistryForRegistered, mergeRegistryMinted } from "@/lib/whois-profile-schema";
 import { stripeTestModeRequired } from "@/lib/runtime-mode";
 import {
   getAgentEntitlementByReportId,
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
 
   try {
     try {
-      await loadBeautyProfileV1(reportId, requestId);
+      await loadWhoisProfileV1(reportId, requestId);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       if (message === "BEAUTY_PROFILE_NOT_FOUND") {
@@ -114,10 +114,10 @@ export async function POST(request: Request) {
 
     // Persist MINTED state on canonical record.
     try {
-      const profile = await loadBeautyProfileV1(reportId, requestId);
+      const profile = await loadWhoisProfileV1(reportId, requestId);
       const baseRegistry = profile.registry ?? buildRegistryForRegistered(reportId, "engine");
       const nextRegistry = mergeRegistryMinted(baseRegistry);
-      await saveBeautyProfileV1(
+      await saveWhoisProfileV1(
         reportId,
         { ...profile, registry: nextRegistry },
         requestId

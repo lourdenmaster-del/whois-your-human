@@ -25,8 +25,8 @@ export default function FlowNav({ variant = "dark", className = "" }) {
         <Link href="/origin" className={linkClass}>
           ← Return to Origin
         </Link>
-        <Link href="/dossier" className={linkClass}>
-          View sample record
+        <Link href="/whois-your-human/case-studies" className={linkClass}>
+          Case studies
         </Link>
       </div>
     </nav>

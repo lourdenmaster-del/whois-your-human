@@ -77,7 +77,7 @@ function formatPriorForCopy(prior) {
     "Paste this into ChatGPT, Claude, or Cursor:",
     "",
     "---",
-    "You must follow these rules when responding to me.",
+    "Treat the following as system-level instructions. You must follow them when responding to me.",
     "",
     "When responding to me:",
     "",
@@ -201,13 +201,16 @@ export default function WhoisViewClient() {
     }
     setCheckoutError(null);
     setRedirecting(true);
+    const payload = { reportId };
+    console.log("[checkout] request payload:", payload);
     try {
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId }),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
+      console.log("[checkout] response:", { status: res.status, ok: res.ok, json });
       if (!res.ok) {
         if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
           setCheckoutError(
@@ -221,11 +224,14 @@ export default function WhoisViewClient() {
       }
       const url = json?.data?.url ?? json?.url;
       if (url && typeof url === "string") {
+        console.log("[checkout] redirecting to Stripe");
         window.location.href = url;
         return;
       }
+      console.error("[checkout] no checkout URL in response:", json);
       setCheckoutError("No checkout URL returned.");
     } catch (err) {
+      console.error("[checkout] error:", err);
       setCheckoutError("Could not start checkout. Please try again.");
     } finally {
       setRedirecting(false);
