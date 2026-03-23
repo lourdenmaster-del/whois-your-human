@@ -497,7 +497,7 @@ export default function OriginTerminalIntake() {
                   className="mb-3 w-full font-mono text-[10px] leading-relaxed tracking-[0.06em] sm:text-[11px]"
                   style={{ color: "rgba(154,154,160,0.72)" }}
                 >
-                  Creates your registry record. Mint required for agent surface.
+                  Creates your registry record. Agents invited; no intake required.
                 </p>
               </>
             )}
@@ -567,7 +567,22 @@ export default function OriginTerminalIntake() {
           className="mt-6 pt-6 border-t border-white/[0.08] font-mono text-[11px] text-[rgba(154,154,160,0.8)]"
           style={{ fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace" }}
         >
-          <p className="uppercase tracking-[0.12em] text-[rgba(154,154,160,0.6)] mb-2">Case studies</p>
+          <p className="uppercase tracking-[0.12em] text-[rgba(154,154,160,0.6)] mb-2">AGENT ACCESS</p>
+          <p className="mb-2 text-[rgba(154,154,160,0.8)]">Agents are invited. No intake required.</p>
+          <div className="flex flex-col gap-1 text-left mb-4">
+            <a href="/for-agents" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">/for-agents</a>
+            <a href="/whois-your-human/api" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">/whois-your-human/api</a>
+            <a href="/whois-your-human/prior-format" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">/whois-your-human/prior-format</a>
+            <a href="/whois-your-human/integration" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">/whois-your-human/integration</a>
+            <a href="/llms.txt" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">/llms.txt</a>
+          </div>
+        </div>
+
+        <div
+          className="mt-6 pt-6 border-t border-white/[0.08] font-mono text-[11px] text-[rgba(154,154,160,0.8)]"
+          style={{ fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace" }}
+        >
+          <p className="uppercase tracking-[0.12em] text-[rgba(154,154,160,0.6)] mb-2">Selected case studies</p>
           <div className="flex flex-col gap-1 text-left">
             <a href="/whois-your-human/case-studies/wyh-001" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">wyh-001</a>
             <a href="/whois-your-human/case-studies/wyh-004" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">wyh-004</a>
