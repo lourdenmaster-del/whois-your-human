@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import UseWithAISection from "./UseWithAISection";
 import ApiCopyBlock from "./ApiCopyBlock";
-import { formatInteractionProfile } from "@/lib/archetypes/formatters";
+import { resolveInstructionsFromProfile } from "@/lib/agent-instruction-copy";
 
 export const metadata = {
   title: "For agents | LIGS / WHOIS YOUR HUMAN",
@@ -24,23 +24,13 @@ async function getOrigin() {
   return "https://ligs.io";
 }
 
-const DEFAULT_HELP = "Start with two structured options, state tradeoffs, and confirm direction before branching.";
-
 async function resolveProfile(searchParams) {
   const resolved = typeof searchParams?.then === "function" ? await searchParams : searchParams;
   const reportId = resolved?.reportId != null
     ? (Array.isArray(resolved.reportId) ? resolved.reportId[0] : resolved.reportId)
     : null;
 
-  const fromFormat = (fp) => ({
-    do: fp.behaviorRules ?? [],
-    avoid: fp.frictionPatterns ?? [],
-    help: DEFAULT_HELP,
-    failure_mode: (fp.frictionPatterns ?? [])[0] ?? "",
-    recovery: fp.recoveryActions ?? [],
-  });
-
-  if (!reportId) return fromFormat(formatInteractionProfile("Stabiliora"));
+  if (!reportId) return resolveInstructionsFromProfile(null);
 
   try {
     const origin = await getOrigin();
@@ -49,31 +39,11 @@ async function resolveProfile(searchParams) {
     });
     const json = await res.json().catch(() => ({}));
     const profile = json?.status === "ok" ? json.data : null;
-    const prior = profile?.agentPriorLayer;
-    const archetype =
-      prior?.derived_structure?.archetype ??
-      profile?.dominantArchetype ??
-      null;
-
-    if (prior?.agent_directives || prior?.agent_summary) {
-      const ad = prior.agent_directives ?? {};
-      const as = prior.agent_summary ?? {};
-      const fp = archetype ? formatInteractionProfile(archetype.trim()) : null;
-      return {
-        do: (ad.agent_do ?? []).filter(Boolean),
-        avoid: (ad.agent_avoid ?? []).filter(Boolean),
-        help: (as.help_strategy ?? "").trim() || DEFAULT_HELP,
-        failure_mode: (as.failure_mode ?? "").trim(),
-        recovery: fp?.recoveryActions ?? [],
-      };
-    }
-    if (archetype && typeof archetype === "string" && archetype.trim()) {
-      return fromFormat(formatInteractionProfile(archetype.trim()));
-    }
+    return resolveInstructionsFromProfile(profile);
   } catch {
     /* ignore */
   }
-  return fromFormat(formatInteractionProfile("Stabiliora"));
+  return resolveInstructionsFromProfile(null);
 }
 
 export default async function ForAgentsPage({ searchParams }) {
@@ -92,11 +62,11 @@ export default async function ForAgentsPage({ searchParams }) {
         </h1>
 
         <UseWithAISection
-          doItems={profile.do}
-          avoidItems={profile.avoid}
+          doItems={profile.doItems}
+          avoidItems={profile.avoidItems}
           help={profile.help}
-          failureMode={profile.failure_mode}
-          recoveryItems={profile.recovery}
+          failureMode={profile.failureMode}
+          recoveryItems={profile.recoveryItems}
         />
 
         <div className="mt-10 border-t border-white/15 pt-8">

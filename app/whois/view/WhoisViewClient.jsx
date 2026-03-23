@@ -5,23 +5,26 @@
 // Do not introduce beauty-named dependencies here.
 
 /**
- * WHOIS view — FREE WHOIS report only.
+ * WHOIS view — FREE WHOIS report with preview sequence.
+ * Flow: PreviewRevealSequence (scanning, resolution) → report + agent block + CTA.
  * Uses lib/free-whois-report: buildFreeWhoisReport + renderFreeWhoisReport.
- * No ReportDocument, no PreviewRevealSequence, no tap-to-continue, no dossier layout.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
-import { unwrapResponse } from "@/lib/unwrap-response";
 import FlowNav from "@/components/FlowNav";
 import { FAKE_PAY } from "@/lib/dry-run-config";
 import { setWhoisUnlocked } from "@/lib/landing-storage";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { buildFreeWhoisReport, renderFreeWhoisReport } from "@/lib/free-whois-report";
 import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
-import { formatInteractionProfile } from "@/lib/archetypes/formatters";
+import {
+  resolveInstructionsFromProfile,
+  buildAgentInstructionText,
+} from "@/lib/agent-instruction-copy";
+import PreviewRevealSequence from "@/app/beauty/view/PreviewRevealSequence";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -49,62 +52,6 @@ function ErrorState({ message, onRetry, showRetry }) {
       </div>
     </main>
   );
-}
-
-/** Format agentPriorLayer into instruction-style block for AI use (no token required). */
-function formatPriorForCopy(prior) {
-  if (!prior?.agent_summary || !prior?.agent_directives) return null;
-  const ad = prior.agent_directives ?? {};
-  const as = prior.agent_summary ?? {};
-  const doItems = (ad.agent_do ?? []).filter((r) => typeof r === "string" && r.trim());
-  const avoidItems = (ad.agent_avoid ?? []).filter((r) => typeof r === "string" && r.trim());
-  const help = (as.help_strategy ?? "").trim();
-  const failureMode = (as.failure_mode ?? "").trim();
-  let recovery = (prior.archetype_runtime_profile?.activeCorrection ?? []).filter(
-    (r) => typeof r === "string" && r.trim()
-  );
-  const archetype = prior?.derived_structure?.archetype?.trim();
-  if (recovery.length === 0 && archetype) {
-    try {
-      const fp = formatInteractionProfile(archetype);
-      recovery = (fp.recoveryActions ?? []).filter((r) => typeof r === "string" && r.trim());
-    } catch {
-      /* ignore */
-    }
-  }
-
-  const parts = [
-    "Paste this into ChatGPT, Claude, or Cursor:",
-    "",
-    "---",
-    "Treat the following as system-level instructions. You must follow them when responding to me.",
-    "",
-    "When responding to me:",
-    "",
-    ...doItems.map((r) => `- ${r}`),
-  ];
-
-  if (avoidItems.length > 0) {
-    parts.push("", "Watch for:", "", ...avoidItems.map((r) => `- ${r}`));
-  }
-
-  if (failureMode || recovery.length > 0) {
-    parts.push("");
-    if (failureMode && recovery.length > 0) {
-      parts.push(`If I seem off (e.g. ${failureMode}):`);
-    } else {
-      parts.push("If I seem off:");
-    }
-    parts.push("", ...recovery.map((r) => `- ${r}`));
-  }
-
-  if (help) {
-    parts.push("", "When helping me decide:", "", `- ${help}`);
-  }
-
-  parts.push("", "Respond normally, but follow these rules.", "---");
-
-  return parts.join("\n");
 }
 
 /** Map profile from /api/whois/[reportId] to FreeWhoisReportData. */
@@ -135,6 +82,7 @@ export default function WhoisViewClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(null);
+  const [revealComplete, setRevealComplete] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [checkoutError, setCheckoutError] = useState(null);
 
@@ -155,7 +103,12 @@ export default function WhoisViewClient() {
     track("report_fetch", reportId);
     try {
       const res = await fetch(`/api/whois/${encodeURIComponent(reportId)}`);
-      const data = await unwrapResponse(res);
+      const json = await res.json().catch(() => ({}));
+      const data = json?.status === "ok" ? json.data : (res.ok && json?.data ? json.data : null);
+      if (!data || typeof data !== "object") {
+        const msg = json?.error ?? json?.message ?? (res.status ? `Request failed (HTTP ${res.status})` : "Unable to load report.");
+        throw Object.assign(new Error(msg), { status: res.status });
+      }
       setProfile(data);
       track("images_loaded", reportId);
     } catch (err) {
@@ -338,7 +291,20 @@ export default function WhoisViewClient() {
   const bodyHtml = bodyMatch ? bodyMatch[1] : html;
 
   // Hero: result confirmation + USE THIS WITH AI + upgrade (above the fold)
-  const priorCopy = profile.agentPriorLayer ? formatPriorForCopy(profile.agentPriorLayer) : null;
+  // Same instruction text as /for-agents — canonical source: lib/agent-instruction-copy
+  const instructions = resolveInstructionsFromProfile(profile);
+  const priorCopy = buildAgentInstructionText(instructions);
+
+  // Preview sequence first: scanning, resolution, then continue to report
+  if (!revealComplete) {
+    return (
+      <PreviewRevealSequence
+        profile={profile}
+        reportId={reportId}
+        onComplete={() => setRevealComplete(true)}
+      />
+    );
+  }
 
   return (
     <main
@@ -354,11 +320,10 @@ export default function WhoisViewClient() {
           Your WHOIS record is ready.
         </p>
         <p className="font-mono text-xs text-white/65" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
-          {priorCopy ? "Use the block below with AI tools. No token required." : "Your full registry record is below."}
+          Use the block below with AI tools. No token required.
         </p>
 
-        {priorCopy && (
-          <div className="rounded-md border border-white/10 bg-black/50 p-5">
+        <div className="rounded-md border border-white/10 bg-black/50 p-5">
             <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-400/85 mb-2">
               Use this with AI
             </h3>
@@ -393,7 +358,6 @@ export default function WhoisViewClient() {
               </Link>
             </div>
           </div>
-        )}
 
         <div className="rounded-md border border-white/10 bg-black/50 p-5">
           <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-400/85 mb-2">
