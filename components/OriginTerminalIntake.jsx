@@ -1,18 +1,19 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import { parseDate, parseTime } from "@/lib/terminal-intake/parseInputs";
 import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
 import {
-  submitToBeautySubmit,
-  submitToBeautyDryRun,
+  submitToWhoisSubmit,
+  submitToWhoisDryRun,
 } from "@/lib/engine-client";
 import {
-  setBeautyUnlocked,
+  setWhoisUnlocked,
   saveLastFormData,
   saveOriginIntake,
   loadLastFormData,
-  isBeautyUnlocked,
+  isWhoisUnlocked,
 } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
 import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
@@ -248,6 +249,7 @@ function PrimeArtifactImg({ primeUrl, archetype }) {
 }
 
 export default function OriginTerminalIntake() {
+  const router = useRouter();
   const inputRef = useRef(null);
   const lastEnterHandledRef = useRef(0);
   const ctaSubmittingRef = useRef(false);
@@ -297,7 +299,7 @@ export default function OriginTerminalIntake() {
   const dryRun = getDryRunFromUrl();
   const [unlocked, setUnlockedState] = useState(false);
   useEffect(() => {
-    if (typeof window !== "undefined") setUnlockedState(isBeautyUnlocked());
+    if (typeof window !== "undefined") setUnlockedState(isWhoisUnlocked());
   }, []);
 
   useEffect(() => {
@@ -568,8 +570,8 @@ export default function OriginTerminalIntake() {
 
       if (unlocked || dryRun || TEST_MODE) {
         const result = dryRun
-          ? await submitToBeautyDryRun(payload)
-          : await submitToBeautySubmit(payload);
+          ? await submitToWhoisDryRun(payload)
+          : await submitToWhoisSubmit(payload);
         const reportId = result?.reportId;
         if (!reportId) {
           goToErrorAndComplete("Registry record generation failed.");
@@ -577,18 +579,18 @@ export default function OriginTerminalIntake() {
         }
         saveLastFormData(reportId, payload);
         setLastReportId(reportId);
-        beginRegistryReveal();
+        router.replace(`/whois/view?reportId=${encodeURIComponent(reportId)}`);
         return;
       }
 
       if (FAKE_PAY) {
-        setBeautyUnlocked();
-        const result = await submitToBeautySubmit(payload);
+        setWhoisUnlocked();
+        const result = await submitToWhoisSubmit(payload);
         const reportId = result?.reportId;
         if (reportId) {
           saveLastFormData(reportId, payload);
           setLastReportId(reportId);
-          beginRegistryReveal();
+          router.replace(`/whois/view?reportId=${encodeURIComponent(reportId)}`);
         }
         return;
       }
@@ -614,7 +616,7 @@ export default function OriginTerminalIntake() {
         return;
       }
       // Canonical rule: record MUST exist before checkout. Create it now.
-      const result = await submitToBeautySubmit(payload);
+      const result = await submitToWhoisSubmit(payload);
       const reportId = result?.reportId;
       if (!reportId) {
         goToErrorAndComplete("Registry record generation failed.");
@@ -644,7 +646,7 @@ export default function OriginTerminalIntake() {
       ctaSubmittingRef.current = false;
       setCtaLoading(false);
     }
-  }, [formData, unlocked, dryRun, goToErrorAndComplete, resolvedArchetypeFromDate, beginRegistryReveal]);
+  }, [formData, unlocked, dryRun, goToErrorAndComplete, resolvedArchetypeFromDate, router]);
 
   const executeSubmitRef = useRef(null);
   executeSubmitRef.current = handleRunWhoisClick;
@@ -671,7 +673,7 @@ export default function OriginTerminalIntake() {
           setPurchaseRedirecting(false);
           return;
         }
-        const result = await submitToBeautySubmit(payload);
+        const result = await submitToWhoisSubmit(payload);
         reportIdToUse = result?.reportId;
         if (!reportIdToUse) {
           setPurchaseError("Registry record generation failed.");
@@ -682,7 +684,7 @@ export default function OriginTerminalIntake() {
         setLastReportId(reportIdToUse);
       }
       if (FAKE_PAY) {
-        setBeautyUnlocked();
+        setWhoisUnlocked();
         window.location.href = `/whois/view?reportId=${encodeURIComponent(reportIdToUse)}`;
         return;
       }
