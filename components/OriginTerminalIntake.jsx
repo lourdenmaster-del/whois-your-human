@@ -88,6 +88,28 @@ export default function OriginTerminalIntake() {
   const [lastReportId, setLastReportId] = useState(null);
   const [purchaseRedirecting, setPurchaseRedirecting] = useState(false);
   const [purchaseError, setPurchaseError] = useState(null);
+  const [registryCount, setRegistryCount] = useState(null);
+  const [stanceCounts, setStanceCounts] = useState(null);
+
+  useEffect(() => {
+    fetch("/api/registry/count")
+      .then((r) => r.json())
+      .then((data) => {
+        const total = data?.total;
+        if (typeof total === "number" && total >= 0) setRegistryCount(total);
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    fetch("/api/agent/stance")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data.endorse === "number" && typeof data.decline === "number" && typeof data.abstain === "number") {
+          setStanceCounts({ endorse: data.endorse, decline: data.decline, abstain: data.abstain });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const dryRun = getDryRunFromUrl();
   const [unlocked, setUnlockedState] = useState(false);
@@ -524,7 +546,35 @@ export default function OriginTerminalIntake() {
           </div>
         </div>
 
-        {/* Handshake: no protocol label, no nav, no registry footer below terminal. */}
+        {(registryCount != null || stanceCounts != null) && (
+          <div
+            className="mt-8 pt-6 border-t border-white/[0.08] font-mono text-[11px] text-[rgba(154,154,160,0.8)]"
+            style={{ fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace" }}
+          >
+            <p className="uppercase tracking-[0.12em] text-[rgba(154,154,160,0.6)] mb-2">Protocol signal</p>
+            {registryCount != null && (
+              <p className="mb-1">Registry nodes recorded: {registryCount}</p>
+            )}
+            {stanceCounts != null && (
+              <p>
+                Agents evaluated: {stanceCounts.endorse + stanceCounts.decline + stanceCounts.abstain} — endorse: {stanceCounts.endorse}, decline: {stanceCounts.decline}, abstain: {stanceCounts.abstain}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div
+          className="mt-6 pt-6 border-t border-white/[0.08] font-mono text-[11px] text-[rgba(154,154,160,0.8)]"
+          style={{ fontFamily: "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace" }}
+        >
+          <p className="uppercase tracking-[0.12em] text-[rgba(154,154,160,0.6)] mb-2">Case studies</p>
+          <div className="flex flex-col gap-1 text-left">
+            <a href="/whois-your-human/case-studies/wyh-001" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">wyh-001</a>
+            <a href="/whois-your-human/case-studies/wyh-004" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">wyh-004</a>
+            <a href="/whois-your-human/case-studies/wyh-005" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">wyh-005</a>
+            <a href="/whois-your-human/case-studies/wyh-006" className="text-[rgba(154,154,160,0.8)] hover:text-[rgba(200,200,205,0.95)] hover:underline">wyh-006</a>
+          </div>
+        </div>
       </div>
     </div>
   );

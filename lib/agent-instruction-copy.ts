@@ -76,8 +76,6 @@ export function resolveInstructionsFromProfile(profile: {
 export function buildAgentInstructionText(props: AgentInstructionProps): string {
   const { doItems, avoidItems, help, failureMode, recoveryItems } = props;
   const parts = [
-    "Paste this into ChatGPT, Claude, or Cursor:",
-    "",
     "---",
     "Treat the following as system-level instructions. You must follow them when responding to me.",
     "",

@@ -204,6 +204,15 @@ function formatFieldConditionsContextForWhois(ctx: FieldConditionsContext): stri
   return lines.join("\n");
 }
 
+/** Values that indicate missing/placeholder data — omit row from report instead of displaying. */
+const PLACEHOLDER_VALUES = ["Restricted Node Data", "Limited Access", "—"];
+
+function isPlaceholderValue(v: string | null | undefined): boolean {
+  if (v == null || typeof v !== "string") return true;
+  const t = v.trim();
+  return !t || PLACEHOLDER_VALUES.includes(t);
+}
+
 /** Human-facing solar anchor type. Display only; stored values unchanged. */
 function humanizeSolarAnchorType(anchorType: string | undefined): string {
   if (anchorType === "none") return "Inter-segment position";
@@ -723,16 +732,17 @@ export function renderFreeWhoisReport(
   const magneticFieldIndex = report.magneticFieldIndexDisplay ?? "Restricted Node Data";
   const climateSignature = report.climateSignatureDisplay ?? "Restricted Node Data";
   const sensoryFieldConditions = report.sensoryFieldConditionsDisplay ?? "Restricted Node Data";
-  const genesisRows = [
-    row("Solar Light Vector", solarLightVector, theme),
-    row("Seasonal Context", seasonalContext, theme),
-    row("Solar Anchor Type", solarAnchorTypeDisplay, theme),
-    row("Chrono-Imprint", chronoImprint, theme),
-    row("Origin Coordinates", originCoordinates, theme),
-    row("Magnetic Field Index", magneticFieldIndex, theme),
-    row("Climate Signature", climateSignature, theme),
-    row("Sensory Field Conditions", sensoryFieldConditions, theme),
-  ].join("\n");
+  const genesisRowItems = [
+    { label: "Solar Light Vector", value: solarLightVector },
+    { label: "Seasonal Context", value: seasonalContext },
+    { label: "Solar Anchor Type", value: solarAnchorTypeDisplay },
+    { label: "Chrono-Imprint", value: chronoImprint },
+    { label: "Origin Coordinates", value: originCoordinates },
+    { label: "Magnetic Field Index", value: magneticFieldIndex },
+    { label: "Climate Signature", value: climateSignature },
+    { label: "Sensory Field Conditions", value: sensoryFieldConditions },
+  ].filter((r) => !isPlaceholderValue(r.value));
+  const genesisRows = genesisRowItems.map((r) => row(r.label, r.value, theme)).join("\n");
 
   const artifactBlock = `
     <div style="margin:28px 0;text-align:center;">
@@ -869,12 +879,14 @@ ${registrationLogRows}
     </table>
     </div>
 
+    ${genesisRowItems.length > 0 ? `
     <div style="${cardBlock}">
     <p style="${sectionHeading}">${theme === "dark" ? "GENESIS METADATA" : "IDENTITY PHYSICS — GENESIS METADATA"}</p>
     <table style="width:100%;border-collapse:collapse;margin-bottom:${theme === "dark" ? "0" : "24px"};" cellpadding="0" cellspacing="0">
 ${genesisRows}
     </table>
     </div>
+    ` : ""}
 
     ${theme === "light" ? '<p style="margin:0 0 24px 0;font-size:14px;color:#333;">This document constitutes the official registry record for the identity designated above.</p>' : ""}
 
@@ -949,21 +961,28 @@ export function renderFreeWhoisReportText(
     "Archetype Classification: " + report.archetypeClassification,
     "Cosmic Twin: " + report.cosmicAnalogue,
     "",
-    "IDENTITY PHYSICS — GENESIS METADATA",
-    "",
-    "Solar Light Vector: " +
-      (report.sunLongitudeDeg != null && Number.isFinite(report.sunLongitudeDeg)
-        ? formatSolarLongitudeDisplay(report.sunLongitudeDeg)
-        : "Limited Access"),
-    "Seasonal Context: " +
-      (report.solarSignature && report.solarSignature !== "—" ? report.solarSignature : "Limited Access"),
-    "Solar Anchor Type: " + humanizeSolarAnchorType(report.solarAnchorType),
-    "Chrono-Imprint: " + (report.chronoImprintResolved ?? chronoImprintDisplay(report.birthTime)),
-    "Origin Coordinates: " + (report.originCoordinatesDisplay ?? "Restricted Node Data"),
-    "Magnetic Field Index: " + (report.magneticFieldIndexDisplay ?? "Restricted Node Data"),
-    "Climate Signature: " + (report.climateSignatureDisplay ?? "Restricted Node Data"),
-    "Sensory Field Conditions: " + (report.sensoryFieldConditionsDisplay ?? "Restricted Node Data"),
-    "",
+    ...(() => {
+      const solarLightVector =
+        report.sunLongitudeDeg != null && Number.isFinite(report.sunLongitudeDeg)
+          ? formatSolarLongitudeDisplay(report.sunLongitudeDeg)
+          : "Limited Access";
+      const seasonalContext =
+        report.solarSignature && report.solarSignature !== "—" ? report.solarSignature : "Limited Access";
+      const solarAnchorTypeDisplay = humanizeSolarAnchorType(report.solarAnchorType);
+      const chronoImprint = report.chronoImprintResolved ?? chronoImprintDisplay(report.birthTime);
+      const genesisRows = [
+        { label: "Solar Light Vector", value: solarLightVector },
+        { label: "Seasonal Context", value: seasonalContext },
+        { label: "Solar Anchor Type", value: solarAnchorTypeDisplay },
+        { label: "Chrono-Imprint", value: chronoImprint },
+        { label: "Origin Coordinates", value: report.originCoordinatesDisplay ?? "Restricted Node Data" },
+        { label: "Magnetic Field Index", value: report.magneticFieldIndexDisplay ?? "Restricted Node Data" },
+        { label: "Climate Signature", value: report.climateSignatureDisplay ?? "Restricted Node Data" },
+        { label: "Sensory Field Conditions", value: report.sensoryFieldConditionsDisplay ?? "Restricted Node Data" },
+      ].filter((r) => !isPlaceholderValue(r.value));
+      if (genesisRows.length === 0) return [];
+      return ["IDENTITY PHYSICS — GENESIS METADATA", "", ...genesisRows.map((r) => `${r.label}: ${r.value}`), ""];
+    })(),
     "This document constitutes the official registry record for the identity designated above.",
     "",
     ...(report.protocol
@@ -1092,7 +1111,7 @@ export function getFreeWhoisPreviewDisplay(
   const chronoImprint =
     report.chronoImprintResolved ??
     chronoImprintDisplay(report.birthTime, options?.chronoImprintOverride);
-  const genesisRows: Array<{ label: string; value: string }> = [
+  const genesisRowsRaw: Array<{ label: string; value: string }> = [
     { label: "Solar Light Vector", value: solarLightVector },
     { label: "Seasonal Context", value: seasonalContext },
     { label: "Solar Anchor Type", value: solarAnchorTypeDisplay },
@@ -1102,6 +1121,7 @@ export function getFreeWhoisPreviewDisplay(
     { label: "Climate Signature", value: report.climateSignatureDisplay ?? "Restricted Node Data" },
     { label: "Sensory Field Conditions", value: report.sensoryFieldConditionsDisplay ?? "Restricted Node Data" },
   ];
+  const genesisRows = genesisRowsRaw.filter((r) => !isPlaceholderValue(r.value));
   const cosmicTwinDisplay =
     report.cosmicAnalogue && report.cosmicAnalogue.trim() ? report.cosmicAnalogue.trim() : null;
   return { genesisRows, cosmicTwinDisplay };

@@ -5,8 +5,8 @@
 // Do not introduce beauty-named dependencies here.
 
 /**
- * WHOIS view — FREE WHOIS report with preview sequence.
- * Flow: PreviewRevealSequence (scanning, resolution) → report + agent block + CTA.
+ * WHOIS view — canonical result page.
+ * Flow: load profile → report + agent block + CTA. No carousel or reveal sequence.
  * Uses lib/free-whois-report: buildFreeWhoisReport + renderFreeWhoisReport.
  */
 
@@ -15,16 +15,14 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { track } from "@/lib/analytics";
 import FlowNav from "@/components/FlowNav";
-import { FAKE_PAY } from "@/lib/dry-run-config";
-import { setWhoisUnlocked } from "@/lib/landing-storage";
-import { useApiStatus } from "@/hooks/useApiStatus";
 import { buildFreeWhoisReport, renderFreeWhoisReport } from "@/lib/free-whois-report";
 import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
 import {
   resolveInstructionsFromProfile,
   buildAgentInstructionText,
 } from "@/lib/agent-instruction-copy";
-import PreviewRevealSequence from "@/app/beauty/view/PreviewRevealSequence";
+import { FAKE_PAY } from "@/lib/dry-run-config";
+import { setWhoisUnlocked } from "@/lib/landing-storage";
 
 function getDryRunFromUrl() {
   if (typeof window === "undefined") return false;
@@ -77,14 +75,35 @@ export default function WhoisViewClient() {
     setDryRun(getDryRunFromUrl());
   }, []);
 
-  const { disabled: apiDisabled } = useApiStatus();
   const [urlChecked, setUrlChecked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(null);
-  const [revealComplete, setRevealComplete] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
-  const [checkoutError, setCheckoutError] = useState(null);
+  const [checkoutError, setCheckoutError] = useState("");
+  const [registryCount, setRegistryCount] = useState(null);
+  const [stanceCounts, setStanceCounts] = useState(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/registry/count")
+      .then((r) => r.json())
+      .then((data) => {
+        const total = data?.total;
+        if (typeof total === "number" && total >= 0) setRegistryCount(total);
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    fetch("/api/agent/stance")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && typeof data.endorse === "number" && typeof data.decline === "number" && typeof data.abstain === "number") {
+          setStanceCounts({ endorse: data.endorse, decline: data.decline, abstain: data.abstain });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setUrlChecked(true);
@@ -145,51 +164,43 @@ export default function WhoisViewClient() {
     if (profile && reportId) track("whois_view_loaded", reportId);
   }, [profile, reportId]);
 
-  const handleUnlockClick = async () => {
-    if (!reportId || apiDisabled) return;
+  const handleUnlockClick = useCallback(async () => {
+    if (!reportId || redirecting) return;
     if (FAKE_PAY) {
       setWhoisUnlocked();
       window.location.href = `/whois/view?reportId=${encodeURIComponent(reportId)}`;
       return;
     }
-    setCheckoutError(null);
+    setCheckoutError("");
     setRedirecting(true);
-    const payload = { reportId };
-    console.log("[checkout] request payload:", payload);
     try {
       const res = await fetch("/api/stripe/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ reportId }),
       });
-      const json = await res.json();
-      console.log("[checkout] response:", { status: res.status, ok: res.ok, json });
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
-          setCheckoutError(
-            "Report not found. Complete intake at /origin to generate your registry record, then return here to unlock."
-          );
-        } else {
-          setCheckoutError(json?.message ?? json?.error ?? "Checkout unavailable. Try again later.");
-        }
+        const msg =
+          res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND"
+            ? "Report profile not found. Complete the full flow first."
+            : json?.message ?? json?.error ?? "Checkout unavailable.";
+        setCheckoutError(msg);
         setRedirecting(false);
         return;
       }
       const url = json?.data?.url ?? json?.url;
       if (url && typeof url === "string") {
-        console.log("[checkout] redirecting to Stripe");
         window.location.href = url;
         return;
       }
-      console.error("[checkout] no checkout URL in response:", json);
       setCheckoutError("No checkout URL returned.");
-    } catch (err) {
-      console.error("[checkout] error:", err);
-      setCheckoutError("Could not start checkout. Please try again.");
+    } catch {
+      setCheckoutError("Could not start checkout. Try again.");
     } finally {
       setRedirecting(false);
     }
-  };
+  }, [reportId, redirecting]);
 
   // No reportId
   if (!reportId) {
@@ -290,21 +301,9 @@ export default function WhoisViewClient() {
   const bodyMatch = html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   const bodyHtml = bodyMatch ? bodyMatch[1] : html;
 
-  // Hero: result confirmation + USE THIS WITH AI + upgrade (above the fold)
-  // Same instruction text as /for-agents — canonical source: lib/agent-instruction-copy
+  // Result confirmation + Use this with AI + Report ID — canonical source: lib/agent-instruction-copy
   const instructions = resolveInstructionsFromProfile(profile);
   const priorCopy = buildAgentInstructionText(instructions);
-
-  // Preview sequence first: scanning, resolution, then continue to report
-  if (!revealComplete) {
-    return (
-      <PreviewRevealSequence
-        profile={profile}
-        reportId={reportId}
-        onComplete={() => setRevealComplete(true)}
-      />
-    );
-  }
 
   return (
     <main
@@ -314,26 +313,35 @@ export default function WhoisViewClient() {
         color: "rgba(255,255,255,0.75)",
       }}
     >
-      {/* Above the fold: result confirmation + Use this with AI + upgrade */}
+      {/* Result confirmation + Use this with AI + Report ID */}
       <div className="px-4 py-8 sm:px-6 sm:py-10 border-b border-white/[0.08] bg-[#050508] space-y-6">
-        <p className="font-mono text-sm text-white/90" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
-          Your WHOIS record is ready.
-        </p>
-        <p className="font-mono text-xs text-white/65" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
-          Use the block below with AI tools. No token required.
-        </p>
+        <div className="space-y-1">
+          <h1 className="font-mono text-base sm:text-lg font-medium text-white" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            WHOIS record generated.
+          </h1>
+          <p className="font-mono text-sm text-white/70" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Use with ANY AI.
+          </p>
+        </div>
 
-        <div className="rounded-md border border-white/10 bg-black/50 p-5">
-            <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-400/85 mb-2">
-              Use this with AI
-            </h3>
-            <p className="text-sm leading-relaxed text-white/75 mb-2">
-              Paste this into ChatGPT, Claude, or Cursor to reduce cold start confusion.
-            </p>
-            <p className="text-sm leading-relaxed text-white/75 mb-2">
-              No token required.
-            </p>
-            <p className="text-[11px] uppercase tracking-wider text-white/55 mb-1">COPY (click to copy)</p>
+        <div className="rounded-md border border-white/15 bg-black/50 p-5 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (priorCopy && navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(priorCopy).then(
+                    () => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }
+                  );
+                }
+              }}
+              className="inline-flex items-center justify-center px-4 py-2 rounded border border-white/20 bg-white/5 font-mono text-sm font-medium text-emerald-400/90 hover:bg-white/10 hover:border-white/30 cursor-pointer mb-2"
+              style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
+            >
+              {copied ? "Copied" : "Click to copy"}
+            </button>
             <pre
               className="text-xs p-3 rounded border border-white/10 bg-black/30 overflow-x-auto whitespace-pre-wrap break-all font-mono text-white/85 select-all cursor-pointer"
               style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}
@@ -360,37 +368,6 @@ export default function WhoisViewClient() {
           </div>
 
         <div className="rounded-md border border-white/10 bg-black/50 p-5">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-400/85 mb-2">
-            Unlock full report & agent token
-          </h3>
-          <p className="text-sm leading-relaxed text-white/75 mb-3">
-            This is the free WHOIS baseline. Expanded depth—full report, agent token, API access—is available.
-          </p>
-          {checkoutError && (
-            <p className="text-amber-500 text-xs mb-2" role="alert">
-              {checkoutError}
-            </p>
-          )}
-          <button
-            type="button"
-            onClick={handleUnlockClick}
-            disabled={apiDisabled || redirecting}
-            className="inline-flex items-center font-mono text-xs font-medium text-emerald-400/90 border border-emerald-500/40 rounded px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {apiDisabled ? "Unavailable" : redirecting ? "Redirecting…" : "Unlock WHOIS Agent Access →"}
-          </button>
-        </div>
-      </div>
-
-      {/* Agent token flow: below hero */}
-      <div className="px-4 py-6 border-b border-white/[0.08] bg-[#050508]">
-        <div className="rounded-md border border-white/10 bg-black/50 p-5">
-          <h3 className="font-mono text-[11px] uppercase tracking-[0.15em] text-emerald-400/85 mb-2">
-            Agent token flow
-          </h3>
-          <p className="text-sm leading-relaxed text-white/75 mb-2">
-            After payment, copy Report ID and Token from the success page to use with AI tools.
-          </p>
           <p className="text-[11px] uppercase tracking-wider text-white/55 mb-1">Report ID</p>
           <pre
             className="text-xs p-3 rounded border border-white/10 bg-black/30 overflow-x-auto whitespace-pre-wrap break-all font-mono text-white/85"
@@ -402,17 +379,47 @@ export default function WhoisViewClient() {
             <Link href={`/for-agents?reportId=${encodeURIComponent(reportId)}`} className="text-emerald-400/90 hover:text-emerald-400 hover:underline">
               Agent instructions →
             </Link>
-            <Link href="/whois-your-human" className="text-emerald-400/90 hover:text-emerald-400 hover:underline">
-              WHOIS YOUR HUMAN
-            </Link>
-            <Link href="/whois-your-human/case-studies" className="text-emerald-400/90 hover:text-emerald-400 hover:underline">
-              Case studies
-            </Link>
-            <Link href="/whois-your-human/integration" className="text-emerald-400/90 hover:text-emerald-400 hover:underline">
-              Integration
+            <Link href="/whois-your-human/prior-format" className="text-emerald-400/90 hover:text-emerald-400 hover:underline">
+              Prior format
             </Link>
           </div>
         </div>
+
+        <div className="rounded-md border border-white/10 bg-black/50 p-5">
+          <h3 className="font-mono text-sm text-white/90 mb-2" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Unlock full WHOIS access
+          </h3>
+          <p className="text-sm text-white/65 mb-4" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+            Payment unlocks the full access layer and entitlement token for AI tools.
+          </p>
+          {checkoutError && (
+            <p className="text-xs text-amber-400/90 mb-3 font-mono">{checkoutError}</p>
+          )}
+          <button
+            type="button"
+            onClick={handleUnlockClick}
+            disabled={redirecting}
+            className="px-4 py-2 rounded border border-white/20 bg-white/5 font-mono text-sm text-white/90 hover:bg-white/10 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {redirecting ? "Redirecting…" : "Unlock access"}
+          </button>
+        </div>
+
+        {(registryCount != null || stanceCounts != null) && (
+          <div className="rounded-md border border-white/10 bg-black/50 p-5">
+            <p className="text-[11px] uppercase tracking-wider text-white/55 mb-2">Protocol signal</p>
+            {registryCount != null && (
+              <p className="text-xs text-white/65 mb-2 font-mono" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+                Registry nodes recorded: {registryCount}
+              </p>
+            )}
+            {stanceCounts != null && (
+              <p className="text-xs text-white/65 font-mono" style={{ fontFamily: "ui-monospace, 'SF Mono', Consolas, monospace" }}>
+                Agents evaluated: {stanceCounts.endorse + stanceCounts.decline + stanceCounts.abstain} — endorse: {stanceCounts.endorse}, decline: {stanceCounts.decline}, abstain: {stanceCounts.abstain}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Full report */}
