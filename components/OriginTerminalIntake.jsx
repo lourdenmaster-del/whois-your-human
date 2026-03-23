@@ -270,26 +270,14 @@ export default function OriginTerminalIntake() {
 
       const existingReportId = loadLastFormData()?.reportId;
       if (existingReportId) {
-        const res = await fetch("/api/stripe/create-checkout-session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reportId: existingReportId }),
-        });
-        const json = await res.json();
-        if (!res.ok) {
-          goToErrorAndComplete(json?.message ?? json?.error ?? "Mint unavailable.");
-          return;
-        }
-        const url = json?.data?.url ?? json?.url;
-        if (url && typeof url === "string") {
-          window.location.href = url;
-        } else {
-          goToErrorAndComplete("No mint URL returned.");
-        }
+        // Show WHOIS result screen first; user clicks Unlock there to go to Stripe.
+        setLastReportId(existingReportId);
+        router.replace(`/whois/view?reportId=${encodeURIComponent(existingReportId)}`);
         return;
       }
       // Canonical rule: record MUST exist before checkout. Create it now.
       // FREE flow: use dryRun so protocol-only path; engine runs only after payment.
+      // Show WHOIS result screen first; user clicks Unlock there to go to Stripe.
       const result = await submitToWhoisSubmit(payload, { dryRun: true });
       const reportId = result?.reportId;
       if (!reportId) {
@@ -298,22 +286,7 @@ export default function OriginTerminalIntake() {
       }
       saveLastFormData(reportId, payload);
       setLastReportId(reportId);
-      const res = await fetch("/api/stripe/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reportId }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        goToErrorAndComplete(json?.message ?? json?.error ?? "Checkout unavailable.");
-        return;
-      }
-      const url = json?.data?.url ?? json?.url;
-      if (url && typeof url === "string") {
-        window.location.href = url;
-      } else {
-        goToErrorAndComplete("No mint URL returned.");
-      }
+      router.replace(`/whois/view?reportId=${encodeURIComponent(reportId)}`);
     } catch (err) {
       goToErrorAndComplete(err?.message ?? "Something went wrong.");
     } finally {
