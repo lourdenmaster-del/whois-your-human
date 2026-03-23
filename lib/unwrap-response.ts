@@ -7,6 +7,7 @@ export async function unwrapResponse<T>(response: Response): Promise<T> {
     status?: string;
     data?: T;
     error?: string;
+    message?: string;
     requestId?: string;
   };
   if (json?.status === "ok") {
