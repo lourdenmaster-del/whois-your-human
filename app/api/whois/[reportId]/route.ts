@@ -1,7 +1,10 @@
 /**
  * GET /api/whois/[reportId] — WHOIS-owned alias for /api/beauty/[reportId].
  * Delegates to the beauty route; preserves response shape and behavior.
+ * Parses and re-serializes JSON so canonical { status: "ok", data } reaches client.
  */
+
+import { NextResponse } from "next/server";
 
 export async function GET(
   request: Request,
@@ -13,9 +16,6 @@ export async function GET(
     headers: request.headers,
     cache: "no-store",
   });
-  return new Response(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: res.headers,
-  });
+  const json = await res.json().catch(() => ({}));
+  return NextResponse.json(json, { status: res.status });
 }
