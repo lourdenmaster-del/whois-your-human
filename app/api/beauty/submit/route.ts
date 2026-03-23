@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { validateEngineBody } from "@/lib/validate-engine-body";
 import { deriveFromBirthData, type DeriveFromBirthDataResult } from "@/lib/astrology/deriveFromBirthData";
@@ -10,6 +11,12 @@ import {
   extractExecutionKey,
   getEngineExecutionGrantViolation,
 } from "@/lib/engine-execution-grant";
+import { buildFreeWhoisReport } from "@/lib/free-whois-report";
+import { buildWhoisProtocol, buildProtocolWhoisProfile } from "@/lib/whois-protocol";
+import { saveWhoisProfileV1 } from "@/lib/whois-profile-store";
+import { buildAgentPriorLayer } from "@/lib/whois-agent-prior";
+import { approximateSunLongitudeFromDate } from "@/lib/terminal-intake/approximateSunLongitude";
+import { getPrimaryArchetypeFromSolarLongitude } from "@/src/ligs/image/triangulatePrompt";
 
 /** Base derivation + optional sun/moon/onThisDay enrichment. */
 type EnrichedBirthContext = DeriveFromBirthDataResult & {
@@ -41,12 +48,76 @@ export async function POST(request: Request) {
     const { fullName, birthDate, birthTime, birthLocation, email, dryRun } = validation.value;
 
     const bodyRecord = body as Record<string, unknown>;
+    // DEV GUARD: local testing uses dry-run by default to avoid paid OpenAI calls.
+    const forceLive = bodyRecord.forceLive === true;
+    const isDev = process.env.NODE_ENV !== "production";
+    const effectiveDryRun = dryRun === true || (isDev && !forceLive);
     const executionKey = extractExecutionKey(request, bodyRecord);
     const grantErr = await getEngineExecutionGrantViolation(executionKey, {
-      dryRun: dryRun === true,
+      dryRun: effectiveDryRun,
     });
     if (grantErr) {
       return errorResponse(403, grantErr, requestId);
+    }
+
+    // FREE TIER: protocol only — no engine, no deriveFromBirthData, no paid API calls.
+    if (effectiveDryRun) {
+      const protocol = buildWhoisProtocol({
+        fullName,
+        birthDate,
+        birthTime: birthTime ?? "",
+        birthLocation,
+      });
+      const reportId = randomUUID();
+      const lon = birthDate?.trim() ? approximateSunLongitudeFromDate(birthDate.trim().slice(0, 10)) : null;
+      const archetype = lon != null ? getPrimaryArchetypeFromSolarLongitude(lon) : "Stabiliora";
+      const profile = buildProtocolWhoisProfile(reportId, protocol, {
+        fullName,
+        birthDate,
+        birthTime: birthTime ?? "",
+        birthLocation,
+        archetype,
+      });
+      try {
+        await saveWhoisProfileV1(reportId, profile as Parameters<typeof saveWhoisProfileV1>[1], requestId);
+      } catch (saveErr) {
+        const saveMsg = saveErr instanceof Error ? saveErr.message : String(saveErr);
+        if (saveMsg === "BEAUTY_PROFILE_STORAGE_UNAVAILABLE") {
+          log("error", "free_tier_save_storage_unavailable", { requestId, reportId });
+          return errorResponse(
+            503,
+            "Storage not configured. Set BLOB_READ_WRITE_TOKEN for deployment.",
+            requestId
+          );
+        }
+        throw saveErr;
+      }
+      const freeWhoisReport = buildFreeWhoisReport({
+        email: email ?? "",
+        created_at: new Date().toISOString(),
+        name: fullName,
+        birthDate: birthDate ?? "",
+        birthTime: birthTime ?? "",
+        birthPlace: birthLocation ?? "",
+        preview_archetype: archetype,
+      });
+      const agentPriorLayer = buildAgentPriorLayer({
+        birthDate: birthDate ?? null,
+        dominantArchetype: archetype,
+      });
+      log("info", "free_tier_protocol", { requestId, reportId });
+      return NextResponse.json({
+        status: "ok",
+        requestId,
+        data: {
+          reportId,
+          protocol,
+          intakeStatus: "PROTOCOL_CREATED",
+          note: "Free WHOIS protocol created. Unlock for expanded report.",
+          freeWhoisReport,
+          agentPriorLayer,
+        },
+      });
     }
 
     // Always run deriveFromBirthData so birth context is available server-side.
@@ -87,7 +158,7 @@ export async function POST(request: Request) {
     }
 
     // Optional on-this-day history context (omit in DRY_RUN to avoid network).
-    if (birthContext != null && dryRun !== true) {
+    if (birthContext != null && !effectiveDryRun) {
       const match = birthDate.trim().match(/^\d{4}-(\d{2})-(\d{2})/);
       if (match) {
         const month = parseInt(match[1], 10);
@@ -119,10 +190,9 @@ export async function POST(request: Request) {
       birthTime: birthTime ?? "",
       birthLocation,
       email,
-      ...(dryRun === true && { dryRun: true }),
-      ...(birthContext != null && { birthContext }),
-      ...(idempotencyKey && { idempotencyKey }),
-      ...(executionKey && { executionKey }),
+      ...(birthContext != null ? { birthContext } : {}),
+      ...(idempotencyKey ? { idempotencyKey } : {}),
+      ...(executionKey ? { executionKey } : {}),
     };
 
     log("info", "stage", { requestId, stage: "beauty_submit_forward", engineUrl });
@@ -157,7 +227,15 @@ export async function POST(request: Request) {
       return errorResponse(502, "ENGINE_MISSING_REPORT_ID", requestId);
     }
 
-    // Do not return full engine / Beauty profile to the browser on unpaid intake.
+    const freeWhoisReport = buildFreeWhoisReport({
+      email: email ?? "",
+      created_at: new Date().toISOString(),
+      name: fullName,
+      birthDate: birthDate ?? "",
+      birthTime: birthTime ?? "",
+      birthPlace: birthLocation ?? "",
+    });
+
     return NextResponse.json({
       status: "ok",
       requestId,
@@ -165,6 +243,7 @@ export async function POST(request: Request) {
         reportId,
         intakeStatus: "CREATED",
         note: "Report created server-side. Full identity payload is available after checkout and unlock.",
+        freeWhoisReport,
       },
     });
   } catch (err) {

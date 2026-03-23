@@ -31,9 +31,24 @@ const SECTION_HEADING_RE = /(?:\n|^)(\s*)(#+\s*)?(\d+)\.\s*([^\n]+)/g;
 /** Fallback: "Section 1: Initiation" or "Section 1: INITIATION" */
 const SECTION_1_ALT_RE = /(?:\n|^)\s*Section\s+1\s*:\s*([^\n]+)/gi;
 
+/** Accepted section-1 title values (normalized, exact match). Broadens INITIATION drift. */
+const ACCEPTED_SECTION_1_TITLES = [
+  "initiation",
+  "introduction",
+  "birth",
+  "birth context",
+  "context",
+] as const;
+
+function isAcceptedSection1Title(titlePart: string): boolean {
+  const norm = titlePart.trim().toLowerCase().replace(/\s+/g, " ");
+  return ACCEPTED_SECTION_1_TITLES.some((t) => norm === t);
+}
+
 /**
- * Parse report to locate section 1 (INITIATION).
- * Tolerates: "1. INITIATION", "1. Initiation", "  1.  Initiation", "## 1. INITIATION", "Section 1: Initiation"
+ * Parse report to locate section 1 (INITIATION or accepted alternates).
+ * Tolerates: "1. INITIATION", "1. Introduction", "1. Birth", "1. Birth Context", "1. Context",
+ * "Section 1: Initiation", etc.
  */
 export function parseInitiationSection(report: string): InitiationParseResult {
   const result: InitiationParseResult = {
@@ -60,14 +75,15 @@ export function parseInitiationSection(report: string): InitiationParseResult {
   const sect2 = matches.find((x) => x.num === 2);
 
   if (sect1) {
-    const title = report.slice(sect1.start, sect1.end).toLowerCase();
-    if (!title.includes("initiation")) sect1 = undefined;
+    const titlePart = sect1.fullMatch.replace(/^\s*(?:#+\s*)?\d+\.\s*/, "").trim();
+    if (!isAcceptedSection1Title(titlePart)) sect1 = undefined;
   }
 
   if (!sect1) {
     SECTION_1_ALT_RE.lastIndex = 0;
     const alt = SECTION_1_ALT_RE.exec(report);
-    if (alt && alt[1] && alt[1].toLowerCase().includes("initiation")) {
+    const altTitle = alt?.[1]?.trim() ?? "";
+    if (alt && isAcceptedSection1Title(altTitle)) {
       sect1 = { num: 1, start: alt.index, end: alt.index + alt[0].length, fullMatch: alt[0] };
     }
   }
@@ -211,4 +227,21 @@ export function injectBirthAnchoringSentence(
     report: repaired,
     repairPath: "section_aware",
   };
+}
+
+const CANONICAL_INITIATION_PREFIX = `1. INITIATION
+
+`;
+
+/**
+ * Hard fallback: when no section 1 can be found, prepend canonical INITIATION + birth anchoring.
+ * Use when parseInitiationSection returns initiationFound: false — do not fail the report.
+ */
+export function prependFallbackInitiationBlock(
+  report: string,
+  subjectInput: SubjectInput
+): string {
+  const sentence = `When ${subjectInput.fullName} was born in ${subjectInput.birthLocation} on ${subjectInput.birthDate}, the Earth rotated beneath a specific configuration of solar radiation, gravitational geometry, lunar illumination, and atmospheric conditions.\n\n`;
+  const block = CANONICAL_INITIATION_PREFIX + sentence;
+  return block + (report || "").replace(/^\s+/, "");
 }

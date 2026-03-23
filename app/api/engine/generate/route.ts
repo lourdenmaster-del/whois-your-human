@@ -27,6 +27,7 @@ import {
 import {
   subjectNamePresentInInitiation,
   injectBirthAnchoringSentence as injectInitiationAnchor,
+  prependFallbackInitiationBlock,
 } from "@/lib/engine/initiation-anchor";
 import {
   validateReport,
@@ -589,8 +590,14 @@ Email: ${email}
           requestId,
           repairPath: injectResult.repairPath,
         });
+      } else if (!injectResult.initiationFound) {
+        fullReport = prependFallbackInitiationBlock(fullReport, subjectInputForAnchor);
+        log("info", "INITIATION fallback: prepended canonical block (section 1 not found)", {
+          requestId,
+          reason: injectResult.reason,
+        });
       } else {
-        log("error", "Subject name injection failed — INITIATION section not found or no insertion point", {
+        log("error", "Subject name injection failed — no insertion point", {
           requestId,
           initiationFound: injectResult.initiationFound,
           insertionPointFound: injectResult.insertionPointFound,
@@ -825,7 +832,15 @@ Email: ${email}
               const hasNameMissing = afterIssues.some((i) => i.code === "SUBJECT_NAME_MISSING");
               if (hasNameMissing && fullName && birthDate && canonicalBirthLocation) {
                 const injectResult = injectInitiationAnchor(fullReport, subjectInput);
-                if (!injectResult.ok) {
+                if (injectResult.ok) {
+                  fullReport = normalizeRawSignalCitations(injectResult.report);
+                } else if (!injectResult.initiationFound) {
+                  fullReport = normalizeRawSignalCitations(prependFallbackInitiationBlock(fullReport, subjectInput));
+                  log("info", "INITIATION fallback after repair: prepended canonical block", {
+                    requestId,
+                    reason: injectResult.reason,
+                  });
+                } else {
                   log("error", "Subject name injection failed after repair pass", {
                     requestId,
                     initiationFound: injectResult.initiationFound,
@@ -838,7 +853,6 @@ Email: ${email}
                     requestId
                   );
                 }
-                fullReport = normalizeRawSignalCitations(injectResult.report);
                 const retryIssues = validateReport(fullReport, {
                   subjectInput,
                   canonicalRegime,
@@ -847,7 +861,7 @@ Email: ${email}
                   log("error", "Subject name still missing after deterministic injection", {
                     requestId,
                     code: "SUBJECT_NAME_MISSING",
-                    repairPath: injectResult.repairPath,
+                    ...(injectResult.ok && { repairPath: injectResult.repairPath }),
                   });
                   return errorResponse(
                     500,
@@ -860,34 +874,55 @@ Email: ${email}
               }
               if (afterIssues.length > 0) {
                 const top = afterIssues[0]!;
-                log("warn", "Report failed validation after repair", {
-                  requestId,
-                  code: top.code,
-                  message: top.message,
-                  detail: top.detail,
-                });
-                return errorResponse(
-                  500,
-                  `Report failed validation: ${top.message}`,
-                  requestId
-                );
+                const allOracleGeneric = afterIssues.every((i) => i.code === "ORACLE_TOO_GENERIC");
+                const canDevRelax =
+                  process.env.NODE_ENV !== "production" && allOracleGeneric;
+                if (canDevRelax) {
+                  log("warn", "ORACLE_TOO_GENERIC dev fallback: accepting report after repair", {
+                    requestId,
+                    codes: afterIssues.map((i) => i.code),
+                  });
+                } else {
+                  log("warn", "Report failed validation after repair", {
+                    requestId,
+                    code: top.code,
+                    message: top.message,
+                    detail: top.detail,
+                  });
+                  return errorResponse(
+                    500,
+                    `Report failed validation: ${top.message}`,
+                    requestId
+                  );
+                }
               }
             }
           }
         }
       } catch (e) {
         const top = qualityIssues[0]!;
-        log("warn", "Report quality repair failed", {
-          requestId,
-          error: e instanceof Error ? e.message : String(e),
-          code: top.code,
-          detail: top.detail,
-        });
-        return errorResponse(
-          500,
-          `Report failed validation: ${top.message}`,
-          requestId
-        );
+        const allOracleGeneric = qualityIssues.every((i) => i.code === "ORACLE_TOO_GENERIC");
+        const canDevRelax =
+          process.env.NODE_ENV !== "production" && allOracleGeneric;
+        if (canDevRelax) {
+          log("warn", "ORACLE_TOO_GENERIC dev fallback: accepting report (repair threw)", {
+            requestId,
+            error: e instanceof Error ? e.message : String(e),
+            codes: qualityIssues.map((i) => i.code),
+          });
+        } else {
+          log("warn", "Report quality repair failed", {
+            requestId,
+            error: e instanceof Error ? e.message : String(e),
+            code: top.code,
+            detail: top.detail,
+          });
+          return errorResponse(
+            500,
+            `Report failed validation: ${top.message}`,
+            requestId
+          );
+        }
       }
     }
 

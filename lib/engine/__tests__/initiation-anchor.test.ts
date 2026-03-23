@@ -3,6 +3,7 @@ import {
   parseInitiationSection,
   subjectNamePresentInInitiation,
   injectBirthAnchoringSentence,
+  prependFallbackInitiationBlock,
 } from "../initiation-anchor";
 
 describe("initiation-anchor", () => {
@@ -50,9 +51,9 @@ RAW SIGNAL
       expect(result.contentStart).toBe(-1);
     });
 
-    it("returns initiationFound false when section 1 is not INITIATION", () => {
+    it("returns initiationFound false when section 1 is not an accepted title (INITIATION, Introduction, Birth, etc.)", () => {
       const result = parseInitiationSection(`
-1. Introduction
+1. Opening
 
 Some content.
 
@@ -90,6 +91,20 @@ More.
       expect(result.initiationFound).toBe(true);
       expect(result.contentStart).toBeGreaterThan(0);
       expect(result.sectionContent).toContain("INITIATION");
+    });
+
+    it("accepts 1. Introduction as section 1 (broadened drift tolerance)", () => {
+      const result = parseInitiationSection(`
+1. Introduction
+
+Content here.
+
+2. Spectral Origin
+
+More.
+`);
+      expect(result.initiationFound).toBe(true);
+      expect(result.contentStart).toBeGreaterThan(0);
     });
 
     it("accepts Section 1: Initiation alternative format", () => {
@@ -196,6 +211,20 @@ Maria entered the world under these conditions.
         expect(result.initiationFound).toBe(false);
         expect(result.insertionPointFound).toBe(false);
       }
+    });
+
+    it("prependFallbackInitiationBlock prepends canonical INITIATION when section 1 missing", () => {
+      const report = "Some text without numbered sections.";
+      const result = prependFallbackInitiationBlock(report, {
+        fullName: "Jane Doe",
+        birthDate: "15 January 1995",
+        birthLocation: "Boston, MA",
+      });
+      expect(result).toMatch(/^1\. INITIATION\s/);
+      expect(result).toContain(
+        "When Jane Doe was born in Boston, MA on 15 January 1995, the Earth rotated beneath a specific configuration"
+      );
+      expect(result).toContain("Some text without numbered sections.");
     });
 
     it("works with varied heading spacing", () => {

@@ -4,7 +4,7 @@
 
 First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to verify the full stack is wired correctly.
 
-**Orientation (AI / collaborators):** `AI_HANDOFF.md` (cold start) → `REPO_MAP.md` (tree) → `CURRENT_WORK.md` (priorities & gaps). **Canonical agent-operations doc (WHOIS YOUR HUMAN):** `docs/AGENT_USAGE.md` — when to call, how to interpret the record, safety, conversation patterns. **User-facing response shaping (post-fetch):** `docs/AGENT_RESPONSE_PATTERN.md`. **HTTP contract only:** `docs/AGENT-WHOIS-API.md`. This file remains the long-form stack authority; keep it in sync when you change routes, APIs, or env.
+**Orientation (AI / collaborators):** `AI_HANDOFF.md` (cold start) → `REPO_MAP.md` (tree) → `CURRENT_WORK.md` (priorities & gaps). **Canonical agent-operations doc (WHOIS YOUR HUMAN):** `docs/AGENT_USAGE.md` — when to call, how to interpret the record, safety, conversation patterns. **Canonical WHOIS flow (human→agent bridge):** `docs/CANONICAL_FLOW.md` — entry points, flow stages, bridge definition, lock rules. **User-facing response shaping (post-fetch):** `docs/AGENT_RESPONSE_PATTERN.md`. **HTTP contract only:** `docs/AGENT-WHOIS-API.md`. This file remains the long-form stack authority; keep it in sync when you change routes, APIs, or env.
 
 ---
 
@@ -120,7 +120,7 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `app/whois/start/page.jsx` | Client | Birth form (LightIdentityForm). Requires unlocked; redirects to `/origin` if not. Submit → `/whois/view?reportId=...`. |
 | `app/whois/success/page.jsx` | Client | Post-Stripe success; verify-session; View → `/whois/view?reportId=...`. |
 | `app/whois/cancel/page.jsx` | Page | Stripe checkout cancelled. Terminal-aligned. |
-| `app/whois/view/page.jsx` | Server | View WHOIS record by `?reportId=`; uses `BeautyViewClient`, `getOrigin()`; fetches `GET /api/beauty/[reportId]`. |
+| `app/whois/view/page.jsx` | Server | View WHOIS record by `?reportId=`; uses `WhoisViewClient`, `getOrigin()`; fetches `GET /api/whois/[reportId]`. |
 
 **Beauty section** (legacy/internal — `/beauty/*` redirects to `/whois/*` or `/origin` via middleware; see §0.5):
 
@@ -200,6 +200,8 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `lib/engine/constraintGate.ts` | `scanForbidden(text)` — scans full_report for forbidden terms (chakra, kabbalah, sacred geometry, etc.); `redactForbidden(text, keys)` — replaces matches with [removed]. Engine/generate runs one repair OpenAI pass when hits > 0; re-scan; if hits remain, redacts in dev. |
 | `lib/idempotency-store.ts` | Blob-backed idempotency at `ligs-runs/{route}/{idempotencyKey}.json`. `getIdempotentResult`, `setIdempotentResult`, `isValidIdempotencyKey`, `deriveIdempotencyKey` (deterministic sub-keys for marketing/share replays). Routes: engine-generate, engine, marketing-generate, image-generate. In-memory fallback when no Blob. |
 | `lib/engine-execution-grant.ts` | **Production payment gate:** `createEngineExecutionGrant` / `getEngineExecutionGrantViolation` / `consumeEngineExecutionGrant`; tokens at Blob `ligs-engine-grants/{token}.json` (in-memory fallback). `extractExecutionKey` from header `X-LIGS-Execution-Key` or JSON `executionKey`. `isEngineExecutionGateEnforced()` when `NODE_ENV=production`, not `LIGS_ENGINE_GATE=0|false`, not `NEXT_PUBLIC_FAKE_PAY`. TTL 24h; single-use on successful live pipeline consume. |
+| `lib/whois-protocol.ts` | **FREE TIER protocol builder:** `buildWhoisProtocol(input)` — deterministic, no LLM; returns normalized protocol + `agent_directives`. `buildProtocolWhoisProfile(reportId, protocol, input)` — minimal WhoisProfileV1. `formatProtocolForDisplay`, `formatAgentDirectivesForDisplay` — human-readable labels. |
+| `lib/whois-alignment.ts` | **Protocol alignment evaluator:** `evaluateProtocolAlignment(whois_protocol, observed_state)` — deterministic comparison; returns `{ alignment_score, variance_flags, recommended_adjustment, confidence }`. First protocol operation. No LLM. |
 | `lib/waitlist-store.ts` | Blob at `ligs-waitlist/entries/{sha256(email).slice(0,32)}.json`. `insertWaitlistEntry(payload)` → `{ ok, alreadyRegistered? }`; uses `head()` before `put()` for duplicate check. Payload: email, created_at, source, preview_archetype?, solar_season?, optional name/birthDate/birthPlace/birthTime; optional `last_confirmation_sent_at` (ISO), `confirmation_send_count` (number) updated by `recordConfirmationSent(email)`. `getWaitlistEntryByEmail(email)` returns full entry including those fields. Used by `/api/waitlist` (insert + duplicate resend) and Studio resend. |
 | `lib/email-waitlist-confirmation.ts` | `sendWaitlistConfirmation(email, payload?)` → `Promise<{ sent, reason }>`. Resend preferred if key set, else SendGrid. Subject: "Your identity query has been logged". Uses `RESEND_API_KEY` / `SENDGRID_API_KEY`, `EMAIL_FROM`. Production checklist comment at top. Used by `/api/waitlist` (new signups and duplicate-path resend) and Studio resend. |
 
@@ -256,10 +258,10 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | POST | `/api/beauty/create` | Rate limit 5/60s. **Production live:** requires `executionKey` when gate enforced; forwards to `/api/engine`. Validates engine body → POST to `/api/engine` → returns `reportId`. Uses `VERCEL_URL`. |
-| POST | `/api/beauty/submit` | **Production live:** requires `executionKey` when gate enforced; forwards to `/api/engine`. Validates engine body → `deriveFromBirthData` + enrichments → internal `POST /api/engine` (full E.V.E. pipeline server-side). **Client JSON:** `{ status, requestId, data: { reportId, intakeStatus, note } }` only — no full engine/Beauty profile in the response. |
+| POST | `/api/beauty/submit` | **FREE TIER (dryRun):** `buildWhoisProtocol` + `buildProtocolWhoisProfile` → `saveWhoisProfileV1`; no engine, no `deriveFromBirthData`, no paid API calls. Returns `{ reportId, protocol, intakeStatus: "PROTOCOL_CREATED", freeWhoisReport }`. **PAID TIER (live):** requires `executionKey` when gate enforced; `deriveFromBirthData` + enrichments → `POST /api/engine` (full E.V.E. pipeline). Returns `{ reportId, intakeStatus: "CREATED", freeWhoisReport }`. |
 | POST | `/api/beauty/dry-run` | Simulates Beauty flow. Body `birthData`, `dryRun`. Calls `POST /api/engine/generate` with `dryRun: true`; saves BeautyProfileV1 to Blob via `saveBeautyProfileV1` (when `BLOB_READ_WRITE_TOKEN` set). **Client JSON:** `{ reportId, intakeStatus, note, checkout }` — no `beautyProfile` body; clients load profile via `GET /api/beauty/[reportId]` when needed. No Stripe call. |
 | GET | `/api/beauty/[reportId]` | Rate limit 20/60s. Loads Beauty Profile V1 from Blob via `loadBeautyProfileV1`; enriches marketingBackgroundUrl, logoMarkUrl, marketingCardUrl, shareCardUrl from Blob; 404 if not found. |
-| POST | `/api/beauty/submit` | Single server entry for Beauty flow: `validateEngineBody` → `deriveFromBirthData` (+ sun/moon/onThisDay) → `POST /api/engine`. Returns engine JSON envelope. Kill-switch when `LIGS_API_OFF`. |
+| POST | `/api/beauty/submit` | Single server entry: **FREE:** `validateEngineBody` → `buildWhoisProtocol` → save profile → return protocol. **PAID:** `deriveFromBirthData` (+ sun/moon/onThisDay) → `POST /api/engine`. Kill-switch when `LIGS_API_OFF`. |
 | POST | `/api/agent/register` | **Alias:** forwards request body to `POST /api/beauty/submit` (internal fetch). Same contract as beauty/submit; agent entrypoint for register → pay → verify → whois. Kill-switch when `LIGS_API_OFF`. |
 | GET | `/api/keepers/[reportId]` | Returns keeper manifest JSON from `ligs-keepers/{reportId}.json`. Query `?dry=1` loads from `ligs-keepers-dry/` for landing validation without spend. 404 when not found. Used by `/beauty?keeperReportId=X` for featured keeper hero. |
 | GET | `/api/exemplars` | Query `?version=v1`. Returns list of exemplar manifests for all 12 archetypes that exist in Blob. Used by landing Examples section. |
@@ -299,6 +301,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/agent/whois` | Query `reportId`; Bearer `wyh_` token or `?token=`. Returns agent calibration record (schema `whois-your-human/v1`). Loads latest feedback via `getLatestFeedbackForReport`; populates `verification.observed_match_fields` / `observed_mismatch_fields` per feedback state; adds `verification.last_feedback` when feedback exists. |
 | GET | `/api/agent/prior` | Query `reportId`; same Bearer token as whois. Returns Vector Zero prior layer only (schema `whois-your-human/prior/v1`): `derived_structure`, `agent_guidance`, `agent_summary`. Minimal wrapper; no measured_context, verification, or deep model data. |
 | POST | `/api/agent/feedback` | Body `reportId`, `state` (`confirmed` \| `partial` \| `debunked`), `metrics`, optional `notes`. Same Bearer token. Stores to Blob `ligs-agent-feedback/{reportId}/` or in-memory. |
+| POST | `/api/agent/alignment` | Body `reportId`, `observed_state`. Same Bearer token as whois. Loads profile (builds protocol if missing) → `evaluateProtocolAlignment()` → returns `{ schema, alignment_score, variance_flags, recommended_adjustment, confidence }`. Deterministic, no LLM. Rate limit 60/60s. |
 | POST | `/api/agent/drift-check` | Body `reportId`, `currentText`. Same Bearer token. Fetches WHOIS baseline internally; compares current text via OpenAI; returns `{ drift, severity, type, confidence, summary }`. Baseline comparison only; not diagnosis or recalibration. Uses `OPENAI_API_KEY`; blocked by `LIGS_API_OFF`. |
 | GET | `/api/agent/inspect` | Public. No auth. Machine-readable discovery: project, public_resources (incl. prior_format, prior_format_json), stance, protected whois, recommended_inspection_order. Schema `whois-your-human/inspect/v1`. |
 | GET | `/api/agent/prior-format` | Public. No auth. Free prior format: fields, example, agent_instructions, protected_layer. For no-call agents. Schema `whois-your-human/prior-format/v1`. |
@@ -489,6 +492,108 @@ Paid live (prod)     → GET /api/stripe/verify-session (paid) → mint executio
 This snapshot reflects the codebase as of the first-time scan. Update it when you add routes, env vars, or integrations.
 
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
+
+---
+
+## Verification Log – 2026‑03‑20 (Agent prior shared builder — free + paid)
+
+**Extraction:** Created `lib/whois-agent-prior.ts` with `buildAgentPriorLayer(input)`. Prior construction (derived_structure, agent_directives, agent_summary) extracted from whois route into shared function. **Free path:** `POST /api/beauty/submit` (effectiveDryRun) now calls `buildAgentPriorLayer({ birthDate, dominantArchetype })` and returns `agentPriorLayer` in `data`. No paid APIs; canonical derivation only. **Paid path:** `GET /api/agent/whois` calls builder with `profile`, `solarSeasonProfile`, `sunLonDeg`, `vectorZero` from storedReport — enriched prior intact. **Files:** lib/whois-agent-prior.ts (new), app/api/agent/whois/route.ts, app/api/beauty/submit/route.ts.
+
+## Verification Log – 2026‑03‑20 (WHOIS local dev 404 fix — save/load contract)
+
+**Local dev:** (1) Save: always write to memory in dev—when Blob enabled, dual-write (Blob + memory); when Blob put fails, fallback to memory. (2) Load: try memory first on every request; only then Blob or throw. (3) Dry-run: when save throws, return 500 instead of 200 so we never return reportId when profile wasn't saved. **Logging:** whois_profile_save_called, memorySize after write, whois_profile_load_start with isBlobEnabled/memorySize. **Files:** lib/whois-profile-store.ts, app/api/beauty/dry-run/route.ts.
+
+---
+
+## Verification Log – 2026‑03‑20 (WHOIS free flow 404 fix — save/load contract)
+
+**Root cause:** When BLOB_READ_WRITE_TOKEN is unset on Vercel, profiles are saved to in-memory Map. Serverless invocations are process-isolated; the GET request for /api/whois/[reportId] runs in a different instance with an empty Map → 404. Also: when allowBlobWrites was false, saveWhoisProfileV1 returned without persisting (neither Blob nor memory). **Fix:** (1) allowBlobWrites false: now save to memory instead of skipping (helps single-process dev). (2) Vercel + no Blob: throw BEAUTY_PROFILE_STORAGE_UNAVAILABLE on save so submit fails with 503 "Storage not configured. Set BLOB_READ_WRITE_TOKEN for deployment." instead of false success → 404 on view. beauty/submit and beauty/dry-run handle this and return 503. **Files:** lib/whois-profile-store.ts, app/api/beauty/submit/route.ts, app/api/beauty/dry-run/route.ts. Free/dev flow remains no-paid-before-paywall; BLOB_READ_WRITE_TOKEN required for Vercel deployments.
+
+---
+
+## Verification Log – 2026‑03‑20 (WHOIS view visual realignment — whois-your-human DNA)
+
+**Visual DNA transplant:** `renderFreeWhoisReport` now accepts `theme?: "light" | "dark"`. When `theme: "dark"` (used by WhoisViewClient): body bg `#050508`, emerald headings `rgba(52,211,153,0.85)`, white/75 text, card blocks `border-white/10 bg-black/50`, monospace. Matches /whois-your-human and /for-agents visual language. **Dossier reduction:** "REGISTRY" softened to "LIGS HUMAN WHOIS"; "Registry detail" → "Supporting metadata"; "IDENTITY PHYSICS — GENESIS METADATA" → "GENESIS METADATA"; removed "This document constitutes the official registry record" in dark theme; footer "Issued by LIGS Human Identity Registry" → "Human WHOIS protocol surface." **Top image:** Always uses fallback via `getArchetypeStaticImagePathOrFallback(report.archetypeClassification || "Ignispectrum")` when `artifactImageUrl` empty; no broken slot. **WhoisViewClient:** Passes `theme: "dark"`, main bg `#050508`, CTA blocks restyled to dark (emerald accents, `border-white/10 bg-black/50`), FlowNav `variant="dark"`. **Email:** Unchanged; `renderFreeWhoisReport(report, { siteUrl })` defaults to `theme: "light"`. Product hierarchy preserved; no backend changes.
+
+---
+
+## Verification Log – 2026‑03‑20 (Free WHOIS surface realignment)
+
+**Protocol-first hierarchy:** In `lib/free-whois-report.ts`, `renderFreeWhoisReport` reordered: Header → Who this is (record table) → Artifact image → WHOIS PROTOCOL → AGENT DIRECTIVES → Registry detail → Genesis Metadata → prose sections. Registry tables demoted below protocol. **Top image:** Artifact moved up; fallback to archetype static image when `artifactImageUrl` unset. **Navigation:** FlowNav "View sample record" → `/whois-your-human/case-studies`. WhoisViewClient adds supporting links (for-agents, whois-your-human, case-studies, integration). **Upgrade CTA:** Amber block "Unlock full report & agent token" → `/whois-your-human/unlock` above AI usage block. **Return link:** Footer "Return to WHOIS YOUR HUMAN" → `/whois-your-human`. No backend or contract changes.
+
+---
+
+## Verification Log – 2026‑03‑20 (agent_guidance → agent_directives unification)
+
+**Canonical name:** agent_directives. **WHOIS response:** Returns agent_directives (primary) and agent_guidance (getter alias). **Prior:** PRIOR_KEYS includes agent_directives, agent_guidance. **Drift-check:** Prefers agent_directives, fallback agent_guidance. **Docs:** /for-agents, inspect, integration updated to document agent_directives as canonical, agent_guidance as legacy alias. No behavior change; backward compat preserved.
+
+---
+
+## Verification Log – 2026‑03‑20 (Developer integration polish — /for-agents, inspect)
+
+**Scope:** Make whois + alignment the clearly documented canonical agent operations. **/for-agents:** Restructured to protocol-first flow: (1) What system is, (2) What agent needs (Report ID, Token), (3) First two ops (whois, alignment), (4) What each returns, (5) Smallest working example. Added recommended integration order, canonical request/response examples for whois and alignment. **/api/agent/inspect:** For protected.whois, protected.alignment, tools.evaluate_alignment: added purpose, required_inputs, response_schema. recommended_inspection_order updated: inspect → whois → adapt → alignment → adjust. **Adjacent:** /whois-your-human/integration and /api updated with canonical-ops callout, links to /for-agents. API contracts stable; additive JSON keys only in inspect.
+
+---
+
+## Verification Log – 2026‑03‑20 (Alignment adjustment direction — toward protocol target)
+
+**Goal:** Ensure `recommended_adjustment` in `lib/whois-alignment.ts` always directs the agent toward the protocol target, not generic or backwards advice. **Pacing:** Uses ordinal comparison (slow < moderate < fast); target > observed → "Speed up; shorten turns"; target < observed → "Slow down; reduce tempo". **Response length:** Ordinal comparison (short < medium < long); target < observed → "Reduce verbosity"; target > observed → "Allow more detail". **Structure:** Target-directed messages (flat/ordered/narrative/branching). **Decision mode:** Target-directed (binary/balanced/sequential/exploratory). **Tests:** Added `adjustment direction — must point toward protocol target` suite (opposite-direction cases) in `lib/__tests__/whois-alignment.test.ts`. Auth and `/api/agent/alignment` contract unchanged; evaluator remains deterministic, no LLM.
+
+---
+
+## Verification Log – 2026‑03‑20 (FREE=protocol, PAID=engine — WHOIS tier split)
+
+**Product truth:** FREE TIER = protocol (lightweight, deterministic); PAID TIER = engine (expanded report, predictive modeling). **Protocol builder:** `lib/whois-protocol.ts` — `buildWhoisProtocol(input)` returns 7 protocol fields; derived from birth data, archetype, cosmic twin; no LLM calls. **Free flow:** `POST /api/beauty/submit` when `effectiveDryRun`: early return — `buildWhoisProtocol` → `buildProtocolWhoisProfile` → `saveWhoisProfileV1`; does NOT call engine. Returns `{ reportId, protocol, intakeStatus: "PROTOCOL_CREATED" }`. **View:** `profile.protocol` passed via `profileToFreeWhoisData`; `renderFreeWhoisReport` shows "WHOIS PROTOCOL — PRIMARY SURFACE" when present. Engine/generate remains for paid path only.
+
+## Verification Log – 2026‑03‑20 (WHOIS view — profile in-memory fallback for dev)
+
+**Bug:** After dev-guard forced dryRun, /whois/view showed "Report not found." Root cause: whois-profile-store had no in-memory fallback when BLOB_READ_WRITE_TOKEN unset; loadWhoisProfileV1 threw BEAUTY_PROFILE_NOT_FOUND. Report-store uses in-memory when Blob disabled; profile-store did not. **Fix:** In `lib/whois-profile-store.ts`, add memoryProfileStore Map. When `!isBlobEnabled()`: saveWhoisProfileV1 writes to memory; loadWhoisProfileV1 reads from memory. Mirrors report-store behavior so free/dev submit → /whois/view works in local dev without Blob. Production (Blob configured): unchanged.
+
+## Verification Log – 2026‑03‑20 (DEV-COST + ORACLE_TOO_GENERIC guard)
+
+**Dev guard:** In `app/api/beauty/submit/route.ts`, when `NODE_ENV !== "production"` and request body does not have `forceLive: true`, force `dryRun: true` before forwarding to engine. Local canonical submit uses dry-run path by default; no paid OpenAI calls. Send `forceLive: true` in body to test live locally. **ORACLE fallback:** In `app/api/engine/generate/route.ts`, when quality validation fails with only `ORACLE_TOO_GENERIC` issues and `NODE_ENV !== "production"`, accept the report with a warning instead of 500. Production behavior unchanged. **Docs:** `docs/DEV-COST-ORACLE-DIAGNOSIS.md`.
+
+## Verification Log – 2026‑03‑20 (UNSAVED reportId — engine route inline fix)
+
+**Bug:** When engine/generate returns `reportId: "UNSAVED:xxx"` (Blob write failed), engine route blindly fetched `GET /api/report/UNSAVED:xxx` → 404. Flow stalled after "Archetype resolved." **Fix:** In `app/api/engine/route.ts`, when reportId starts with "UNSAVED:", use inline data from engine/generate response (full_report, emotional_snippet, vector_zero) instead of fetching. Restores submit pipeline when report storage fails.
+
+## Verification Log – 2026‑03‑20 (Canonical WHOIS flow lock)
+
+**Lock:** Created `docs/CANONICAL_FLOW.md` — single source of truth for entry points, flow stages, bridge definition, and CANONICAL FLOW RULES. Added guard comments to `app/whois/view/page.jsx`, `app/whois/view/WhoisViewClient.jsx`, `app/whois/success/page.jsx`, `lib/engine-client.js`, `lib/whois-profile-store.ts`. Verified: no beauty-named imports or API calls in canonical paths (/origin, /whois-your-human, /whois/start, /whois/success, /whois/view). WhoisViewClient uses BEAUTY_PROFILE_NOT_FOUND only for error-message matching; user sees "Report not found." WYH-005 preserves historical artifact with amendment.
+
+## Verification Log – 2026‑03‑20 (WHOIS naming — engine-client + webhook + WYH-005 amendment)
+
+**Engine-client:** Renamed `submitToBeautySubmit` → `submitToWhoisSubmit`, `submitToBeautyDryRun` → `submitToWhoisDryRun`; constants `BEAUTY_SUBMIT_ENDPOINT` → `WHOIS_SUBMIT_ENDPOINT`, `BEAUTY_DRY_RUN_ENDPOINT` → `WHOIS_DRY_RUN_ENDPOINT`. Callers updated: OriginTerminalIntake, whois/start, BeautyLandingClient, beauty/start. **Webhook:** Import switched from `beauty-profile-schema` to `whois-profile-schema` for `buildRegistryForRegistered`, `mergeRegistryMinted`. **WYH-005:** Added tail section "AMENDMENT — ISSUE RESOLUTION" documenting that canonical WHOIS flow no longer depends on /beauty ownership; original artifact text preserved. No behavior change.
+
+## Verification Log – 2026‑03‑20 (WHOIS unlock naming — landing-storage)
+
+**Added:** `setWhoisUnlocked`, `isWhoisUnlocked` in `lib/landing-storage.js`. `setWhoisUnlocked` writes to `ligs_whois_unlocked`; `isWhoisUnlocked` reads both `ligs_whois_unlocked` and `ligs_beauty_unlocked` (legacy compatibility). **Canonical WHOIS flow** (OriginTerminalIntake, whois/start, whois/success) now uses WHOIS helpers. Legacy `setBeautyUnlocked` / `isBeautyUnlocked` retained for BeautyLandingClient, PayUnlockButton, LigsStudio, PreviewCardModal, beauty/start, beauty/success. No behavior change; existing unlocked users remain recognized.
+
+## Verification Log – 2026‑03‑20 (WHOIS entry flow — engine-client → /api/whois/*)
+
+**Engine-client:** `BEAUTY_SUBMIT_ENDPOINT` and `BEAUTY_DRY_RUN_ENDPOINT` now point to `/api/whois/submit` and `/api/whois/dry-run`. Canonical WHOIS entry flow (OriginTerminalIntake, whois/start) no longer calls `/api/beauty/submit` or `/api/beauty/dry-run` directly. WHOIS routes delegate to /api/beauty/* internally. No behavior change.
+
+## Verification Log – 2026‑03‑20 (Legacy Beauty Purge — Phase C)
+
+**Phase C:** Created `app/whois/view/WhoisViewClient.jsx` (WHOIS-owned view component). `app/whois/view/page.jsx` now imports WhoisViewClient; metadata and client fetch use `/api/whois/[reportId]`. BeautyViewClient retained for `app/beauty/view/page.jsx` (legacy; middleware redirects /beauty/view → /whois/view). No behavior change; bridge section, copy, links preserved.
+
+---
+
+## Verification Log – 2026‑03‑20 (Legacy Beauty Purge — Phase A + B)
+
+**Phase A:** Created `lib/whois-profile-schema.ts` (WhoisProfileV1, assertWhoisProfileV1, registry helpers) and `lib/whois-profile-store.ts` (saveWhoisProfileV1, loadWhoisProfileV1). `lib/beauty-profile-schema.ts` and `lib/beauty-profile-store.ts` now re-export from whois modules for backward compatibility. Blob path unchanged (`ligs-beauty/`). Error codes preserved (BEAUTY_PROFILE_*). **Phase B:** Added WHOIS API aliases: `app/api/whois/[reportId]/route.ts`, `app/api/whois/submit/route.ts`, `app/api/whois/dry-run/route.ts` — each delegates via internal fetch to `/api/beauty/*`. Existing `/api/beauty/*` callers unchanged. No behavior change.
+
+---
+
+## Verification Log – 2026‑03‑20 (Naming lockdown — bridge flow)
+
+**Naming:** User-facing copy now uses Report ID, Token, Registry ID (reference only), session_id (recovery only). **Success:** "Copy your Report ID and Token"; labels "Report ID" and "Token"; handoffBlock "Token for AI systems"; "Mint complete"/"STATE: MINTED" → "Payment complete"/"PAYMENT COMPLETE"; session_id moved to collapsible "Recover Token if lost". **View:** "The Report ID below is what AI tools need. The Registry ID shown in the report is for reference only."; "after mint" → "after payment". **for-agents:** "reportId"/"wyh_ token" → "Report ID"/"Token"; "after mint" → "after payment"; Registry ID clarification added. No architecture or new pages.
+
+---
+
+## Verification Log – 2026‑03‑20 (Bridge consolidation — human → agent handoff)
+
+**Plan:** `docs/BRIDGE-CONSOLIDATION-PLAN.md`. **Success page:** Explicit instruction block ("Copy your reportId and token. You will use these with your AI."); copy affordances (pre blocks with labels "copy now"); two actions: "View your report" → `/whois/view?reportId=`, "Use with AI" → `/for-agents`. Token-present and waiting-for-token states both updated. **View page (BeautyViewClient):** "Use this with your AI" section in footer: visible Report ID (for API), explanation, link to Agent instructions. **For-agents:** Top block "If you just generated a WHOIS record…" — where reportId and token come from, how to recover token. **Link integrity:** success → view, success → for-agents, view → for-agents. No new routes, no persistence, no API changes.
 
 ---
 
