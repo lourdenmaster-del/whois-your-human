@@ -17,7 +17,7 @@ import { track } from "@/lib/analytics";
 import { unwrapResponse } from "@/lib/unwrap-response";
 import FlowNav from "@/components/FlowNav";
 import { FAKE_PAY } from "@/lib/dry-run-config";
-import { setBeautyUnlocked } from "@/lib/landing-storage";
+import { setWhoisUnlocked } from "@/lib/landing-storage";
 import { useApiStatus } from "@/hooks/useApiStatus";
 import { buildFreeWhoisReport, renderFreeWhoisReport } from "@/lib/free-whois-report";
 import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
@@ -195,7 +195,7 @@ export default function WhoisViewClient() {
   const handleUnlockClick = async () => {
     if (!reportId || apiDisabled) return;
     if (FAKE_PAY) {
-      setBeautyUnlocked();
+      setWhoisUnlocked();
       window.location.href = `/whois/view?reportId=${encodeURIComponent(reportId)}`;
       return;
     }
@@ -214,7 +214,7 @@ export default function WhoisViewClient() {
       if (!res.ok) {
         if (res.status === 404 || json?.code === "BEAUTY_PROFILE_NOT_FOUND") {
           setCheckoutError(
-            "This report doesn't have the underlying profile yet. Use the full flow at /beauty to generate one, then return here to unlock."
+            "Report not found. Complete intake at /origin to generate your registry record, then return here to unlock."
           );
         } else {
           setCheckoutError(json?.message ?? json?.error ?? "Checkout unavailable. Try again later.");

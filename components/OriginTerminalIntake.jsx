@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, Fragment } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { parseDate, parseTime } from "@/lib/terminal-intake/parseInputs";
 import { resolveArchetypeFromDate } from "@/lib/terminal-intake/resolveArchetypeFromDate";
@@ -16,27 +16,6 @@ import {
   isWhoisUnlocked,
 } from "@/lib/landing-storage";
 import { FAKE_PAY, TEST_MODE } from "@/lib/dry-run-config";
-import { getArchetypePreviewConfig } from "@/lib/archetype-preview-config";
-import { getArchetypeStaticImagePathOrFallback } from "@/lib/archetype-static-images";
-import { getFreeWhoisPreviewDisplay } from "@/lib/free-whois-report";
-
-const WAITLIST_ONLY = process.env.NEXT_PUBLIC_WAITLIST_ONLY !== "0";
-
-/** Operator-readable label for waitlist confirmationReason (API machine strings). */
-function waitlistConfirmationLabel(reason) {
-  if (reason == null || reason === "") return "unknown";
-  const map = {
-    sent: "sent",
-    duplicate_skipped: "skipped (already registered)",
-    duplicate_resent: "resent (already registered)",
-    duplicate_recently_sent: "skipped (recently sent)",
-    provider_rejected: "failed (provider rejected)",
-    provider_error: "failed (provider error)",
-    provider_key_missing: "failed (provider not configured)",
-    blob_not_configured: "failed (waitlist not configured)",
-  };
-  return map[reason] ?? "unknown";
-}
 
 /** Single active field during intake. Order: name → birthDate → birthPlace → birthTime → email. */
 const INTAKE_FIELDS = ["name", "birthDate", "birthPlace", "birthTime", "email"];
@@ -48,17 +27,6 @@ const INTAKE_PROMPTS = {
   email: "Contact email:",
 };
 
-/** Exact clipboard payload when a public extract exists (e.g. waitlist Human Prior). */
-const AI_WHOIS_USE_WITH_AI_BLOCK = `You can use my registry record to calibrate how you work with me (early-stage; not deterministic).
-
-Use it to:
-- adjust explanation style when it fits my record
-- frame decisions when it fits my record
-- note recurring patterns when they appear in the record`;
-
-/** Clipboard hint before mint — no factual calibration claims. */
-const AI_WHOIS_PRE_UNLOCK_BLOCK = `I'm registering in the LIGS Human WHOIS Registry. My registry record will be minted and available to agents after I complete the mint step — please use neutral, general assistance until then.`;
-
 /** Sequential single-line status messages during processing (registry protocol). */
 const PROCESSING_MESSAGES = [
   "Registry record created…",
@@ -67,150 +35,6 @@ const PROCESSING_MESSAGES = [
 ];
 
 const PROCESSING_DELAYS_MS = [900, 1200, 800];
-
-/**
- * Cinematic reveal after registration completes (ms).
- * Preamble: terminal holds "Identity registration complete." then "Writing registry record…"
- * before first section; all section times are offset by REVEAL_PREAMBLE_TOTAL_MS.
- */
-const REVEAL_TERMINAL_WRITING_MS = 550;
-const REVEAL_AFTER_WRITING_MS = 750;
-const REVEAL_PREAMBLE_TOTAL_MS = REVEAL_TERMINAL_WRITING_MS + REVEAL_AFTER_WRITING_MS;
-
-const REVEAL_TIMING_MS = {
-  registry: 400 + REVEAL_PREAMBLE_TOTAL_MS,
-  confirmation: 900 + REVEAL_PREAMBLE_TOTAL_MS,
-  artifacts: 1400 + REVEAL_PREAMBLE_TOTAL_MS,
-  /** After artifact images; before registry extract preview. */
-  archetypeExpression: 1700 + REVEAL_PREAMBLE_TOTAL_MS,
-  reportPreview: 2100 + REVEAL_PREAMBLE_TOTAL_MS,
-  cta: 2700 + REVEAL_PREAMBLE_TOTAL_MS,
-};
-
-/**
- * Human-readable archetype copy from canonical contract preview
- * (lib/archetype-preview-config → src/ligs/archetypes/contract.ts).
- * civilizationFunction + environments only — no archetypalVoice (prompt-style).
- */
-function getArchetypeExpressionLines(archetype) {
-  if (!archetype || archetype === "—") return null;
-  const cfg = getArchetypePreviewConfig(archetype);
-  const { humanExpression, civilizationFunction, environments } = cfg.teaser ?? {};
-  if (!civilizationFunction || civilizationFunction === "—") return null;
-  const line1 =
-    humanExpression && humanExpression !== "—"
-      ? `${humanExpression} — ${civilizationFunction}`
-      : civilizationFunction;
-  const line2 =
-    environments && environments !== "—"
-      ? `Typical expression contexts: ${environments}.`
-      : null;
-  return { line1, line2 };
-}
-
-/** Deterministic hash for seeding image selection (name + birthDate). */
-function hashSeed(seed) {
-  let h = 0;
-  const s = String(seed ?? "");
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
-
-/**
- * Arc set: arc1–arc12 from public "* arc images" folders (jpeg).
- * Prime set: prime1–prime4 from public {archetype}-images (png; Fluxionis uses fluxonis-prime on disk).
- */
-const ARC_FOLDER_BY_ARCHETYPE = {
-  Aequilibris: { folder: "aequilibrius arc images", prefix: "aequilibrius" },
-  Duplicaris: { folder: "duplicaris arc images", prefix: "duplicaris" },
-  Fluxionis: { folder: "fluxionis arc images", special: true },
-  Ignispectrum: { folder: "ignispectrum arc images", prefix: "ignispectrum" },
-  Innovaris: { folder: "innovaris arc images", prefix: "innovaris" },
-  Obscurion: { folder: "obscurion arc images", prefix: "obscurion" },
-  Precisura: { folder: "precisura arc images", prefix: "precisura" },
-  Radiantis: { folder: "radiantis arc images", prefix: "radiantis" },
-  Stabiliora: { folder: "stabiliora arc images", prefix: "stabiliora" },
-  Structoris: { folder: "structoris arc images", prefix: "structoris" },
-  Tenebris: { folder: "tenebris arc images", prefix: "tenebris" },
-  Vectoris: { folder: "vectoris arc images", prefix: "vectoris" },
-};
-
-/** Prime folder + filenames (matches on-disk; Fluxionis folder uses fluxonis-prime*.png). */
-const PRIME_ASSETS_BY_ARCHETYPE = {
-  Aequilibris: { folder: "aequilibris-images", files: ["aequilibris-prime1.png", "aequilibris-prime2.png", "aequilibris-prime3.png", "aequilibris-prime4.png"] },
-  Duplicaris: { folder: "duplicaris-images", files: ["duplicaris-prime1.png", "duplicaris-prime2.png", "duplicaris-prime3.png", "duplicaris-prime4.png"] },
-  Fluxionis: { folder: "fluxionis-images", files: ["fluxonis-prime1.png", "fluxonis-prime2.png", "fluxonis-prime3.png", "fluxonis-prime4.png"] },
-  Ignispectrum: { folder: "ignispectrum-images", files: ["ignispectrum-prime1.png", "ignispectrum-prime2.png", "ignispectrum-prime3.png", "ignispectrum-prime4.png"] },
-  Innovaris: { folder: "innovaris-images", files: ["innovaris-prime1.png", "innovaris-prime2.png", "innovaris-prime3.png", "innovaris-prime4.png"] },
-  Obscurion: { folder: "obscurion-images", files: ["obscurion-prime1.png", "obscurion-prime2.png", "obscurion-prime3.png", "obscurion-prime4.png"] },
-  Precisura: { folder: "precisura-images", files: ["precisura-prime1.png", "precisura-prime2.png", "precisura-prime3.png", "precisura-prime4.png"] },
-  Radiantis: { folder: "radiantis-images", files: ["radiantis-prime1.png", "radiantis-prime2.png", "radiantis-prime3.png", "radiantis-prime4.png"] },
-  Stabiliora: { folder: "stabiliora-images", files: ["stabiliora-prime1.png", "stabiliora-prime2.png", "stabiliora-prime3.png", "stabiliora-prime4.png"] },
-  Structoris: { folder: "structoris-images", files: ["structoris-prime1.png", "structoris-prime2.png", "structoris-prime3.png", "structoris-prime4.png"] },
-  Tenebris: { folder: "tenebris-images", files: ["tenebris-prime1.png", "tenebris-prime2.png", "tenebris-prime3.png", "tenebris-prime4.png"] },
-  Vectoris: { folder: "vectoris-images", files: ["vectoris-prime1.png", "vectoris-prime2.png", "vectoris-prime3.png", "vectoris-prime4.png"] },
-};
-
-const ARC_COUNT = 12;
-const PRIME_COUNT = 4;
-
-/** Fluxionis arc folder uses fluxonis1.jpeg + fluxionis2..12.jpeg (no fluxionis1). */
-const FLUXIONIS_ARC_FILES = [
-  "fluxonis1.jpeg",
-  "fluxionis2.jpeg",
-  "fluxionis3.jpeg",
-  "fluxionis4.jpeg",
-  "fluxionis5.jpeg",
-  "fluxionis6.jpeg",
-  "fluxionis7.jpeg",
-  "fluxionis8.jpeg",
-  "fluxionis9.jpeg",
-  "fluxionis10.jpeg",
-  "fluxionis11.jpeg",
-  "fluxionis12.jpeg",
-];
-
-function buildArcImageUrls(archetype) {
-  if (!archetype || archetype === "—") return [];
-  const cfg = ARC_FOLDER_BY_ARCHETYPE[archetype];
-  if (!cfg) return [];
-  const enc = encodeURIComponent(cfg.folder);
-  if (cfg.special && archetype === "Fluxionis") {
-    return FLUXIONIS_ARC_FILES.map((f) => `/${enc}/${f}`);
-  }
-  const prefix = cfg.prefix;
-  const urls = [];
-  for (let i = 1; i <= ARC_COUNT; i++) {
-    urls.push(`/${enc}/${prefix}${i}.jpeg`);
-  }
-  return urls;
-}
-
-function buildPrimeImageUrls(archetype) {
-  if (!archetype || archetype === "—") return [];
-  const cfg = PRIME_ASSETS_BY_ARCHETYPE[archetype];
-  if (!cfg) return [];
-  const enc = encodeURIComponent(cfg.folder);
-  return cfg.files.map((f) => `/${enc}/${f}`);
-}
-
-/**
- * Deterministic artifact URLs: first = arc pool (12), second = prime pool (4).
- * seed = hash(name + birthDate); modulo per pool so sections always differ when both pools exist.
- */
-function getRegistryArtifactUrls(name, birthDate, archetype) {
-  const arcImages = buildArcImageUrls(archetype);
-  const primeImages = buildPrimeImageUrls(archetype);
-  if (arcImages.length === 0 && primeImages.length === 0) return { arcUrl: null, primeUrl: null };
-  const seed = hashSeed(`${name ?? ""}|${birthDate ?? ""}`);
-  const arcUrl = arcImages.length > 0 ? arcImages[seed % arcImages.length] : null;
-  // Second index: offset by prime count so arc and prime indices differ when lengths align
-  const primeIdx = primeImages.length > 0 ? (seed + PRIME_COUNT) % primeImages.length : 0;
-  const primeUrl = primeImages.length > 0 ? primeImages[primeIdx] : null;
-  return { arcUrl, primeUrl };
-}
 
 /** Basic email format validation — local part @ domain.tld */
 function isValidEmail(s) {
@@ -234,26 +58,11 @@ function getDryRunFromUrl() {
   return params.get("dryRun") === "1" || params.get("dryRun") === "true";
 }
 
-/** Second artifact: prime URL 404s on live if assets not deployed — fallback to committed static. */
-function PrimeArtifactImg({ primeUrl, archetype }) {
-  const [src, setSrc] = useState(primeUrl);
-  const fallback = getArchetypeStaticImagePathOrFallback(archetype || "Ignispectrum");
-  return (
-    <img
-      src={src}
-      alt=""
-      className="w-full max-w-[200px] rounded border border-[#2a2a2e] object-cover opacity-90"
-      onError={() => setSrc(fallback)}
-    />
-  );
-}
-
 export default function OriginTerminalIntake() {
   const router = useRouter();
   const inputRef = useRef(null);
   const lastEnterHandledRef = useRef(0);
   const ctaSubmittingRef = useRef(false);
-  const redirectFiredRef = useRef(false);
   const formDataRef = useRef({});
   const phaseRef = useRef("idle");
 
@@ -272,24 +81,8 @@ export default function OriginTerminalIntake() {
   const [resolvedArchetypeFromDate, setResolvedArchetypeFromDate] = useState(null);
   const [processingIndex, setProcessingIndex] = useState(0);
   const [archetypePreviewShown, setArchetypePreviewShown] = useState(false);
-  const [waitlistState, setWaitlistState] = useState("idle");
-  /** Observability only — last waitlist POST outcome for dev/debug; does not block reveal. */
-  const [waitlistConfirmation, setWaitlistConfirmation] = useState(null);
-  /** Solar Segment from API report when available; used for Solar Segment in registry block. */
-  const [registrySolarSignature, setRegistrySolarSignature] = useState(null);
-  /** Full WHOIS report from waitlist API; used for below-fold preview (Genesis Metadata, Cosmic Twin). */
-  const [whoisReport, setWhoisReport] = useState(null);
   const [ctaLoading, setCtaLoading] = useState(false);
   const [ctaError, setCtaError] = useState(null);
-  const [showRegistry, setShowRegistry] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [showArtifacts, setShowArtifacts] = useState(false);
-  const [showArchetypeExpression, setShowArchetypeExpression] = useState(false);
-  const [showReportPreview, setShowReportPreview] = useState(false);
-  const [showCTA, setShowCTA] = useState(false);
-  /** Footer counter: only after reveal CTA + 400ms; never during handshake. */
-  const [showRegistryCounter, setShowRegistryCounter] = useState(false);
-  const [registryCount, setRegistryCount] = useState(null);
   const [aiWhoisCopied, setAiWhoisCopied] = useState(false);
   const aiCopyFeedbackRef = useRef(0);
   const [lastReportId, setLastReportId] = useState(null);
@@ -300,23 +93,6 @@ export default function OriginTerminalIntake() {
   const [unlocked, setUnlockedState] = useState(false);
   useEffect(() => {
     if (typeof window !== "undefined") setUnlockedState(isWhoisUnlocked());
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    const FALLBACK_COUNT = 117;
-    fetch("/api/waitlist/count")
-      .then((r) => (r.ok ? r.json() : {}))
-      .then((data) => {
-        if (!cancelled && typeof data?.total === "number") setRegistryCount(data.total);
-        else if (!cancelled) setRegistryCount(FALLBACK_COUNT);
-      })
-      .catch(() => {
-        if (!cancelled) setRegistryCount(FALLBACK_COUNT);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -334,70 +110,13 @@ export default function OriginTerminalIntake() {
     phaseRef.current = phase;
   }, [phase]);
 
-  /** Success completion: reveal registry record in-page (no router.push). */
-  const beginRegistryReveal = useCallback(() => {
-    if (redirectFiredRef.current) return;
-    redirectFiredRef.current = true;
-    saveOriginIntake(formDataRef.current ?? {});
-    setShowRegistry(false);
-    setShowConfirmation(false);
-    setShowArtifacts(false);
-    setShowArchetypeExpression(false);
-    setShowReportPreview(false);
-    setShowCTA(false);
-    setShowRegistryCounter(false);
-    setTerminalLine("Identity registration complete.");
-    setPhase("registryReveal");
-    if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "auto" });
-    }
-  }, []);
-
-  /** Sequential reveal timers when phase becomes registryReveal. */
-  useEffect(() => {
-    if (phase !== "registryReveal") return;
-    const t0 = setTimeout(
-      () => setTerminalLine("Writing registry record…"),
-      REVEAL_TERMINAL_WRITING_MS
-    );
-    const t1 = setTimeout(() => setShowRegistry(true), REVEAL_TIMING_MS.registry);
-    const t2 = setTimeout(() => setShowConfirmation(true), REVEAL_TIMING_MS.confirmation);
-    const t3 = setTimeout(() => setShowArtifacts(true), REVEAL_TIMING_MS.artifacts);
-    const t3a = setTimeout(() => setShowArchetypeExpression(true), REVEAL_TIMING_MS.archetypeExpression);
-    const t3b = setTimeout(() => setShowReportPreview(true), REVEAL_TIMING_MS.reportPreview);
-    const t4 = setTimeout(() => setShowCTA(true), REVEAL_TIMING_MS.cta);
-    return () => {
-      clearTimeout(t0);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t3a);
-      clearTimeout(t3b);
-      clearTimeout(t4);
-    };
-  }, [phase]);
-
-  /** After CTA section appears, show registry footer 400ms later (not during handshake). */
-  useEffect(() => {
-    if (!showCTA) return;
-    const t = setTimeout(() => setShowRegistryCounter(true), 400);
-    return () => clearTimeout(t);
-  }, [showCTA]);
-
-  /** Load reportId from storage when entering registryReveal (e.g. refresh). */
-  useEffect(() => {
-    if (phase !== "registryReveal") return;
-    const stored = loadLastFormData();
-    if (stored?.reportId && !lastReportId) setLastReportId(stored.reportId);
-  }, [phase, lastReportId]);
-
   const goToErrorAndComplete = useCallback((message) => {
     setCtaError(message);
     setTerminalLine(`${message} Press ENTER to continue.`);
     setPhase("completeAwaitingEnterRedirect");
   }, []);
 
-  const   advanceToProcessing = useCallback(() => {
+  const advanceToProcessing = useCallback(() => {
     setPhase("processing");
     setProcessingIndex(0);
     setTerminalLine("Resolution initiated. Creating registry record…");
@@ -407,7 +126,6 @@ export default function OriginTerminalIntake() {
     currentField != null &&
     phase !== "processing" &&
     phase !== "completeAwaitingEnterRedirect" &&
-    phase !== "registryReveal" &&
     phase !== "executing" &&
     !terminalLine;
 
@@ -523,51 +241,6 @@ export default function OriginTerminalIntake() {
     ctaSubmittingRef.current = true;
 
     try {
-      if (WAITLIST_ONLY) {
-        const res = await fetch("/api/waitlist", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: payload.email,
-            source: "origin-terminal",
-            birthDate: payload.birthDate || undefined,
-            ...(payload.name?.trim?.() ? { name: payload.name.trim() } : {}),
-            ...(payload.birthPlace?.trim?.() ? { birthPlace: payload.birthPlace.trim() } : {}),
-            ...(payload.birthTime?.trim?.() ? { birthTime: payload.birthTime.trim() } : {}),
-            ...(resolvedArchetypeFromDate ? { preview_archetype: resolvedArchetypeFromDate } : {}),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          if (typeof window !== "undefined") {
-            console.error("[waitlist] request failed status=" + res.status, data);
-          }
-          setTerminalLine("Registry channel unavailable.");
-          setPhase("completeAwaitingEnterRedirect");
-          return;
-        }
-        if (typeof window !== "undefined") {
-          const reason = data?.confirmationReason ?? "unknown";
-          const sent = data?.confirmationSent === true;
-          const dup = data?.alreadyRegistered === true;
-          setWaitlistConfirmation({
-            confirmationSent: sent,
-            confirmationReason: reason,
-            alreadyRegistered: dup,
-          });
-          const label = waitlistConfirmationLabel(reason);
-          if (dup) {
-            console.info("[waitlist] already registered; confirmation skipped — " + label);
-          } else if (sent) {
-            console.info("[waitlist] registered + confirmation sent — " + label);
-          } else {
-            console.info("[waitlist] registered + confirmation not sent — " + label);
-          }
-        }
-        beginRegistryReveal();
-        return;
-      }
-
       if (unlocked || dryRun || TEST_MODE) {
         const result = dryRun
           ? await submitToWhoisDryRun(payload)
@@ -717,22 +390,13 @@ export default function OriginTerminalIntake() {
     if (processingIndex >= PROCESSING_MESSAGES.length) {
       if (!archetypePreviewShown) {
         setTimeout(() => {
-          if (phaseRef.current === "completeAwaitingEnterRedirect" || phaseRef.current === "registryReveal") return;
+          if (phaseRef.current === "completeAwaitingEnterRedirect") return;
           const archetype = resolvedArchetypeFromDate ?? resolveArchetypeFromDate(formDataRef.current?.birthDate ?? "");
           setTerminalLine(`Archetype resolved: ${archetype}. Ready.`);
         }, 800);
         setArchetypePreviewShown(true);
-        if (WAITLIST_ONLY) {
-          const email = formDataRef.current?.email?.trim?.()?.toLowerCase?.();
-          if (email && isValidEmail(email)) {
-            setWaitlistState("running");
-          } else {
-            beginRegistryReveal();
-          }
-        } else {
-          setTerminalLine("Resolution initiated…");
-          setPhase("executing");
-        }
+        setTerminalLine("Resolution initiated…");
+        setPhase("executing");
       }
       return;
     }
@@ -749,543 +413,7 @@ export default function OriginTerminalIntake() {
     executeSubmitRef.current?.();
   }, [phase]);
 
-  useEffect(() => {
-    if (waitlistState !== "running" || !WAITLIST_ONLY) return;
-    const email = formData.email?.trim?.()?.toLowerCase?.();
-    if (!email || !isValidEmail(email)) {
-      beginRegistryReveal();
-      setWaitlistState("done");
-      return;
-    }
-    let cancelled = false;
-    fetch("/api/waitlist", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        source: "origin-terminal",
-        birthDate: formData.birthDate || undefined,
-        ...(formData.name?.trim?.() ? { name: formData.name.trim() } : {}),
-        ...(formData.birthPlace?.trim?.() ? { birthPlace: formData.birthPlace.trim() } : {}),
-        ...(formData.birthTime?.trim?.() ? { birthTime: formData.birthTime.trim() } : {}),
-        ...(resolvedArchetypeFromDate ? { preview_archetype: resolvedArchetypeFromDate } : {}),
-      }),
-    })
-      .then(async (res) => {
-        const data = await res.json().catch(() => ({}));
-        return { ok: res.ok, status: res.status, data };
-      })
-      .then(({ ok, status, data }) => {
-        if (cancelled) return;
-        if (ok) {
-          if (typeof window !== "undefined") {
-            const reason = data?.confirmationReason ?? "unknown";
-            const sent = data?.confirmationSent === true;
-            const dup = data?.alreadyRegistered === true;
-            setWaitlistConfirmation({
-              confirmationSent: sent,
-              confirmationReason: reason,
-              alreadyRegistered: dup,
-            });
-            setRegistrySolarSignature(data?.report?.solarSignature ?? null);
-            setWhoisReport(data?.report ?? null);
-            const label = waitlistConfirmationLabel(reason);
-            if (dup) {
-              console.info("[waitlist] already registered; confirmation skipped — " + label);
-            } else if (sent) {
-              console.info("[waitlist] registered + confirmation sent — " + label);
-            } else {
-              console.info("[waitlist] registered + confirmation not sent — " + label);
-            }
-          }
-          beginRegistryReveal();
-        } else {
-          if (typeof window !== "undefined") {
-            console.error("[waitlist] request failed status=" + status, data);
-          }
-          setTerminalLine("Registry channel unavailable.");
-          setPhase("completeAwaitingEnterRedirect");
-        }
-        setWaitlistState("done");
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        if (typeof window !== "undefined") {
-          console.error("[waitlist] request failed network error", err);
-        }
-        setTerminalLine("Registry channel unavailable.");
-        setPhase("completeAwaitingEnterRedirect");
-        setWaitlistState("done");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [waitlistState, formData.email, formData.birthDate, resolvedArchetypeFromDate, beginRegistryReveal]);
-
   const archetypeForCompletion = resolvedArchetypeFromDate ?? resolveArchetypeFromDate(formData.birthDate ?? "") ?? "—";
-  const { arcUrl, primeUrl } = getRegistryArtifactUrls(
-    formData.name,
-    formData.birthDate,
-    archetypeForCompletion
-  );
-  const archetypeExpressionLines = getArchetypeExpressionLines(archetypeForCompletion);
-  /** Preview section copy: teaser from contract; fallbacks when fields are "—". Only read when registryReveal + showCTA. */
-  const previewTeaser = getArchetypePreviewConfig(archetypeForCompletion).teaser;
-
-  /** No server WHOIS extract in-browser (intake-only path); avoid implying paid/agent payload is present. */
-  const unpaidIntakeNoExtract = !whoisReport && !WAITLIST_ONLY;
-  const aiClipboardBlock = unpaidIntakeNoExtract ? AI_WHOIS_PRE_UNLOCK_BLOCK : AI_WHOIS_USE_WITH_AI_BLOCK;
-
-  /** In-page reveal below terminal; router.push removed — CTA links to WHOIS Registration Report. */
-  if (phase === "registryReveal") {
-    const mono = "ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace";
-    const muted = "rgba(154,154,160,0.9)";
-    const bright = "rgba(232,232,236,0.95)";
-    const previewDisplay = getFreeWhoisPreviewDisplay(whoisReport, {
-      chronoImprintOverride: formData.birthTime ?? undefined,
-    });
-    return (
-      <div
-        className="min-h-screen flex flex-col items-stretch py-4 px-5 sm:py-6 sm:px-8 overflow-x-hidden whois-origin"
-        style={{ background: "#000", position: "relative", fontFamily: mono }}
-      >
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.02]"
-          style={{
-            background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(255,255,255,0.3) 0%, transparent 70%)",
-            animation: "whois-field-pulse 10s ease-in-out infinite",
-          }}
-        />
-        <div className="relative z-10 w-full max-w-[min(100vw-2.5rem,1000px)] mx-auto flex flex-col gap-8 flex-1 min-w-0 px-4 sm:px-5">
-          {/* Terminal handshake line (unchanged visual: single line) */}
-          <div
-            className="whois-aperture w-full min-w-0"
-            style={{ borderBottom: "1px solid rgba(42,42,46,0.6)", paddingBottom: "1rem" }}
-          >
-            <div className="font-mono text-sm sm:text-base py-2 px-1 space-y-2" style={{ color: bright }}>
-              <div className="min-h-[2.2em] flex items-center">
-                <span style={{ color: muted }}>&gt;</span>
-                <span className="ml-1">{terminalLine || "Identity registration complete."}</span>
-              </div>
-              <div
-                className="font-mono text-[11px] uppercase tracking-[0.12em] space-y-0.5 pl-0 sm:pl-1"
-                style={{ color: bright }}
-              >
-                {unpaidIntakeNoExtract ? (
-                  <>
-                    <p>STATE: REGISTERED</p>
-                    <p>AGENT SURFACE: LOCKED UNTIL MINT</p>
-                    <p>REGISTRY RECORD: CANONICAL ID ISSUED (PENDING MINT)</p>
-                  </>
-                ) : (
-                  <>
-                    <p>STATE: REGISTERED</p>
-                    <p>AGENT SURFACE: CALIBRATION AVAILABLE (UNVERIFIED)</p>
-                    <p>REGISTRY RECORD: ON FILE</p>
-                  </>
-                )}
-              </div>
-              <p
-                className="font-mono text-[11px] uppercase tracking-[0.1em] pt-2"
-                style={{ color: muted }}
-              >
-                {unpaidIntakeNoExtract
-                  ? "NEXT: Mint your record to unlock agent surface and analytical extract"
-                  : "NEXT: You may use your registry record with compatible AI tools"}
-              </p>
-              <p
-                className="font-mono text-[11px] uppercase tracking-[0.1em] pt-1"
-                style={{ color: muted }}
-              >
-                {unpaidIntakeNoExtract
-                  ? "NEXT ACTION: Execute mint, then open agent surface / case studies"
-                  : "NEXT ACTION: Open your registry record"}
-              </p>
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 pt-3">
-                <p
-                  className="font-mono text-[11px] uppercase tracking-[0.1em]"
-                  style={{ color: muted }}
-                >
-                  COPY: Use this with AI
-                </p>
-                <button
-                  type="button"
-                  className="cursor-pointer border-0 bg-transparent p-0 font-mono text-[11px] uppercase tracking-[0.08em] underline decoration-[#5a5a5e] underline-offset-2 hover:decoration-[#9a9aa0]"
-                  style={{ color: muted }}
-                  onClick={() => {
-                    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) return;
-                    void navigator.clipboard.writeText(aiClipboardBlock).then(() => {
-                      window.clearTimeout(aiCopyFeedbackRef.current);
-                      setAiWhoisCopied(true);
-                      aiCopyFeedbackRef.current = window.setTimeout(() => {
-                        setAiWhoisCopied(false);
-                      }, 2000);
-                    });
-                  }}
-                >
-                  [ COPY ]
-                </button>
-                {aiWhoisCopied ? (
-                  <span
-                    className="font-mono text-[11px] uppercase tracking-[0.12em]"
-                    style={{ color: bright }}
-                  >
-                    COPIED
-                  </span>
-                ) : null}
-              </div>
-              <pre
-                className="mt-2 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-left font-mono text-[11px] leading-relaxed select-text sm:text-xs"
-                style={{ color: bright }}
-              >
-                {aiClipboardBlock}
-              </pre>
-              <p
-                className="font-mono text-[11px] uppercase tracking-[0.1em] pt-3"
-                style={{ color: muted }}
-              >
-                SAVE: Bookmark this page or share your WHOIS link
-              </p>
-            </div>
-          </div>
-
-          {showRegistry && (
-            <section
-              className="text-left space-y-3"
-              style={{
-                color: muted,
-                animation: "whois-fade-in 0.5s ease-out forwards",
-              }}
-            >
-              <p className="text-[11px] uppercase tracking-[0.15em]" style={{ color: bright }}>
-                WHOIS HUMAN REGISTRY RECORD
-              </p>
-              <p className="text-[13px]" style={{ color: bright }}>
-                Query: {formData.name || "—"}
-              </p>
-              <p className="text-[13px]" style={{ color: bright }}>
-                Registry: LIGS Human WHOIS Registry
-              </p>
-              <p className="text-[13px]" style={{ color: bright }}>
-                Registry Record
-              </p>
-              <hr className="border-0 border-t border-[#2a2a2e] my-2" />
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-[13px]">
-                <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Subject Name</dt>
-                <dd style={{ color: bright }}>{formData.name || "—"}</dd>
-                <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Birth Date</dt>
-                <dd style={{ color: bright }}>{formData.birthDate || "—"}</dd>
-                <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Birth Location</dt>
-                <dd style={{ color: bright }}>{formData.birthLocation || "—"}</dd>
-                <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">Birth Time</dt>
-                <dd style={{ color: bright }}>{formData.birthTime || "—"}</dd>
-              </dl>
-              <p className="text-[11px] uppercase tracking-[0.08em] pt-2">Solar Segment</p>
-              <p className="text-[13px]" style={{ color: bright }}>
-                {registrySolarSignature ?? "—"}
-              </p>
-              <p className="text-[13px]" style={{ color: bright }}>
-                Archetype Classification: {archetypeForCompletion}
-              </p>
-              <p className="text-[13px] pt-1">Registry Status: REGISTERED</p>
-              <p className="text-[13px]">Created Date: {new Date().toISOString().slice(0, 10)}</p>
-              <p className="text-[13px]">Record Authority: LIGS Human WHOIS Registry</p>
-              <p className="text-[12px]">Registry Node</p>
-            </section>
-          )}
-
-          {showConfirmation && (
-            <section
-              className="text-left space-y-2 pt-2 border-t border-[#2a2a2e]"
-              style={{
-                color: muted,
-                animation: "whois-fade-in 0.5s ease-out forwards",
-              }}
-            >
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                Identity Registration Confirmation
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                This intake is on file with the LIGS Human WHOIS Registry.
-              </p>
-              <p className="text-[13px]">Self-reported fields are not independently verified.</p>
-            </section>
-          )}
-
-          {showArtifacts && (
-            <section
-              className="text-left space-y-3 pt-2 border-t border-[#2a2a2e]"
-              style={{
-                color: muted,
-                animation: "whois-fade-in 0.5s ease-out forwards",
-              }}
-            >
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                Registry Artifacts
-              </p>
-              {arcUrl || primeUrl ? (
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.08em] mb-1">Archetype Identity Mark</p>
-                    {arcUrl ? (
-                      <img
-                        src={arcUrl}
-                        alt=""
-                        className="w-full max-w-[280px] rounded border border-[#2a2a2e] object-cover"
-                      />
-                    ) : (
-                      <p className="text-[12px] opacity-80">Arc set unavailable.</p>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.08em] mb-1">Archetype Field Visualization</p>
-                    {primeUrl ? (
-                      <PrimeArtifactImg
-                        primeUrl={primeUrl}
-                        archetype={archetypeForCompletion}
-                      />
-                    ) : (
-                      <p className="text-[12px] opacity-80">Prime set unavailable.</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[12px]">Static archetype artifacts unavailable for this record.</p>
-              )}
-            </section>
-          )}
-
-          {showArchetypeExpression && (
-            <section
-              className="text-left space-y-2 pt-2 border-t border-[#2a2a2e]"
-              style={{
-                color: muted,
-                animation: "whois-fade-in 0.5s ease-out forwards",
-              }}
-            >
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                Archetype Expression
-              </p>
-              <hr className="border-0 border-t border-[#2a2a2e] my-2" />
-              <p className="text-[13px]" style={{ color: bright }}>
-                Archetype Classification: {archetypeForCompletion}
-              </p>
-              {archetypeExpressionLines ? (
-                <>
-                  <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line1}</p>
-                  {archetypeExpressionLines.line2 && (
-                    <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
-                  )}
-                </>
-              ) : (
-                <p className="text-[13px] leading-relaxed opacity-90">
-                  Registry class locked. Expanded archetype interpretation deferred to full WHOIS Human Registration Report on release.
-                </p>
-              )}
-            </section>
-          )}
-
-          {showReportPreview && (
-            <section
-              className="text-left space-y-2 pt-2 border-t border-[#2a2a2e]"
-              style={{
-                color: muted,
-                animation: "whois-fade-in 0.5s ease-out forwards",
-              }}
-            >
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                Registry Extract — Expanded Report Fields
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                The full WHOIS Human Registration Report will expand this node with registry extracts only:
-                identity architecture; solar and environmental mapping; archetypal behavior class;
-                integration notes; artifact interpretation. Release pending—no further intake required when available.
-              </p>
-            </section>
-          )}
-
-          {showCTA && (
-            <section
-              className="text-left space-y-3 pt-2 border-t border-[#2a2a2e] pb-8"
-              style={{
-                color: muted,
-                animation: "whois-fade-in 0.5s ease-out forwards",
-              }}
-            >
-              <p className="text-[13px] leading-relaxed">
-                NOTICE: Additional registry fields are designated for the complete WHOIS Human Registration Report when released.
-              </p>
-              <span
-                className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded opacity-80 cursor-default"
-                style={{ color: muted }}
-                aria-disabled="true"
-              >
-                Full WHOIS Human Registration Report — Not Yet Released
-              </span>
-              <div className="flex flex-col gap-3 pt-4 items-start sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-4 sm:gap-y-2">
-                <button
-                  type="button"
-                  onClick={handlePurchaseClick}
-                  disabled={purchaseRedirecting}
-                  className="inline-block px-4 py-2.5 text-[12px] font-mono font-semibold bg-[#7A4FFF] text-white rounded border-0 hover:bg-[#8b5fff] disabled:opacity-50 disabled:cursor-not-allowed w-fit"
-                >
-                  {purchaseRedirecting ? "Redirecting…" : "Mint registry record"}
-                </button>
-                <a
-                  href="#whois-preview"
-                  className="inline-block px-4 py-2 text-[12px] font-mono border border-[#2a2a2e] rounded text-[#9a9aa0] hover:text-[#c8c8cc] hover:border-[#3a3a3e] w-fit"
-                >
-                  View registry record
-                </a>
-                <a href="/origin" className="text-[11px] font-mono text-[#9a9aa0] hover:text-[#c8c8cc] hover:underline shrink-0">
-                  ← Return to Origin
-                </a>
-              </div>
-              {purchaseError && (
-                <p className="text-[11px] text-red-400 mt-2" role="alert">
-                  {purchaseError}
-                </p>
-              )}
-            </section>
-          )}
-        </div>
-
-        {showRegistryCounter && (
-          <footer
-            className="registry-footer relative z-10 mt-auto pt-8 pb-4 text-center font-mono text-[12px] sm:text-[13px] leading-relaxed"
-            style={{
-              color: "rgba(154,154,160,0.72)",
-              fontFamily: mono,
-            }}
-          >
-            Registry Nodes Recorded: {registryCount ?? "—"}
-            <br />
-            LIGS Human WHOIS Registry
-            {waitlistConfirmation && (
-              <>
-                <br />
-                <span className="block mt-2 text-[11px] opacity-70">
-                  Confirmation dispatch:{" "}
-                  {waitlistConfirmationLabel(waitlistConfirmation.confirmationReason)}
-                </span>
-              </>
-            )}
-          </footer>
-        )}
-
-        {/* WHOIS report preview section: below fold; anchor #whois-preview for in-page CTA. */}
-        {showCTA && (
-          <section
-            id="whois-preview"
-            className="relative z-10 w-full max-w-[min(100vw-2.5rem,1000px)] mx-auto flex flex-col gap-4 text-left px-4 sm:px-5 pt-10 pb-12 border-t border-[#2a2a2e] mt-8"
-            style={{
-              color: muted,
-              fontFamily: mono,
-            }}
-          >
-            <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-              WHOIS HUMAN REGISTRATION REPORT
-            </p>
-            <p className="text-[11px] uppercase tracking-[0.1em] opacity-80">Preview Extract</p>
-            <p className="text-[13px] leading-relaxed">
-              {unpaidIntakeNoExtract
-                ? "No server-backed analytical extract shown before mint. Copy below describes product shape only; full agent calibration record available after mint."
-                  : "Analytical extract attached to the registry record above. Use it as calibration input, not certainty; full interpretive depth remains withheld until planned release."}
-            </p>
-            {/* WHOIS-style analytical report; section order coherent with free WHOIS: Genesis before Cosmic Twin before Archetype Expression. */}
-            <div className="space-y-2 pt-4">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                IDENTITY ARCHITECTURE
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                The registry describes a working model of identity structure inferred from the total field of forces present at birth.
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Pattern resolution is observational—derived from environmental and cosmic field structure, not from a single-variable read.
-              </p>
-            </div>
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                FIELD CONDITIONS
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Classification emerges from field conditions and force structure at the birth event.
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Expanded entropic and environmental field mapping is included in the full report release.
-              </p>
-            </div>
-            {previewDisplay.genesisRows.length > 0 && (
-              <div className="space-y-2 pt-2">
-                <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                  IDENTITY PHYSICS — GENESIS METADATA
-                </p>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1 text-[13px]">
-                  {previewDisplay.genesisRows.map(({ label, value }) => (
-                    <Fragment key={label}>
-                      <dt className="text-[11px] uppercase tracking-[0.08em] opacity-80">{label}</dt>
-                      <dd style={{ color: bright }}>{value}</dd>
-                    </Fragment>
-                  ))}
-                </dl>
-              </div>
-            )}
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                COSMIC TWIN RELATION
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                {previewDisplay.cosmicTwinDisplay != null
-                  ? `Cosmic Twin: ${previewDisplay.cosmicTwinDisplay}`
-                  : "Connects the resolved regime to its cosmic analogue in the full report. No pairing is published in this extract."}
-              </p>
-            </div>
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                ARCHETYPE EXPRESSION
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                {archetypeExpressionLines?.line1
-                  ? archetypeExpressionLines.line1
-                  : previewTeaser?.civilizationFunction && previewTeaser.civilizationFunction !== "—"
-                    ? previewTeaser.civilizationFunction
-                    : "Archetype expression expands in the full report release; extract omitted here."}
-              </p>
-              {archetypeExpressionLines?.line2 ? (
-                <p className="text-[13px] leading-relaxed">{archetypeExpressionLines.line2}</p>
-              ) : (
-                previewTeaser?.environments &&
-                previewTeaser.environments !== "—" && (
-                  <p className="text-[13px] leading-relaxed">
-                    Typical expression contexts: {previewTeaser.environments}
-                  </p>
-                )
-              )}
-            </div>
-            <div className="space-y-2 pt-2">
-              <p className="text-[11px] uppercase tracking-[0.12em]" style={{ color: bright }}>
-                INTERPRETIVE NOTES
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                Expanded interpretive sections—integration notes, coherence risk, stabilization—are planned for the complete registration report.
-              </p>
-              <p className="text-[13px] leading-relaxed">
-                This extract closes the analytical preview; remainder is withheld pending planned release.
-              </p>
-            </div>
-            <div className="pt-6 border-t border-[#2a2a2e] space-y-2">
-              <p className="text-[12px] leading-relaxed opacity-90">
-                Identity provisionally registered. The WHOIS Human Registration Report is not yet released. No further intake will be required when available.
-              </p>
-              <p className="text-[12px] opacity-80">
-                Registered users will be notified when full reports become available.
-              </p>
-            </div>
-          </section>
-        )}
-      </div>
-    );
-  }
 
   if (phase === "completeAwaitingEnterRedirect") {
     return (
