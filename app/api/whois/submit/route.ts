@@ -1,7 +1,10 @@
 /**
  * POST /api/whois/submit — WHOIS-owned alias for /api/beauty/submit.
  * Delegates to the beauty route; preserves response shape and behavior.
+ * Explicitly re-serializes JSON so canonical { status: "ok", data } reaches client.
  */
+
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   const origin = new URL(request.url).origin;
@@ -13,9 +16,6 @@ export async function POST(request: Request) {
     headers,
     body,
   });
-  return new Response(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: res.headers,
-  });
+  const json = await res.json().catch(() => ({}));
+  return NextResponse.json(json, { status: res.status });
 }
