@@ -289,7 +289,8 @@ export default function OriginTerminalIntake() {
         return;
       }
       // Canonical rule: record MUST exist before checkout. Create it now.
-      const result = await submitToWhoisSubmit(payload);
+      // FREE flow: use dryRun so protocol-only path; engine runs only after payment.
+      const result = await submitToWhoisSubmit(payload, { dryRun: true });
       const reportId = result?.reportId;
       if (!reportId) {
         goToErrorAndComplete("Registry record generation failed.");
@@ -346,7 +347,8 @@ export default function OriginTerminalIntake() {
           setPurchaseRedirecting(false);
           return;
         }
-        const result = await submitToWhoisSubmit(payload);
+        // FREE flow: create protocol-only record before checkout; engine runs after payment.
+        const result = await submitToWhoisSubmit(payload, { dryRun: true });
         reportIdToUse = result?.reportId;
         if (!reportIdToUse) {
           setPurchaseError("Registry record generation failed.");
