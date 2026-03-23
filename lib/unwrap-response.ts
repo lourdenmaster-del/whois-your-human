@@ -12,7 +12,10 @@ export async function unwrapResponse<T>(response: Response): Promise<T> {
   if (json?.status === "ok") {
     return json.data as T;
   }
-  const message = json?.error ?? "Unknown error";
+  const message =
+    json?.error ??
+    json?.message ??
+    (response.status ? `Request failed (HTTP ${response.status})` : "Unknown error");
   const err = new Error(message) as Error & { status?: number; requestId?: string };
   err.status = response.status;
   err.requestId = json?.requestId;
