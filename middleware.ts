@@ -1,127 +1,46 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import {
-  isStudioProtected,
-  verifyStudioAccess,
-  COOKIE_NAME,
-} from "@/lib/studio-auth";
+
 const CANONICAL_HOST = process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, "") ?? "ligs.io";
 
 /**
- * Single-hop redirect/rewrite: canonical host ligs.io, one hop max.
- * Public-surface lockdown: /origin is the only public page; all other legacy routes redirect to /origin.
- *
- * 1) www → apex (308)
- * 2) / → rewrite to /origin (URL stays /)
- * 2a) /whois-your-human, /unlock, /api, /case-studies → public (AI inspection boundary per AGENT-INSPECTION-BOUNDARY.md)
- * 3) /beauty, /beauty/* → /origin (308)
- * 4) /dossier, /voice → /origin (308)
- * 5) /ligs-studio, /ligs-studio/* → /origin (308) unless LIGS_STUDIO_TOKEN set and valid cookie (then allow)
+ * IOC-only public surface: non-IOC page routes redirect to /ioc.
+ * Non-IOC /api/* returns 404 except /api/ioc/* and Stripe webhook.
  */
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
   const { pathname } = request.nextUrl;
 
-  // 1) www → apex: one hop to canonical
   if (host.startsWith("www.")) {
     const apexUrl = new URL(request.nextUrl.pathname + request.nextUrl.search, `https://${CANONICAL_HOST}`);
     return NextResponse.redirect(apexUrl, 308);
   }
 
-  // 2) / → rewrite (serve /origin content, URL stays /)
+  if (pathname.startsWith("/api/")) {
+    const allowed =
+      pathname === "/api/ioc" ||
+      pathname.startsWith("/api/ioc/") ||
+      pathname === "/api/stripe/webhook" ||
+      pathname.startsWith("/api/stripe/webhook/");
+    if (!allowed) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname === "/ioc" || pathname.startsWith("/ioc/")) {
+    return NextResponse.next();
+  }
+
   if (pathname === "/") {
-    return NextResponse.rewrite(new URL("/origin", request.url));
+    return NextResponse.redirect(new URL("/ioc", request.url), 308);
   }
 
-  if (pathname === "/for-agents" || pathname === "/for-agents/") {
-    return NextResponse.next();
-  }
-
-  if (
-    pathname === "/whois-your-human" ||
-    pathname === "/whois-your-human/" ||
-    pathname === "/whois-your-human/unlock" ||
-    pathname === "/whois-your-human/unlock/" ||
-    pathname === "/whois-your-human/api" ||
-    pathname === "/whois-your-human/api/" ||
-    pathname === "/whois-your-human/case-studies" ||
-    pathname === "/whois-your-human/case-studies/" ||
-    pathname.startsWith("/whois-your-human/case-studies/") ||
-    pathname === "/whois-your-human/prior-format" ||
-    pathname === "/whois-your-human/prior-format/" ||
-    pathname === "/whois-your-human/integration" ||
-    pathname === "/whois-your-human/integration/"
-  ) {
-    return NextResponse.next();
-  }
-
-  // 2c) /whois, /whois/* — canonical purchase-flow routes (allow)
-  if (pathname === "/whois" || pathname.startsWith("/whois/")) {
-    return NextResponse.next();
-  }
-
-  // 2d) Legacy /beauty/* purchase-flow paths → canonical /whois/* (308)
-  const legacyRedirects: [string, string][] = [
-    ["/beauty/start", "/whois/start"],
-    ["/beauty/success", "/whois/success"],
-    ["/beauty/cancel", "/whois/cancel"],
-    ["/beauty/view", "/whois/view"],
-  ];
-  for (const [from, to] of legacyRedirects) {
-    if (pathname === from || pathname.startsWith(from + "/")) {
-      const target = new URL(to + request.nextUrl.search, request.url);
-      return NextResponse.redirect(target, 308);
-    }
-  }
-
-  // 2b) /origin/ligs-studio or /origin/ligs-studio/* → /ligs-studio (fix wrong path; no such route under /origin)
-  if (pathname === "/origin/ligs-studio" || pathname.startsWith("/origin/ligs-studio/")) {
-    const rest = pathname.slice("/origin".length); // /ligs-studio or /ligs-studio/login etc.
-    return NextResponse.redirect(new URL(rest + request.nextUrl.search, request.url), 302);
-  }
-
-  // 3) /beauty and remaining /beauty/* → /origin (legacy purchase paths redirect to /whois/* above)
-  if (pathname === "/beauty" || pathname.startsWith("/beauty/")) {
-    return NextResponse.redirect(new URL("/origin", request.url), 308);
-  }
-
-  // 4) /dossier, /voice → /origin (public-surface lockdown)
-  if (pathname === "/dossier" || pathname === "/voice") {
-    return NextResponse.redirect(new URL("/origin", request.url), 308);
-  }
-
-  // 5) /ligs-studio: no public access when LIGS_STUDIO_TOKEN set. All paths gated except /ligs-studio/login (cookie only).
-  if (pathname.startsWith("/ligs-studio") && isStudioProtected()) {
-    if (pathname === "/ligs-studio/login" || pathname === "/ligs-studio/login/") {
-      return NextResponse.next();
-    }
-    const cookieValue = request.cookies.get(COOKIE_NAME)?.value ?? null;
-    if (!verifyStudioAccess(cookieValue)) {
-      return NextResponse.redirect(new URL("/ligs-studio/login", request.url), 302);
-    }
-    return NextResponse.next();
-  }
-
-  return NextResponse.next();
+  return NextResponse.redirect(new URL("/ioc", request.url), 308);
 }
 
 export const config = {
-  // Allowlist: run middleware only on page routes. /api/* is never touched.
   matcher: [
-    "/",
-    "/for-agents",
-    "/for-agents/",
-    "/origin",
-    "/origin/:path*",
-    "/whois-your-human",
-    "/whois-your-human/:path*",
-    "/beauty",
-    "/beauty/:path*",
-    "/dossier",
-    "/voice",
-    "/ligs-studio",
-    "/ligs-studio/:path*",
-    "/whois",
-    "/whois/:path*",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|json|woff2?|webmanifest)$).*)",
   ],
 };

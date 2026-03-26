@@ -1,9 +1,6 @@
 import { redirect } from "next/navigation";
 
-/**
- * Root fallback: redirect to canonical landing if middleware/proxy is bypassed.
- * Middleware rewrites / → /origin; this prevents blank root on fallback.
- */
+/** Public product root: IOC surface. */
 export default function RootPage() {
-  redirect("/origin");
+  redirect("/ioc");
 }

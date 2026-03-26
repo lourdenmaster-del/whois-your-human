@@ -1,9 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { TestModeLogger } from "@/components/TestModeLogger";
-import { IGNIS_LANDING_URL } from "@/lib/exemplar-store";
 
-// System font stack (no network fetch) — build-safe in sandbox; Space Grotesk was removed for offline builds
 function getMetadataBase() {
   try {
     const u = (process.env.NEXT_PUBLIC_SITE_URL || "https://ligs.io").trim() || "https://ligs.io";
@@ -18,24 +16,26 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+const IOC_DESCRIPTION =
+  "Enter your birthdate. Generate. Copy. Paste this into your AI chat. Then continue normally.";
+
 export const metadata: Metadata = {
   metadataBase: getMetadataBase(),
-  title: "(L)igs | Light Identity Grid System",
-  description: "A scientific identity framework. Your WHOIS record, Grid, and Archetype—mapped from the physical forces present at birth.",
+  title: "LIGS / IOC",
+  description: IOC_DESCRIPTION,
   alternates: {
-    canonical: "/",
+    canonical: "/ioc",
   },
   openGraph: {
-    url: "/",
-    siteName: "LIGS",
-    title: "(L)igs | Light Identity Grid System",
-    description: "A scientific identity framework. Your WHOIS record, Grid, and Archetype—mapped from the physical forces present at birth.",
-    images: [{ url: IGNIS_LANDING_URL }],
+    url: "/ioc",
+    siteName: "IOC",
+    title: "LIGS / IOC",
+    description: IOC_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "(L)igs | Light Identity Grid System",
-    description: "A scientific identity framework. Your WHOIS record, Grid, and Archetype—mapped from the physical forces present at birth.",
+    title: "LIGS / IOC",
+    description: IOC_DESCRIPTION,
   },
 };
 
@@ -47,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="alternate" type="text/plain" href="/llms.txt" title="Agent instructions (llms.txt)" />
+        <link rel="alternate" type="text/plain" href="/llms.txt" title="IOC — llms.txt" />
       </head>
       <body className="antialiased font-sans">
         <TestModeLogger />

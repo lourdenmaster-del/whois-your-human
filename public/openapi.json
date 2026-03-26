@@ -1,0 +1,212 @@
+{
+  "openapi": "3.1.0",
+  "jsonSchemaDialect": "https://spec.openapis.org/oas/3.1/dialect/base",
+  "info": {
+    "title": "LIGS IOC Machine Protocol",
+    "version": "0.3",
+    "description": "HTTP surface for Initial Operating Conditions (IOC) as a machine protocol. Use for **human initialization**: derive **user context** from birthdate, inject IOC text into the model for **agent calibration** and **cold start optimization**. Response bodies for successful machine calls align with `/ioc-lite.schema.json` and `/ioc-full.schema.json`.",
+    "contact": {
+      "url": "https://ligs.io"
+    }
+  },
+  "tags": [
+    {
+      "name": "IOC",
+      "description": "IOC machine protocol: lite (free-tier block + agent_rules) and full (paid unlock via Stripe Checkout Session id)."
+    }
+  ],
+  "servers": [
+    {
+      "url": "https://ligs.io",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/api/ioc": {
+      "get": {
+        "tags": ["IOC"],
+        "summary": "Get IOC lite (machine)",
+        "description": "Returns **ioc_lite** JSON: truncated IOC block, archetype, and **agent_rules** for upgrade and fallback behavior. Supports **human initialization** and **cold start optimization** without a paid session.",
+        "operationId": "getIocLite",
+        "parameters": [
+          {
+            "name": "birthdate",
+            "in": "query",
+            "required": false,
+            "description": "ISO birth date `YYYY-MM-DD`. Omitted or empty uses the same deterministic default archetype path as an empty string in server logic.",
+            "schema": {
+              "type": "string",
+              "example": "1990-05-21"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "IOC lite machine response (`ioc_version` 0.3, `type: ioc_lite`, `data`, `agent_rules`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "ioc-lite.schema.json"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "API maintenance (e.g. `LIGS_API_OFF=1`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceError"
+                },
+                "example": {
+                  "disabled": true,
+                  "reason": "maintenance",
+                  "error": "LIGS_API_OFF"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ioc/upgrade": {
+      "post": {
+        "tags": ["IOC"],
+        "summary": "Get IOC full (machine, paid)",
+        "description": "Returns **ioc_full** after verifying a completed IOC Stripe Checkout Session (`ioc_unlock` metadata). Optional **birthdate** must match the paid archetype when provided. Use for **agent calibration** with full rule depth once **user context** is paid-unlocked.",
+        "operationId": "postIocUpgrade",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IocUpgradeRequest"
+              },
+              "examples": {
+                "sessionOnly": {
+                  "summary": "Checkout session id only",
+                  "value": {
+                    "ioc_checkout_session": "cs_test_..."
+                  }
+                },
+                "sessionAndBirthdate": {
+                  "summary": "Session id + birthdate (must match session archetype)",
+                  "value": {
+                    "ioc_checkout_session": "cs_test_...",
+                    "birthdate": "1990-05-21"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success: **ioc_full** body; or payment / verification failure as JSON (still HTTP 200).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "ioc-full.schema.json"
+                    },
+                    {
+                      "$ref": "#/components/schemas/PaymentRequiredError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body is not valid JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidJsonError"
+                },
+                "example": {
+                  "error": "Invalid JSON"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "API maintenance (e.g. `LIGS_API_OFF=1`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "IocUpgradeRequest": {
+        "type": "object",
+        "description": "Paid full IOC: requires a valid `ioc_checkout_session` from IOC Checkout for success. Omitted or invalid session yields `payment_required` (HTTP 200).",
+        "properties": {
+          "ioc_checkout_session": {
+            "type": "string",
+            "description": "Stripe Checkout Session id after successful IOC unlock (`metadata.ioc_unlock=1`)."
+          },
+          "birthdate": {
+            "type": "string",
+            "description": "Optional `YYYY-MM-DD`. If non-empty, must match archetype embedded in the Checkout Session; otherwise response is `payment_required`."
+          }
+        },
+        "additionalProperties": true
+      },
+      "PaymentRequiredError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["ok", "error"],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "type": "string",
+            "const": "payment_required"
+          }
+        }
+      },
+      "InvalidJsonError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Invalid JSON"
+          }
+        },
+        "additionalProperties": true
+      },
+      "MaintenanceError": {
+        "type": "object",
+        "required": ["disabled", "reason", "error"],
+        "properties": {
+          "disabled": {
+            "type": "boolean",
+            "const": true
+          },
+          "reason": {
+            "type": "string",
+            "example": "maintenance"
+          },
+          "error": {
+            "type": "string",
+            "example": "LIGS_API_OFF"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  }
+}

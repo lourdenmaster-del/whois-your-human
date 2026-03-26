@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ligs.io/ioc-full.schema.json",
+  "title": "IOC Full machine response",
+  "description": "Full IOC tier. Shares ioc_version definition with ioc-lite; omits agent_rules and uses iocFull in data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ioc_version", "type", "data"],
+  "properties": {
+    "ioc_version": {
+      "$ref": "./ioc-lite.schema.json#/$defs/ioc_version"
+    },
+    "type": {
+      "type": "string",
+      "const": "ioc_full"
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archetype", "iocFull"],
+      "properties": {
+        "archetype": {
+          "type": "string",
+          "description": "Lowercase IOC archetype key derived from birthdate."
+        },
+        "iocFull": {
+          "type": "string",
+          "description": "Complete initial operating conditions block for the archetype."
+        }
+      }
+    }
+  }
+}

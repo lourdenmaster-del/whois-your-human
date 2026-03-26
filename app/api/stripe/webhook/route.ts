@@ -44,6 +44,12 @@ export async function POST(request: Request) {
   const session = event.data.object as Stripe.Checkout.Session;
   const reportId = typeof session.metadata?.reportId === "string" ? session.metadata.reportId.trim() : "";
   const prePurchase = session.metadata?.prePurchase === "1";
+  const iocUnlock = session.metadata?.ioc_unlock === "1";
+
+  if (iocUnlock) {
+    log("info", "webhook_skip_ioc_checkout", { requestId, checkoutSessionId: session.id });
+    return successResponse(200, { received: true }, requestId);
+  }
 
   if (prePurchase) {
     log("info", "purchase_complete", { requestId, type: "pre_purchase" });

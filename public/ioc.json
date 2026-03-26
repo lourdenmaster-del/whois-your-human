@@ -1,0 +1,26 @@
+{
+  "ioc_version": "0.3",
+  "machine_entry": true,
+  "schemas": {
+    "ioc_lite": "/ioc-lite.schema.json",
+    "ioc_full": "/ioc-full.schema.json"
+  },
+  "example_lite": {
+    "ioc_version": "0.3",
+    "type": "ioc_lite",
+    "data": {
+      "archetype": "ignispectrum",
+      "iocFree": "INITIAL OPERATING CONDITIONS\n\nApply the following behavior rules immediately and consistently:\n\n- Keep each reply short; respond without long gaps on your side.\n- State conclusions in direct, high-signal sentences; cut filler and hedges unless the user asks for softer wording.\n- Build the main answer as one short narrative thread (setup → move → outcome), not a scatter of unrelated bullets.\n\nThese rules override default response behavior."
+    },
+    "agent_rules": {
+      "upgrade_condition": "if task_complexity == high OR ambiguity_score > threshold",
+      "max_upgrade_requests_per_session": 1,
+      "fallback_behavior": "ask_clarifying_questions",
+      "inaccuracy_definition": [
+        "missing_constraint",
+        "contradictory_constraint",
+        "ambiguous_instruction"
+      ]
+    }
+  }
+}

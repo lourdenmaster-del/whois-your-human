@@ -37,30 +37,17 @@ First-time system map for **ligs-frontend** (Next.js 16, React 19). Use this to 
 
 ---
 
-## 0.5 Public surface area (lockdown: legacy routes → /origin)
+## 0.5 Public surface area (IOC-only deploy)
 
-**Production entry points:**
-- `/` → rewrite to `/origin` (middleware; URL stays `/`).
-- `/origin` — Canonical human intake. Renders **`OriginTerminalIntake`**: WHOIS-style terminal (idle → intake: name, date, time, place, email → waitlist / checkout path). Locked per `landing-lock.mdc`.
-- `/for-agents` — Agent instructions page: first call (inspect), WHOIS fetch, auth, stance, endpoints. **public**.
-- `/llms.txt` — Static plain-text discovery (public root); points agents to inspect and /for-agents.
-- `/whois-your-human` — **Agent product landing** (parallel surface): WHOIS YOUR HUMAN (agent-readable WHOIS record + agent calibration record via API); primary CTAs → **`/whois-your-human/unlock`**; secondary → `/whois-your-human/api`.
-- `/whois-your-human/unlock` — Thin bridge: explains unlock (WHOIS record, agent access, tokenized layer) then **Begin** → `/origin`. No backend change.
-- `/whois-your-human/api` — Agent HTTP summary (same content as before); **public** (AI inspection boundary per `docs/AGENT-INSPECTION-BOUNDARY.md`).
-- `/whois-your-human/prior-format` — Free Vector Zero prior format (portable, no-call); **public**.
-- `/whois-your-human/integration` — Fetch-capable agent integration guide; **public**.
-- `/whois-your-human/case-studies` — Case study index; **public**.
-- `/whois-your-human/case-studies/wyh-001`, `wyh-001-b`, `wyh-004`, `wyh-005`, `wyh-ab-001` — Case pages; **public**.
-- `/api/waitlist` — POST only; email capture; rate limited; writes to Blob.
-- `/api/waitlist/count` — GET; public-safe; returns `{ total }` only for landing registry readout. No auth, no emails.
-- `/api/exemplars` — GET; used by landing for Ignis image. Read-only.
-- `/api/status` — GET; used by useApiStatus (hidden when waitlist-only).
+**At the edge (middleware):** Any page path other than `/` and `/ioc` (and `/ioc/*`) is **308 redirected to `/ioc`**. `/` is **308 redirected to `/ioc`**. **`/api/*`** returns **404 JSON** unless the path is under **`/api/ioc`** or **`/api/stripe/webhook`**. Static assets excluded via matcher (e.g. `_next/static`, `favicon.ico`, common image/font extensions, `.txt` for `llms.txt`).
 
-**Canonical purchase flow (public):** `/whois/start`, `/whois/success`, `/whois/cancel`, `/whois/view` — WHOIS registry routes; Stripe success_url/cancel_url and all client navigation use these. No `/beauty/*` in public flow.
+**Public human product:** `/ioc` — Initial Operating Conditions UI (unchanged copy/UX). **`app/page.tsx`** redirects to `/ioc` if hit without middleware.
 
-**Legacy redirects (308):** `/beauty/start` → `/whois/start`, `/beauty/success` → `/whois/success`, `/beauty/cancel` → `/whois/cancel`, `/beauty/view` → `/whois/view` (query preserved). `/beauty` and other `/beauty/*` → `/origin`.
+**Public machine text:** `public/llms.txt` — IOC-only instructions (UI URL, `#ioc-interface-spec`, allowed public API list, webhook note). **`/ioc.json`** — static entry + example lite + schema URLs; **`/ioc-lite.schema.json`**, **`/ioc-full.schema.json`** — JSON Schemas for machine responses; **`/openapi.json`** — OpenAPI **3.1.0** for `GET /api/ioc` and `POST /api/ioc/upgrade` (refs schema files).
 
-**Redirected to /origin (308):** `/beauty`, remaining `/beauty/*`, `/dossier`, `/voice`, `/ligs-studio`, `/ligs-studio/*` (when not studio-authenticated). **`/for-agents`**, **`/whois-your-human`**, **`/whois-your-human/unlock`**, **`/whois-your-human/api`**, **`/whois-your-human/prior-format`**, **`/whois-your-human/integration`**, **`/whois-your-human/case-studies`** (+ nested case slugs) are **public** (AI inspection boundary). **`/llms.txt`** served from `public/`. `/ligs-studio` and all subpaths (except `/ligs-studio/login`) require `LIGS_STUDIO_TOKEN` set and valid `ligs_studio` cookie; otherwise redirect to `/origin`. No public studio access; cookie-only (no `?token=`).
+**Legacy route modules** (`/origin`, `/whois`, `/for-agents`, etc.) **remain in the repo and build output** but are **not publicly reachable** through normal browser navigation on this deploy when middleware runs.
+
+**Stripe:** `POST /api/stripe/webhook` remains reachable for platform events. IOC Checkout Sessions include `metadata.ioc_unlock`; webhook **skips** legacy `reportId` flow for those sessions (200, no registry).
 
 ---
 
@@ -82,9 +69,9 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 
 | Path | Type | Purpose |
 |------|------|--------|
-| `middleware.ts` | Root | **Public-surface lockdown:** www→apex (308); /→rewrite /origin (no redirect). Canonical purchase flow: `/whois`, `/whois/*` → `next()`. Legacy `/beauty/start`, `/beauty/success`, `/beauty/cancel`, `/beauty/view` → `/whois/*` (308, query preserved). `/beauty`, remaining `/beauty/*`, /dossier, /voice → /origin (308). **`/for-agents`**, **`/whois-your-human`**, **`/unlock`**, **`/api`**, **`/case-studies/*`** → `next()` (public AI inspection boundary). /ligs-studio gated per studio cookie. Canonical host: ligs.io. |
-| `app/layout.tsx` | Root layout | Space Grotesk font, `globals.css`, metadata (title, OG, Twitter), `NEXT_PUBLIC_SITE_URL` for canonical/OG |
-| — | — | No `app/page.tsx`; middleware rewrites `/` to `/origin` (200, no redirect) |
+| `middleware.ts` | Root | **IOC-only:** www→apex (308). `/api/*` → **404** unless `/api/ioc/*` or `/api/stripe/webhook`. Non-`/ioc` page paths → **308 → `/ioc`**. `/` → **308 → `/ioc`**. Matcher excludes static assets (`_next/static`, `_next/image`, `favicon.ico`, common extensions **including `*.json`** so `/ioc.json` and `*.schema.json` are served). |
+| `app/layout.tsx` | Root layout | `globals.css`, IOC-aligned metadata (title **LIGS / IOC**, canonical **`/ioc`**), `llms.txt` link; `TestModeLogger` |
+| `app/page.tsx` | Root | **`redirect("/ioc")`** fallback |
 | `app/error.jsx` | Client | Error boundary: message + “Try again” reset |
 | `app/globals.css` | Global styles | Tailwind + app CSS |
 
@@ -135,6 +122,27 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `app/beauty/sample-report/page.jsx` | Client | **Removed from public flow.** Redirects to /origin on load. Route kept for code safety; no public links lead here. |
 | `app/beauty/success/page.jsx` | Page | Post-Stripe success (with `reportId`). Terminal-aligned: black bg, origin-terminal box, mono text, no LigsFooter. |
 | `app/beauty/cancel/page.jsx` | Page | Stripe checkout cancelled. Terminal-aligned: black bg, origin-terminal box, mono text. |
+
+**IOC (isolated product surface — no WHOIS/LIGS UI coupling):**
+
+| Path | Type | Purpose |
+|------|------|--------|
+| `app/ioc/layout.jsx` | Layout | Route-local `metadata`; `#ioc-interface-spec` `<script type="application/json">` (machine spec); renders `IocSpecSignal`. |
+| `app/ioc/IocSpecSignal.tsx` | Client | `console.info("[IOC] interface spec loaded")` on mount; returns `null`. |
+| `app/ioc/page.jsx` | Client | Birthdate → `POST /api/ioc` → free IOC (first 3 rules) + copy; Stripe unlock → full IOC; fixed corner marker `ioc-spec ✓` (non-interactive). |
+| `app/api/ioc/route.ts` | API | `POST` `{ birthdate }` → `{ archetype, iocFree }` (human/UI contract; unchanged). `GET ?birthdate=` → machine `ioc_lite` envelope (`ioc_version`, `type`, `data`, `agent_rules`) in `lib/ioc/ioc-machine-protocol.ts`. Kill-switch on both verbs. Activity: `ioc_generate_free` (POST), `ioc_machine_get` (GET) via `lib/log.ts`. |
+| `app/api/ioc/upgrade/route.ts` | API | `POST` JSON requires paid Checkout: `ioc_checkout_session` (Stripe session id after IOC unlock). Optional `birthdate` must match session archetype when provided. Success → machine `ioc_full` envelope; else `{ ok: false, error: "payment_required" }`. Uses `lib/ioc/ioc-paid-checkout-session.ts` (same verification as `verify-session`). Activity: `ioc_upgrade_denied` / `ioc_generate_full` (machine) via `lib/log.ts`. |
+| `app/api/ioc/checkout/route.ts` | API | `POST` `{ archetype }` → Stripe Checkout; metadata `ioc_unlock`, `archetype`; success → `/ioc?ioc_checkout_session=…`. Kill-switch aware. |
+| `app/api/ioc/verify-session/route.ts` | API | `GET ?ioc_checkout_session=` → paid IOC session → `{ ok, iocFull, archetype }`. Kill-switch; uses `resolvePaidIocUnlockFromCheckoutSession`. Activity: `ioc_generate_full` (human) on success. |
+| `lib/ioc/ioc-machine-protocol.ts` | Lib | Constants `IOC_MACHINE_VERSION` (`0.3`), `IOC_AGENT_RULES`, builders `buildIocLiteProtocolResponse` / `buildIocFullProtocolResponse` for machine JSON. |
+| `lib/ioc/ioc-paid-checkout-session.ts` | Lib | `resolvePaidIocUnlockFromCheckoutSession`, `mergeIocCheckoutMeta` — shared Stripe Checkout Session + PaymentIntent metadata checks for IOC full unlock (`ioc_unlock`, `archetype`). |
+| `public/ioc-lite.schema.json` | Static | JSON Schema for `ioc_lite` responses (`ioc_version` in `$defs` for reuse). |
+| `public/ioc-full.schema.json` | Static | JSON Schema for `ioc_full`; `$ref` to `ioc-lite.schema.json#/$defs/ioc_version`. |
+| `public/ioc.json` | Static | Machine entry: `ioc_version`, schema paths, `example_lite`. Served at `/ioc.json` (middleware excludes `*.json` from IOC-only redirects). |
+| `public/openapi.json` | Static | OpenAPI 3.1.0 IOC machine protocol (`GET /api/ioc`, `POST /api/ioc/upgrade`); `$ref` to `ioc-lite.schema.json` / `ioc-full.schema.json`. |
+| `lib/ioc/approximate-sun-longitude.ts` | Lib | IOC-owned Sun longitude from `YYYY-MM-DD` (no LIGS terminal-intake import). |
+| `lib/ioc/solar-archetype.ts` | Lib | IOC-owned 30° solar index + Pascal primary archetype list. |
+| `lib/ioc/archetype-from-birthdate.ts` | Lib | Birthdate → `IocArchetypeKey`; uses only `lib/ioc/*` + stubs. |
 
 **Other:**
 
@@ -187,6 +195,8 @@ The **WHOIS Human Registration Card** is the canonical registration artifact for
 | `lib/archetype-public-assets.ts` | Archetype → public asset URL mapping. `getArchetypePublicAssetUrls(archetype)` returns `{ marketingBackground, exemplarCard, shareCard }` from `public/{archetype}-images/` (prime1..3). **Deterministic rotation:** `getArchetypePublicAssetUrlsWithRotation(archetype, seed)` uses prime4+ when available (prime4,7,10…=marketing; prime5,8,11…=exemplar; prime6,9,12…=share); `hash(seed)` selects variant. Used when Blob manifest missing: beauty API (seed=reportId), exemplars API / getExemplarManifestsServer (seed=archetype:version). arc images folders NOT wired. |
 | `lib/archetype-static-images.ts` | Archetype → static image path mapping. `getArchetypeStaticImagePath`, `hasArchetypeStaticImage`, `getArchetypeStaticImagePathOrFallback`, `ARC_STATIC_FALLBACK`. Uses `public/arc-static-images/{archetype}-static1.png`. Fluxionis → fluxonis-static1.png (asset typo). Used by archetype-preview-config, compose-card, static-overlay, LigsStudio, LandingPreviews, etc. |
 | `lib/archetype-preview-config.js` | `ARCHETYPE_PREVIEW_CONFIG`, `getArchetypePreviewConfig(archetype)`, `buildPlaceholderSvg(displayName)` — display names, archetype static image path (via getArchetypeStaticImagePath), sample artifact URLs, teaser for all 12 archetypes. Used by PreviewRevealSequence, TerminalResolutionSequence, ArchetypeArtifactCard, InteractiveReportSequence, LandingPreviews. |
+| `lib/archetypes/` | Canonical archetype layer: schema, data (12 archetypes), formatters (human + robot output), drift (detect, classify, correct). Single source for human descriptors, machine role, function, aiInstructions, onStateSignals, failureModes, correctionProtocol. Metadata (cosmic, civilizational) optional. |
+| `lib/archetype-translation.ts` | Archetype translation API: `getArchetypeTranslation`, `ARCHETYPE_TRANSLATION_MAP`, `ARCHETYPE_TRANSLATIONS`. Backed by `lib/archetypes` canonical data. Human/machine/function for internal use. |
 | `lib/report-composition.ts` | Report composition layer: `composeArchetypeSummary`, `composeLightExpression`, `composeCosmicTwin`, `composeReturnToCoherence`, `composeCivilizationalFunctionSection`. Converts phrase-bank and canonical civilizational-function data into section text. No repetition of archetype resolution or cosmic analogue (those appear once in TerminalResolutionSequence). Used by InteractiveReportSequence and paid WHOIS. |
 | `lib/exemplar-store.ts` | `saveExemplarToBlob`, `saveExemplarManifest`, `loadExemplarManifest`, `loadExemplarManifestWithPreferred`, `exemplarPath`, `exemplarManifestPath`, `PREFERRED_ARCHETYPE_VERSIONS` — Blob at `ligs-exemplars/{archetype}/{version}/`. Ignispectrum prefers v2 when available. |
 | `lib/sample-report.ts` | `SAMPLE_REPORT_IGNIS` — structured static content for Ignispectrum exemplar (initiation, cosmicTwin, fieldConditions, archetypeExpression, deviations, returnToCoherence). Previously used by `/beauty/sample-report`; route now redirects to /origin. Observational, scientific tone. |
@@ -275,6 +285,7 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | GET | `/api/report/[reportId]` | Reads from same storage/key as engine: Blob `ligs-reports/{reportId}.json` or memory. `getReport(reportId)` → returns `full_report`, `emotional_snippet`, `image_prompts`, `vector_zero`. 404 logs `REPORT_NOT_FOUND` (monitor for persistence gaps); response includes `code: "REPORT_NOT_FOUND"`. |
 | GET | `/api/report/previews` | Fetches from Beauty Profiles in Blob (`ligs-beauty/`). Lists profiles (most recent first), extracts `subjectName` (subjectName/fullName), `emotionalSnippet`, image URLs from `ligs-images/{reportId}/{slug}`. Query: `useBlob`, `maxPreviews`/`maxCards` (default 3). Read-only. Mock cards when Blob empty (DRY_RUN). |
 | GET | `/api/report/debug` | `getStorageInfo()`, optional `listBlobReportPathnames` / `getMemoryReportIds`; test pattern description. |
+| GET | `/api/registry/count` | **Public.** Returns `{ total: number }` only. Uses `getReportCount()` from `lib/report-store` (Blob `ligs-reports/` or memory). No auth. Used by `/origin` and `/whois/view` for protocol signal ("Registry nodes recorded"). |
 
 ### 2.3a Waitlist
 
@@ -335,6 +346,11 @@ All under `app/api/`. Route handlers use `@/lib` helpers and shared validation w
 | Method | Route | Handler summary |
 |--------|--------|------------------|
 | GET | `/api/status` | Returns `{ disabled: boolean }` for production kill-switch. When `LIGS_API_OFF=1`, `disabled: true`. Frontend hides/disables sensitive CTAs when disabled. No auth. |
+| GET | `/api/ioc` | Query `birthdate` (`YYYY-MM-DD`). Returns machine protocol `ioc_lite`: `ioc_version` `0.3`, `data: { archetype, iocFree }`, `agent_rules`. Same derivation as `POST` free tier. |
+| POST | `/api/ioc` | Body `{ birthdate }` → `{ archetype, iocFree }` (first three rule bullets + single footer line; full block not exposed). Human/UI contract unchanged. |
+| POST | `/api/ioc/upgrade` | Body `{ ioc_checkout_session, birthdate? }`. Requires same paid IOC unlock verification as `verify-session`. Optional `birthdate` must match paid archetype. Success → `ioc_full` envelope; failure → `{ ok: false, error: "payment_required" }`. |
+| POST | `/api/ioc/checkout` | Body `{ archetype }`. Stripe Checkout for full IOC; success redirects to `/ioc?ioc_checkout_session=…`. |
+| GET | `/api/ioc/verify-session` | Query `ioc_checkout_session`. Paid session → `{ ok, iocFull }` from `lib/ioc/ioc-map.ts`. |
 | GET | `/api/ligs/status` | Returns `{ allowExternalWrites, provider, logoConfigured, logoFallbackAvailable }` for LIGS Studio Warning Lights. `logoConfigured=true` when BRAND_LOGO_PATH readable or when `public/brand/ligs-mark-primary.png` exists. No auth. |
 | GET | `/api/studio/pipeline-status` | When `LIGS_STUDIO_TOKEN` set, requires `ligs_studio` cookie (same as `/api/waitlist/list`). Returns env-derived paid/delivery signals only: `stripeConfigured`, `stripeMode` (test\|live\|missing), `stripeWebhookSecretConfigured`, `stripeTestModeRequired`, `emailConfigured`, `blobConfigured`, `ligsApiOff`, `waitlistOnly`, `nodeEnv`. No secrets. LigsStudio shows read-only Pipeline status block. |
 | POST | `/api/studio-auth` | When `LIGS_STUDIO_TOKEN` set: body `{ token }` must match; on success sets `ligs_studio` HttpOnly cookie and returns `{ ok: true }`. When unset, returns `{ ok: true }` without setting cookie. Used by `/ligs-studio/login` only. |
@@ -494,6 +510,58 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 **Stability — WHOIS/Registry branding:** Public-facing WHOIS/Registry label cleanup is locked as a stable checkpoint. Legacy terms “beauty”, “dossier”, and “profile” remain internal only (code, CSS, logs, route paths); they must not appear in user-visible copy, page titles, email From names, or link labels unless explicitly approved.
 
 ---
+
+## Verification Log – 2026‑03‑26 (IOC OpenAPI agent tool)
+
+**Added:** `public/openapi.json` — OpenAPI 3.1.0 for machine `GET /api/ioc` and `POST /api/ioc/upgrade`; references `/ioc-lite.schema.json` and `/ioc-full.schema.json`; tool-oriented descriptions (human initialization, user context, agent calibration, cold start optimization). No API or schema behavior changes. `public/llms.txt` lists `/openapi.json`. Build verified.
+
+## Verification Log – 2026‑03‑26 (IOC upgrade paid boundary + activity logs)
+
+**Changed:** `lib/ioc/ioc-paid-checkout-session.ts` — shared `resolvePaidIocUnlockFromCheckoutSession` for `GET /api/ioc/verify-session` and `POST /api/ioc/upgrade`. **Upgrade** now requires `ioc_checkout_session` (paid unlock); optional `birthdate` cross-check; failure JSON `{ ok: false, error: "payment_required" }`. **Logging** (`lib/log.ts`): `ioc_machine_get` (GET `/api/ioc`), `ioc_generate_free` (POST `/api/ioc`), `ioc_generate_full` (human verify + machine upgrade success), `ioc_upgrade_denied` (upgrade failure). No `/ioc`, `/origin`, or WHOIS file changes. Build verified.
+
+## Verification Log – 2026‑03‑24 (IOC machine protocol — GET /api/ioc, upgrade, schemas)
+
+**Added:** `lib/ioc/ioc-machine-protocol.ts`; `GET /api/ioc?birthdate=` (`ioc_lite` JSON envelope + `agent_rules`); `POST /api/ioc/upgrade` (`ioc_full` JSON envelope); `public/ioc-lite.schema.json`, `public/ioc-full.schema.json`, `public/ioc.json`. **`POST /api/ioc`** response shape unchanged for `/ioc` UI. **Middleware:** matcher excludes `*.json` so static IOC schemas and `/ioc.json` are not redirected to `/ioc`. `public/llms.txt` updated with machine endpoints. Build verified.
+
+## Verification Log – 2026‑03‑24 (IOC isolated route)
+
+**Added:** `app/ioc/page.jsx`, `app/api/ioc/route.ts`, `lib/ioc/archetype-from-birthdate.ts`, `lib/ioc/ioc-map.ts` — standalone birthdate → archetype → static IOC block; copy button copies IOC text only. Uses existing solar longitude → primary archetype mapping; deterministic stub if longitude unavailable. No changes to WHOIS/origin/middleware.
+
+## Verification Log – 2026‑03‑24 (IOC metadata & copy)
+
+**Changed:** `app/ioc/layout.jsx` — overrides root default title/OG/twitter so `/ioc` tab and social cards do not show LIGS / Light Identity Grid System. `app/ioc/page.jsx` — orientation headline/support text, “Generate IOC”, tighter centered column and result section.
+
+## Verification Log – 2026‑03‑24 (IOC free/paid + Stripe)
+
+**Changed:** `lib/ioc/ioc-split.ts`, `POST /api/ioc` → `iocFree` only; `POST /api/ioc/checkout`, `GET /api/ioc/verify-session`; `/ioc` paywall under block, post-pay full IOC + “Paste this once.” Clipboard = pre contents only.
+
+## Verification Log – 2026‑03‑24 (IOC machine spec DOM)
+
+**Changed:** `app/ioc/layout.jsx` — embedded `#ioc-interface-spec` JSON script (no visible UI). `app/ioc/IocSpecSignal.tsx` — optional console signal only.
+
+## Verification Log – 2026‑03‑24 (IOC machine spec harden)
+
+**Changed:** `app/ioc/layout.jsx` — `#ioc-interface-spec` uses script text child (no `dangerouslySetInnerHTML`); added JSON key `application`: `paste_into_ai_chat_to_apply`.
+
+## Verification Log – 2026‑03‑24 (IOC post-checkout restore)
+
+**Changed:** `/ioc` — `sessionStorage` (`ioc_pre_checkout` before Stripe, `ioc_ioc_full_v1` after verify); `useLayoutEffect` restores free UI when `ioc_checkout_session` present; paid hydrate when param absent; `queueMicrotask(router.replace)` after verify; verify merges Session + PaymentIntent metadata, relaxed paid gate.
+
+## Verification Log – 2026‑03‑24 (IOC hard isolation)
+
+**Changed:** `middleware.ts` — IOC-only public pages + API allowlist (`/api/ioc/*`, `/api/stripe/webhook`). `app/page.tsx` → `/ioc`. `app/layout.tsx` — IOC metadata, canonical `/ioc`, no exemplar OG image. `public/llms.txt` — IOC-only. `lib/ioc/approximate-sun-longitude.ts`, `lib/ioc/solar-archetype.ts` — IOC-owned; `archetype-from-birthdate` no longer imports `terminal-intake` or `src/ligs`. `app/api/stripe/webhook` — early 200 for `metadata.ioc_unlock === "1"`. `POST /api/ioc` + `GET /api/ioc/verify-session` — `killSwitchResponse`. Build verified.
+
+---
+
+## Verification Log – 2026‑03‑24 (LIVE flow stabilization — input → process → result always)
+
+**Invariant:** Every user who completes intake from /origin reaches a valid WHOIS result. No dead ends, no "Unknown error", no silent failure. **Files:** (1) `app/api/beauty/submit/route.ts` — wrap in try/catch; on validation/grant/save failure or any throw, return `buildFallbackSubmitResponse(body)` with reportId + minimal protocol + `intakeStatus: "FALLBACK_CREATED"`. (2) `lib/whois-profile-store.ts` — when BLOB unset (incl. Vercel), do NOT throw; use in-memory fallback; export `STORAGE_MODE`. (3) `lib/unwrap-response.ts` — fallback message "Request failed. Please try again." instead of "Unknown error". (4) `app/whois/view/WhoisViewClient.jsx` — on 404/fetch fail: show "Reconstructing record…", retry once, then client-side fallback profile; ErrorState gets "Return to Origin" link; no reportId → "No record found. Begin at Origin." (5) `app/whois-your-human/layout.jsx` — "Create your record →" CTA at top linking to /origin. (6) `components/OriginTerminalIntake.jsx` — on submit throw or missing reportId, generate fallback UUID and navigate to /whois/view anyway.
+
+---
+
+## Verification Log – 2026‑03‑20 (Registry count route — production fix)
+
+**Root cause:** `app/api/registry/count/route.ts` was untracked; never committed or deployed. Production had no `/api/registry/count` route → 404 → client `data?.total` undefined → "Registry nodes recorded" never rendered. **Fix:** Added route to repo; documented in Report storage API table. Stance counts unchanged; protocol block shows when either registry or stance available.
 
 ## Verification Log – 2026‑03‑20 (Agent prior shared builder — free + paid)
 
@@ -672,6 +740,12 @@ This snapshot reflects the codebase as of the first-time scan. Update it when yo
 ## Verification Log – 2026‑03‑20 (AI inspection boundary — public api + case-studies)
 
 **Boundary definition:** `docs/AGENT-INSPECTION-BOUNDARY.md` — A/B/C classification (public inspection, protected value, stance layer), plain-English boundary, minimal implementation plan. **Change:** Removed content gate from `/whois-your-human/api` and `/whois-your-human/case-studies/*` in `middleware.ts`. These routes are now public. **Stance layer:** `GET /api/agent/stance` and `POST /api/agent/stance` — public, no auth, rate-limited (5/min), 1 per IP per 24h. Blob `ligs-agent-stance/`. `WhoisYourHumanLanding` fetches live counts. `GET /api/agent/whois` unchanged (Bearer token required).
+
+---
+
+## Verification Log – 2026‑03‑20 (Canonical archetype layer)
+
+**Added:** `lib/archetypes/` — single source of truth: `schema.ts` (CanonicalArchetype interface), `data.ts` (12 archetypes with humanDescriptors, machineRole, function, aiInstructions, onStateSignals, failureModes, correctionProtocol), `formatters.ts` (formatForHuman, formatForRobot, renderHumanAsText, renderRobotAsJson), `drift.ts` (detectVariance, classifyDrift, suggestCorrection, analyzeDrift, fallbackToNeutral). `lib/archetype-translation.ts` now derives from canonical layer. No changes to contract, civilizationalFunction, cosmicAnalogues, whois-agent-prior. Build passes.
 
 ---
 

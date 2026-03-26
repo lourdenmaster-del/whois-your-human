@@ -1,15 +1,18 @@
-LIGS / WHOIS YOUR HUMAN
-Agent calibration record system for AI tools.
+LIGS / IOC
+Public product: Initial Operating Conditions generator.
 
-Base: https://ligs.io
+Human UI: https://ligs.io/ioc
 
-First call: GET /api/agent/inspect
-Returns discovery JSON with public URLs and protected endpoints.
+Machine-readable interface spec: GET any /ioc page HTML; element #ioc-interface-spec (application/json).
 
-Protected WHOIS: GET /api/agent/whois?reportId=<id>
-Auth: Authorization: Bearer <wyh_token>
+Public API (this deploy):
+POST /api/ioc — body { "birthdate": "YYYY-MM-DD" } → { archetype, iocFree } (human/UI)
+GET /api/ioc — query birthdate=YYYY-MM-DD → machine ioc_lite JSON (ioc_version, data, agent_rules)
+POST /api/ioc/upgrade — body { "ioc_checkout_session": "<Stripe checkout session id>", "birthdate": "YYYY-MM-DD" optional } → machine ioc_full after paid unlock; else { ok: false, error: "payment_required" }
+POST /api/ioc/checkout — body { archetype } → Stripe Checkout URL (full IOC unlock)
+GET /api/ioc/verify-session?ioc_checkout_session=<id> — after payment → { ok, iocFull, ... }
 
-Stance: GET /api/agent/stance (read counts) | POST /api/agent/stance (record)
-Values: endorse, decline, abstain
+Machine entry: GET /ioc.json — example_lite + schema URLs (/ioc-lite.schema.json, /ioc-full.schema.json)
+OpenAPI 3.1 (IOC machine only): GET /openapi.json — GET /api/ioc, POST /api/ioc/upgrade
 
-Human-readable instructions: /for-agents
+Stripe webhook: POST /api/stripe/webhook (platform only; IOC checkouts acknowledged without registry flow)
